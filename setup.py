@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 import workflow
 
@@ -46,7 +46,7 @@ setup(
     long_description="Enables access to the RelationalAI REST APIs from Python",
     long_description_content_type="text/markdown",
     name="rai-workflow-manager",
-    packages=["workflow", "cli"],
+    packages=find_packages(exclude=['test']),
     include_package_data=True,
     url="https://github.com/RelationalAI/rai-workflow-manager",
     version=workflow.__version__)
