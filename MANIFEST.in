@@ -1,1 +1,1 @@
-include rel/
+recursive-include rel *
