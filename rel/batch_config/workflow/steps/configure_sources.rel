@@ -1,0 +1,45 @@
+def BatchWorkflowConfigureSourcesStep(s) { batch_workflow_step:type(s, ConfigureSourcesType) }
+
+module batch_workflow_step
+    module configure_sources
+        def config_files(st in BatchWorkflowConfigureSourcesStep, f) { batch_workflow_step:configFiles(st, f) }
+
+        def sources = transpose[batch_source:step]
+    end
+end
+
+/**
+ * Batch Source
+ */
+value type BatchSourceName = String
+entity type BatchSource = BatchWorkflowStep, BatchSourceName
+
+def BatchSource(src) { batch_source:step(src, _) }
+
+module batch_source_name
+    def step_source_name_to_source(st in BatchWorkflowConfigureSourcesStep, n, src) {
+        batch_workflow_step:json_data(st, :sources, :[], _, :relation, v) and
+        n = ^BatchSourceName[v] and
+        src = ^BatchSource[st, n]
+        from v
+    }
+end
+
+module batch_source
+    def step(src, st) { batch_source_name:step_source_name_to_source(st, _, src) }
+    def extensions(src, e) { extract_value:extensions(src, :[], _, e) }
+    def partitioned(src) { extract_value:partitioned(src, boolean_true) }
+    def relative_path = extract_value:relativePath
+    def input_format = extract_value:inputFormat
+    def loads_number_of_days = extract_value:loadsNumberOfDays
+
+    @inline
+    def extract_value[A](src, val...) {
+        n = ^BatchSourceName[batch_workflow_step:json_data[st, :sources, :[], idx, :relation]] and
+        src = ^BatchSource[st, n] and
+        batch_workflow_step:json_data(st, :sources, :[], idx, A, val...)
+        from st, idx, n
+    }
+end
+
+// TODO: declare ICs

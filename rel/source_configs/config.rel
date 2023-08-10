@@ -1,0 +1,404 @@
+bound simple_relation = String
+bound multi_part_relation = String
+bound master_source = String
+bound source_declares_resource = String, String
+bound source_has_input_format = String, String
+bound source_catalog
+bound simple_source_catalog
+bound part_resource_date_pattern = String
+bound part_resource_index_pattern = String
+bound part_resource_index_multiplier = Int
+
+/**
+ * Input formats
+ */
+
+value type InputFormatCode = String
+entity type InputFormat = InputFormatCode
+
+def InputFormat(f) { input_format:id(f, _) }
+def CSVInputFormat = input_format_code:identifies[^InputFormatCode["CSV"]]
+
+module input_format
+    def id = transpose[input_format_code:identifies]
+end
+
+module input_format_code
+    def value = { "CSV" ; "JSON" ; "JSONL" }
+
+    def identifies(c, f) {
+        value(v) and
+        ^InputFormatCode(v, c) and
+        ^InputFormat(c, f)
+        from v
+    }
+end
+
+def input_format_code_to_string = transpose[^InputFormatCode]
+
+/**
+ * Resources
+ */
+
+value type URI = String
+entity type Resource = URI
+
+def Resource(r) { resource:id(r, _) }
+
+value type PartIndex = Int
+def PartResource(r) { part_resource:hashes_to_part_index(r, _) }
+
+ic part_resource_hashes_to_date(p) { PartResource implies part_resource:hashes_to_date(p, _) }
+
+module resource
+    def id = transpose[uri:identifies]
+    
+    def part_of = transpose[source:declares]
+    
+    def local(r) {
+        str = uri_to_string[resource:id[r]] and
+        not regex_match( "^azure://(.+)$", str ) and
+        not regex_match( "^https://(.+)$", str )
+        from str
+    }
+end
+
+module part_resource
+    def hashes_to_date(r, d) {
+        uri:identifies(u, r) and
+        d = parse_date[ uri:parse[u, "date"], "yyyymmdd"]
+        from u
+    }
+
+    def shard_alias = "shard"; "rai_shard"
+
+    def hashes_to_part_index(r, n) {
+        uri:identifies(u, r) and
+        d = parse_int[ uri:parse[u, "date"] ] and
+        s = parse_int[ uri:parse[u, shard_alias] ] and
+        n =  ^PartIndex[ d * part_resource_index_multiplier + s ]
+        from u, d, s
+    }
+end
+
+module uri
+
+    def identifies(u, r) {
+        value(v) and
+        u = ^URI[v] and
+        r = ^Resource[u]
+        from v
+    }
+    
+    def value(v) { source_declares_resource(_, v) }
+
+    def parse(u, i, d) {
+        value(v) and
+        u = ^URI[v] and
+        d = capture_group_by_name[ part_resource_date_pattern, v, 1, i ]
+        from v
+    }
+
+    def parse(u, i, d) {
+        value(v) and
+        u = ^URI[v] and
+        d = capture_group_by_name[ part_resource_index_pattern, v, 1, i ]
+        from v
+    }
+
+end
+
+value type RelName = String
+entity type Relation = RelName
+def Relation(r) { relation:id(r, _) }
+
+module relation
+    def id = transpose[rel_name:identifies]
+    def relstr[r] = relation_to_string[id[r]]
+
+    def multi_part = rel_name:identifies[ ^RelName[ multi_part_relation ] ]
+
+    def identifies(r, s) {
+        Relation(r) and
+        s = ^Source[r]
+    }
+end
+
+def relation_relname[r] = #(relation:relstr[r])
+
+module rel_name
+    def value = simple_relation ; multi_part_relation
+
+    def identifies(n, r) {
+        value(v) and
+        n = ^RelName[v] and
+        r = ^Relation[n]
+        from v
+    }
+
+    def identifies_source = transpose[source:relname]
+
+end
+
+/**
+ * Sources
+ */
+
+entity type Source = Relation
+def Source(s) { source:populates(s, _) }
+def MultiPartSource(s) {
+    relation:multi_part(source:populates[s])
+}
+def SimpleSource(s) { Source(s) and not MultiPartSource(s) }
+
+ic multi_part_source_declares_part_resources(s) {
+    MultiPartSource(s)
+    implies
+    forall(r in source:declares[s]: PartResource(r))
+}
+
+ic source_is_local_or_remote(s, rel) {
+    source:declares(s, _) and
+    source:populates(s, rel)
+    implies
+    source:local(s) or source:remote(s)
+}
+
+ic not_local_and_remote(s, rel) {
+    source:populates(s, rel) and
+    source:local(s)
+    implies
+    not source:remote(s)
+}
+
+ic source_has_unique_input_format(s) {
+    Source(s)
+    implies
+    source:format(s, _)
+}
+// currently no support for partitioned master source data
+ic master_source_not_partitioned(s) {
+    source:master(s)
+    implies
+    SimpleSource(s)
+}
+
+module source
+    def populates = transpose[relation:identifies]
+
+    def declares(s, r) {
+        source_declares_resource(rel, res) and
+        r = uri:identifies[ ^URI[res] ] and
+        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ]
+        from rel, res
+    }
+
+    def spans[s] = part_resource:hashes_to_date[declares[s]]
+
+    def local(s) {
+        declares(s, _) and
+        forall(r: declares(s, r) implies resource:local(r) )
+    }
+    def remote(s) {
+        declares(s, _) and
+        forall(r: declares(s, r) implies not resource:local(r) )
+    }
+
+    def master(s) { s = relation:identifies[ rel_name:identifies[ ^RelName[master_source] ] ] }
+
+    def format(s, f) {
+        source_has_input_format(rel, raw_input_format) and
+        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] and
+        f = input_format_code:identifies[^InputFormatCode[raw_input_format]]
+        from raw_input_format, rel
+    }
+
+    def format(s, f) {
+        rel = relation:relstr[source:populates[s]] and
+        not source_has_input_format(rel, _) and
+        CSVInputFormat(f)
+        from rel
+    }
+end
+
+/**
+ * JSON serialization of those resources that we need to load, grouped
+ * by source.
+ */
+
+def relation_to_string = transpose[^RelName]
+def uri_to_string = transpose[^URI]
+def part_index_to_int = transpose[^PartIndex]
+
+def source:index(s, i) = sort[Source](i, s)
+def source:date_index(s, d, i) {
+    Source(s) and
+    sort[dt: source:spans(s, dt)](i, d)
+}
+
+def source:relname[s] = relation_relname[source:populates[s]]
+
+def source:populated(s, idx) {
+    MultiPartSource(s) and
+    rel_name:identifies_source(rn, s) and
+    source_catalog(rn, idx, _, _, _)
+    from rn
+}
+
+def source:populated(s) {
+    SimpleSource(s) and
+    rel_name:identifies_source(rn, s) and
+    simple_source_catalog(rn, x...)
+    from rn, x...
+}
+
+def source:needs_resource(s) {
+    resource:needed(r) and
+    not PartResource(r) and
+    resource:part_of(r, s)
+    from r
+}
+
+def source:needs_resource(s) {
+    resource:needed(r) and
+    not PartResource(r) and
+    resource:part_of(r, s)
+    from r
+}
+
+def source:needs_resource(s) { source:needs_resource_on_date(s, _) }
+
+def source:needs_resource_on_date(s, d) {
+    resource:needed(r) and
+    part_resource:hashes_to_date(r, d) and
+    resource:part_of(r, s)
+    from r
+}
+
+def resource:populated(r) {
+    source:declares(s, r) and
+    source:populated(s)
+    from s
+}
+
+def resource:populated(r) {
+    source:declares(s, r) and
+    idx = part_index_to_int[part_resource:hashes_to_part_index[r]] and
+    source:populated(s, idx)
+    from idx, s
+}
+
+def resource:needed(r) { Resource(r) and not resource:populated(r) }
+
+def resource:index(s, d, r, i) {
+    source:spans(s, d) and
+    sort[res:
+         resource:needed(res) and
+         resource:part_of(res, s) and
+         part_resource:hashes_to_date(res, d)](i, r)
+}
+
+def resource:index(s, r, i) {
+    source:master(s) and
+    sort[res:
+         resource:needed(res) and
+         resource:part_of(res, s)](i, r)
+}
+
+ic resource_part_index_is_unique_within_source(s, r1, r2, n) {
+    source:declares(s, r1) and
+    source:declares(s, r2) and
+    part_resource:hashes_to_part_index(r1, n) and
+    part_resource:hashes_to_part_index(r2, n)
+    implies
+    r1 = r2
+}
+
+def missing_resources_json(:[], n, :source, name) {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    name = relation_to_string[ relation:id[ source:populates[s] ] ]
+    from s
+}
+
+def missing_resources_json(:[], n, :is_multi_part, "Y") {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    MultiPartSource(s)
+    from s
+}
+
+def missing_resources_json(:[], n, :is_remote, "Y") {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    source:remote(s)
+    from s
+}
+
+def missing_resources_json(:[], n, :is_local, "Y") {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    source:local(s)
+    from s
+}
+
+def missing_resources_json(:[], n, :is_master, v) {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    ( source:master(s) and
+      v = "Y"
+      or
+      not source:master(s) and
+      v = "F" )
+    from s
+}
+
+def missing_resources_json(:[], i, :resources, :[], k, :uri, n) {
+    source:index[s] = i and
+    resource:index[s, r] = k and
+    n = uri_to_string[ resource:id[r] ]
+    from s, r
+}
+
+def missing_resources_json(:[], i, :resources, :[], k, :part_index, n) {
+    source:index[s] = i and
+    resource:index[s, r] = k and
+    n = part_resource:hashes_to_part_index[r]
+    from s, r
+}
+
+
+def missing_resources_json(:[], n, :file_type, typ) {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    typ = input_format_code_to_string[ input_format:id[ source:format[s] ] ]
+    from s
+}
+
+def missing_resources_json(:[], i, :dates, :[], j, :date, dstr) {
+    source:needs_resource_on_date(s, d) and
+    source:index[s] = i and
+    source:date_index[s, d] = j and
+    dstr = format_date[d, "yyyymmdd"]
+    from s, d
+}
+
+def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :uri, n) {
+    source:needs_resource_on_date(s, d) and
+    source:index[s] = i and
+    source:date_index[s, d] = j and
+    resource:index[s, d, r] = k and
+    n = uri_to_string[ resource:id[r] ]
+    from s, r, d
+}
+
+def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_index, n) {
+    source:needs_resource_on_date(s, d) and
+    source:index[s] = i and
+    source:date_index[s, d] = j and
+    resource:index[s, d, r] = k and
+    n = part_resource:hashes_to_part_index[r]
+    from s, r, d
+}
+
+// def output = part_resource

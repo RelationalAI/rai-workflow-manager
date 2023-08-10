@@ -1,0 +1,8 @@
+def BatchWorkflowInstallModelsStep(s) { batch_workflow_step:type(s, InstallModelsType) }
+
+module batch_workflow_step
+    module install_model
+        def model_files(s in BatchWorkflowInstallModelsStep, f) { batch_workflow_step:modelFiles(s, f) }
+    end
+end
+// TODO: declare ICs

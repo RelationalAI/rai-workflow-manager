@@ -1,0 +1,32 @@
+bound batch:config
+
+/**
+ * Batch config
+ */
+value type BatchConfigName = RelName
+entity type BatchConfig = BatchConfigName
+
+def BatchConfig(name) { batch_config:id(name, _) }
+
+module batch_config_name
+    def identifies(n, c) {
+        value(v) and
+        n = ^BatchConfigName[v] and
+        c = ^BatchConfig[n]
+        from v
+    }
+
+    def value(v) {
+        batch:config(v, rest...)
+        from rest...
+    }
+end
+
+module batch_config
+    def id = transpose[batch_config_name:identifies]
+
+    def identifies(c, w) {
+        BatchConfig(c) and
+        w = ^BatchWorkflow[c]
+    }
+end

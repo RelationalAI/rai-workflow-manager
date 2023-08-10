@@ -1,0 +1,44 @@
+def BatchWorkflowExportStep(s) { batch_workflow_step:type(s, ExportType) }
+
+module batch_workflow_step
+    module export
+        def jointly(s in BatchWorkflowExportStep) { json_data(s, :exportJointly, boolean_true) }
+
+        def date_format(s in BatchWorkflowExportStep, f) { json_data(s, :dateFormat, f) }
+
+        def exports = transpose[batch_export:step]
+    end
+end
+
+/**
+ * Batch Export
+ */
+value type BatchExportName = String
+entity type BatchExport = BatchWorkflowStep, BatchExportName
+
+def BatchExport(src) { batch_export:step(src, _) }
+
+module batch_export_name
+    def step_export_name_to_source(st in BatchWorkflowExportStep, n, e) {
+        batch_workflow_step:json_data(st, :exports, :[], _, :configRelName, v) and
+        n = ^BatchExportName[v] and
+        e = ^BatchExport[st, n]
+        from v
+    }
+end
+
+module batch_export
+    def step(e, st) { batch_export_name:step_export_name_to_source(st, _, e) }
+    def type = extract_value:type
+    def relative_path = extract_value:relativePath
+    def offset_by_number_of_days = extract_value:offsetByNumberOfDays
+
+    @inline
+    def extract_value[A](e, val...) {
+        n = ^BatchExportName[batch_workflow_step:json_data[st, :exports, :[], idx, :configRelName]] and
+        e = ^BatchExport[st, n] and
+        batch_workflow_step:json_data(st, :exports, :[], idx, A, val...)
+        from st, idx, n
+    }
+end
+// TODO: declare ICs

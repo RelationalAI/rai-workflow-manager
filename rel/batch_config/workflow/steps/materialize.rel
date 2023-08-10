@@ -1,0 +1,10 @@
+def BatchWorkflowMaterializeStep(s) { batch_workflow_step:type(s, MaterializeType) }
+
+module batch_workflow_step
+    module materialize
+        def relations(s in BatchWorkflowMaterializeStep, f) { batch_workflow_step:relations(s, f) }
+
+        def jointly(s in BatchWorkflowMaterializeStep) { json_data(s, :materializeJointly, boolean_true) }
+    end
+end
+// TODO: declare  ICs
