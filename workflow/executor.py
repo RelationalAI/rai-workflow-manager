@@ -22,8 +22,11 @@ EXPORT = 'Export'
 
 
 class WorkflowRunMode(Enum):
-    LOCAL = 1
-    REMOTE = 2
+    LOCAL = 'local'
+    REMOTE = 'remote'
+
+    def __str__(self):
+        return self.value
 
 
 class WorkflowStepState(str, Enum):

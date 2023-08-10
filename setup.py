@@ -33,6 +33,7 @@ setup(
     ],
     description="The RelationalAI Workflow Manager for batch runs",
     install_requires=[
+        "tomli==2.0.1",
         "ed25519==1.5",
         "rai-sdk==0.6.14",
         "protobuf==3.20.2",
@@ -45,6 +46,6 @@ setup(
     long_description="Enables access to the RelationalAI REST APIs from Python",
     long_description_content_type="text/markdown",
     name="rai-workflow-manager",
-    packages=["workflow"],
+    packages=["workflow", "cli"],
     url="https://github.com/RelationalAI/rai-workflow-manager",
     version=workflow.__version__)
