@@ -200,7 +200,6 @@ pip-log.txt
 /test_*.*
 
 /setup.cfg
-MANIFEST.in
 /docs/site/*
 /tests/fixtures/simple_project/setup.py
 /tests/fixtures/project_with_extras/setup.py

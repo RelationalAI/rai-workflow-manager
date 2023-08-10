@@ -11,7 +11,7 @@ COMMON_MODEL = [
     "batch_config/workflow/steps/materialize.rel"
 ]
 
-COMMON_MODEL_RELATIVE_PATH = "/../../../rel"
+COMMON_MODEL_RELATIVE_PATH = "/../rel"
 
 CONFIG_BASE_RELATION = "batch:config"
 
