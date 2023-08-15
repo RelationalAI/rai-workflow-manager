@@ -443,7 +443,7 @@ class WorkflowExecutor:
         workflow_info = rai.execute_relation_json(self.logger, rai_config, relation, ignore_problems=True)
         steps = workflow_info["steps"]
         for step in steps:
-            execution_time = step['execution_time']
+            execution_time = step["executionTime"]
             self.logger.info(f"{step['name']} (id={step['idt']}) finished in {format_duration(execution_time)}")
         self.logger.info(f"Total workflow execution time is {format_duration(workflow_info['totalTime'])}")
 
