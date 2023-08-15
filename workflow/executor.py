@@ -418,6 +418,7 @@ class WorkflowExecutor:
                 if step.engine_size:
                     self.resource_manager.add_engine(step.engine_size)
                     step.execute(self.logger, self.config.env, self.resource_manager.get_rai_config(step.engine_size))
+                    self.resource_manager.remove_engine(step.engine_size)
                 else:
                     step.execute(self.logger, self.config.env, rai_config)
 

@@ -1,4 +1,5 @@
 import dataclasses
+import copy
 import uuid
 import logging
 from typing import Any
@@ -26,9 +27,12 @@ class ResourceManager:
         self.__engines = {}
 
     def get_rai_config(self, size: str = None) -> RaiConfig:
-        config = self.__rai_config
+        config = copy.copy(self.__rai_config)
         if size:
-            config.engine = self.__engines[size].engine
+            if size in self.__engines:
+                config.engine = self.__engines[size].engine
+            else:
+                self.__logger.debug(f"Can't find `{size}` engine in managed engines. Use default engine")
         return config
 
     def cleanup_resources(self) -> None:
@@ -36,10 +40,10 @@ class ResourceManager:
         Delete RAI DB and engine from RAI Config and managed engines.
         :return:
         """
-        rai.delete_database(self.__logger, self.__rai_config)
+        config = self.get_rai_config()
+        rai.delete_database(self.__logger, config)
         for size in self.__engines:
-            config = self.__rai_config
-            config.engine = self.__engines[size].engine
+            config = self.get_rai_config(size)
             rai.delete_engine(self.__logger, config)
 
     def create_database(self, delete_db: bool = False, disable_ivm: bool = False, source_db=None) -> None:
@@ -52,19 +56,21 @@ class ResourceManager:
         :return:
         """
         if delete_db:
-            self.deleted_database()
-        rai.create_database(self.__logger, self.__rai_config, source_db)
+            self.delete_database()
+        config = self.get_rai_config()
+        rai.create_database(self.__logger, config, source_db)
         if disable_ivm:
-            self.__logger.info(f"Disabling IVM for `{self.__rai_config.database}`")
-            rai.execute_query(self.__logger, self.__rai_config, q.DISABLE_IVM, readonly=False)
+            self.__logger.info(f"Disabling IVM for `{config.database}`")
+            rai.execute_query(self.__logger, config, q.DISABLE_IVM, readonly=False)
 
-    def deleted_database(self) -> None:
+    def delete_database(self) -> None:
         """
         Delete RAI database if it does exist.
         :return:
         """
-        if rai.database_exist(self.__logger, self.__rai_config):
-            rai.delete_database(self.__logger, self.__rai_config)
+        config = self.get_rai_config()
+        if rai.database_exist(self.__logger, config):
+            rai.delete_database(self.__logger, config)
 
     def add_engine(self, size: str = "XS") -> None:
         """
@@ -73,7 +79,7 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
-        config = self.__rai_config
+        config = self.get_rai_config(size)
         if self.__engines:
             if size in self.__engines:
                 self.__logger.info(f"`{size}` already managed: `{self.__engines[size]}`. Ignore creation")
@@ -98,9 +104,11 @@ class ResourceManager:
         else:
             if self.__engines[size].is_default:
                 raise Exception(f"Can't remove default `{size}` engine from managed engines")
-            config = self.__rai_config
-            config.engine = self.__engines[size].engine
-            rai.delete_engine(self.__logger, config)
+            config = self.get_rai_config(size)
+            if rai.engine_exist(self.__logger, config):
+                rai.delete_engine(self.__logger, config)
+            else:
+                self.__logger.warning(f"Can't find `{config.engine}` engine. Ignore deletion")
             del self.__engines[size]
 
     def provision_engine(self, size: str) -> None:
@@ -109,17 +117,19 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
-        self.__logger.info(f"Provision engine `{self.__rai_config.engine}`")
-        config = self.__rai_config
+        config = self.get_rai_config(size)
         if self.__engines:
             if size in self.__engines:
-                self.__logger.info(f"`{size}` already managed: `{self.__engines[size]}`. Provision engine.")
+                self.__logger.info(
+                    f"`{size}` already managed: `{self.__engines[size]}`. Provision engine {config.engine}")
                 self.__recreate_engine(config, size)
             else:
                 config.engine = f"wf-manager-{uuid.uuid4()}-{size}"
+                self.__logger.info(f"Provision engine `{config.engine}`")
                 self.__create_engine(config, size)
                 self.__engines[size] = EngineMetaInfo(config.engine, size, False)
         else:
+            self.__logger.info(f"Provision engine `{config.engine}` as default.")
             self.__recreate_engine(config, size)
             self.__engines = {size: EngineMetaInfo(config.engine, size, True)}
 
