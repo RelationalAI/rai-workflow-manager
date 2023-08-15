@@ -69,9 +69,9 @@ class WorkflowStepFactory:
     def get_step(self, logger: logging.Logger, config: WorkflowConfig, step: dict) -> WorkflowStep:
         idt = step["idt"]
         name = step["name"]
-        engine_size = step.get("engine_size")
+        engine_size = step.get("engineSize")
         state = WorkflowStepState(step.get("state"))
-        timing = step.get("execution_time", 0)
+        timing = step.get("executionTime", 0)
 
         self._validate_params(config, step)
         return self._get_step(logger, config, idt, name, state, timing, engine_size, step)
