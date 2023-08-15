@@ -79,7 +79,7 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
-        self.__logger.info(f"Trying to add managed engine with `{size}` size.")
+        self.__logger.info(f"Trying to add engine with `{size}` size to manager.")
         config = self.get_rai_config(size)
         if self.__engines:
             if size in self.__engines:
@@ -100,7 +100,7 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
-        self.__logger.info(f"Trying to remove managed engine with `{size}` size.")
+        self.__logger.info(f"Trying to remove engine with `{size}` size from manager.")
         if size not in self.__engines:
             self.__logger.info(f"`{size}` isn't managed. Ignore deletion")
         else:
@@ -119,7 +119,7 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
-        self.__logger.info(f"Trying to provision engine with `{size}` size and add to managed.")
+        self.__logger.info(f"Trying to provision engine with `{size}` size and add to manager.")
         config = self.get_rai_config(size)
         if self.__engines:
             if size in self.__engines:

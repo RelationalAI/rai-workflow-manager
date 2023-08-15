@@ -69,7 +69,7 @@ class WorkflowStepFactory:
     def get_step(self, logger: logging.Logger, config: WorkflowConfig, step: dict) -> WorkflowStep:
         idt = step["idt"]
         name = step["name"]
-        engine_size = step.get("engineSize")
+        engine_size = str.upper(step["engineSize"]) if "engineSize" in step else None
         state = WorkflowStepState(step.get("state"))
         timing = step.get("executionTime", 0)
 
