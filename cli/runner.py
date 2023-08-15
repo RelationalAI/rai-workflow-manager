@@ -35,7 +35,7 @@ def start():
         # load batch config as json string
         batch_config_json = workflow.utils.read(args.batch_config)
         # create engine if it doesn't exist
-        resource_manager.create_engine(args.engine_size)
+        resource_manager.add_engine(args.engine_size)
         # Skip infrastructure setup during recovery
         if not args.recover and not args.recover_step:
             # Create db and disable IVM in case of enabled flag

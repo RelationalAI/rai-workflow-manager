@@ -51,12 +51,14 @@ class WorkflowStep:
     name: str
     state: WorkflowStepState
     timing: int
+    engine_size: str
 
-    def __init__(self, idt, name, state, timing):
+    def __init__(self, idt, name, state, timing, engine_size):
         self.idt = idt
         self.name = name
         self.state = state
         self.time = timing
+        self.engine_size = engine_size
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         raise NotImplementedError("This class is abstract")
@@ -67,13 +69,14 @@ class WorkflowStepFactory:
     def get_step(self, logger: logging.Logger, config: WorkflowConfig, step: dict) -> WorkflowStep:
         idt = step["idt"]
         name = step["name"]
+        engine_size = step["engine_size"]
         state = WorkflowStepState(step.get("state"))
         timing = step.get("execution_time", 0)
 
         self._validate_params(config, step)
-        return self._get_step(logger, config, idt, name, state, timing, step)
+        return self._get_step(logger, config, idt, name, state, timing, engine_size, step)
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing,
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         raise NotImplementedError("This class is abstract")
 
@@ -94,8 +97,8 @@ class InstallModelsStep(WorkflowStep):
     rel_config_dir: str
     model_files: List[str]
 
-    def __init__(self, idt, name, state, timing, rel_config_dir, model_files):
-        super().__init__(idt, name, state, timing)
+    def __init__(self, idt, name, state, timing, engine_size, rel_config_dir, model_files):
+        super().__init__(idt, name, state, timing, engine_size)
         self.rel_config_dir = rel_config_dir
         self.model_files = model_files
 
@@ -110,10 +113,10 @@ class InstallModelWorkflowStepFactory(WorkflowStepFactory):
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.REL_CONFIG_DIR]
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing,
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         rel_config_dir = config.step_params[constants.REL_CONFIG_DIR]
-        return InstallModelsStep(idt, name, state, timing, rel_config_dir, step["modelFiles"])
+        return InstallModelsStep(idt, name, state, timing, engine_size, rel_config_dir, step["modelFiles"])
 
 
 class ConfigureSourcesWorkflowStep(WorkflowStep):
@@ -121,8 +124,8 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     rel_config_dir: str
     sources: List[Source]
 
-    def __init__(self, idt, name, state, timing, config_files, rel_config_dir, sources):
-        super().__init__(idt, name, state, timing)
+    def __init__(self, idt, name, state, timing, engine_size, config_files, rel_config_dir, sources):
+        super().__init__(idt, name, state, timing, engine_size)
         self.config_files = config_files
         self.rel_config_dir = rel_config_dir
         self.sources = sources
@@ -143,7 +146,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
             required_params.append(constants.LOCAL_DATA_DIR)
         return required_params
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing,
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         if config.run_mode == WorkflowRunMode.LOCAL:
             local_data_dir = config.step_params[constants.LOCAL_DATA_DIR]
@@ -155,7 +158,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
         rel_config_dir = config.step_params[constants.REL_CONFIG_DIR]
         start_date = config.step_params[constants.START_DATE]
         end_date = config.step_params[constants.END_DATE]
-        return ConfigureSourcesWorkflowStep(idt, name, state, timing, step["configFiles"], rel_config_dir,
+        return ConfigureSourcesWorkflowStep(idt, name, state, timing, engine_size, step["configFiles"], rel_config_dir,
                                             self._inflate_sources(logger, step["sources"], start_date, end_date,
                                                                   paths_builder))
 
@@ -190,8 +193,8 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
 class LoadDataWorkflowStep(WorkflowStep):
     collapse_partitions_on_load: bool
 
-    def __init__(self, idt, name, state, timing, collapse_partitions_on_load):
-        super().__init__(idt, name, state, timing)
+    def __init__(self, idt, name, state, timing, engine_size, collapse_partitions_on_load):
+        super().__init__(idt, name, state, timing, engine_size,)
         self.collapse_partitions_on_load = collapse_partitions_on_load
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
@@ -245,18 +248,18 @@ class LoadDataWorkflowStepFactory(WorkflowStepFactory):
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.COLLAPSE_PARTITIONS_ON_LOAD]
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing,
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         collapse_partitions_on_load = config.step_params[constants.COLLAPSE_PARTITIONS_ON_LOAD]
-        return LoadDataWorkflowStep(idt, name, state, timing, collapse_partitions_on_load)
+        return LoadDataWorkflowStep(idt, name, state, timing, engine_size, collapse_partitions_on_load)
 
 
 class MaterializeWorkflowStep(WorkflowStep):
     relations: List[str]
     materialize_jointly: bool
 
-    def __init__(self, idt, name, state, timing, relations, materialize_jointly):
-        super().__init__(idt, name, state, timing)
+    def __init__(self, idt, name, state, timing, engine_size, relations, materialize_jointly):
+        super().__init__(idt, name, state, timing, engine_size)
         self.relations = relations
         self.materialize_jointly = materialize_jointly
 
@@ -272,17 +275,18 @@ class MaterializeWorkflowStep(WorkflowStep):
 
 class MaterializeWorkflowStepFactory(WorkflowStepFactory):
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing,
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
-        return MaterializeWorkflowStep(idt, name, state, timing, step["relations"], step["materializeJointly"])
+        return MaterializeWorkflowStep(idt, name, state, timing, engine_size, step["relations"],
+                                       step["materializeJointly"])
 
 
 class ExportWorkflowStep(WorkflowStep):
     exports: List[Export]
     export_jointly: bool
 
-    def __init__(self, idt, name, state, timing, exports, export_jointly):
-        super().__init__(idt, name, state, timing)
+    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly):
+        super().__init__(idt, name, state, timing, engine_size)
         self.exports = exports
         self.export_jointly = export_jointly
 
@@ -309,15 +313,16 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
             required_params.append(constants.END_DATE)
         return required_params
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing,
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         exports = self._load_exports(logger, step)
         if config.run_mode == WorkflowRunMode.LOCAL:
             output_root = config.step_params[constants.OUTPUT_ROOT]
-            return LocalExportWorkflowStep(idt, name, state, timing, exports, step["exportJointly"], output_root)
+            return LocalExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
+                                           output_root)
         elif config.run_mode == WorkflowRunMode.REMOTE:
             end_date = config.step_params[constants.END_DATE]
-            return RemoteExportWorkflowStep(idt, name, state, timing, exports, step["exportJointly"],
+            return RemoteExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
                                             step["dateFormat"], end_date)
         else:
             raise Exception("Unsupported mode")
@@ -342,8 +347,8 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
 class LocalExportWorkflowStep(ExportWorkflowStep):
     output_root: str
 
-    def __init__(self, idt, name, state, timing, exports, export_jointly, output_root):
-        super().__init__(idt, name, state, timing, exports, export_jointly)
+    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, output_root):
+        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly)
         self.output_root = output_root
 
     def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
@@ -356,8 +361,8 @@ class RemoteExportWorkflowStep(ExportWorkflowStep):
     date_format: str
     end_date: str
 
-    def __init__(self, idt, name, state, timing, exports, export_jointly, date_format, end_date):
-        super().__init__(idt, name, state, timing, exports, export_jointly)
+    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date):
+        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly)
         self.end_date = end_date
         self.date_format = date_format
 
@@ -410,7 +415,11 @@ class WorkflowExecutor:
                               q.update_step_state(step.idt, WorkflowStepState.IN_PROGRESS.name), readonly=False,
                               ignore_problems=True)
             try:
-                step.execute(self.logger, self.config.env, rai_config)
+                if step.engine_size:
+                    self.resource_manager.add_engine(step.engine_size)
+                    step.execute(self.logger, self.config.env, self.resource_manager.get_rai_config(step.engine_size))
+                else:
+                    step.execute(self.logger, self.config.env, rai_config)
 
                 end_time = time.time()
                 execution_time = end_time - start_time
@@ -421,6 +430,8 @@ class WorkflowExecutor:
                 rai.execute_query(self.logger, rai_config,
                                   q.update_step_state(step.idt, WorkflowStepState.FAILED.name), readonly=False,
                                   ignore_problems=True)
+                if step.engine_size:
+                    self.resource_manager.remove_engine(step.engine_size)
                 raise e
 
             self.logger.info(f"{step.name} (id='{step.idt}') finished in {format_duration(execution_time)}")
