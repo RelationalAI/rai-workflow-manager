@@ -23,6 +23,7 @@ class ResourceManager:
     def __init__(self, logger: logging.Logger, rai_config: RaiConfig):
         self.__logger = logger
         self.__rai_config = rai_config
+        self.__engines = {}
 
     def get_rai_config(self, size: str = None) -> RaiConfig:
         config = self.__rai_config
