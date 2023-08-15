@@ -39,7 +39,7 @@ def start():
         # Skip infrastructure setup during recovery
         if not args.recover and not args.recover_step:
             # Create db and disable IVM in case of enabled flag
-            resource_manager.create_database(args.drop_db, args.disable_ivm)
+            resource_manager.create_database(args.drop_db, args.disable_ivm, args.source_database)
         # Init workflow executor
         parameters = {
             workflow.constants.REL_CONFIG_DIR: args.rel_config_dir,
