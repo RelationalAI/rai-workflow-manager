@@ -25,17 +25,18 @@ class ResourceManager:
         rai.delete_database(self.logger, self.rai_config)
         rai.delete_engine(self.logger, self.rai_config)
 
-    def create_database(self, deleted_db: bool = False, disable_ivm: bool = False) -> None:
+    def create_database(self, delete_db: bool = False, disable_ivm: bool = False, source_db=None) -> None:
         """
         Create RAI database. If `delete_db` is True then manager should delete previous db with the same name if it
          does exist before creation. `disable_ivm` indicate if manager need to disable IVM for a new db.
-        :param deleted_db:      delete database flag
+        :param delete_db:       delete database flag
         :param disable_ivm:     disable ivm flag
+        :param source_db:       source database name
         :return:
         """
-        if deleted_db:
+        if delete_db:
             self.deleted_database()
-        rai.create_database(self.logger, self.rai_config)
+        rai.create_database(self.logger, self.rai_config, source_db)
         if disable_ivm:
             self.logger.info(f"Disabling IVM for `{self.rai_config.database}`")
             rai.execute_query(self.logger, self.rai_config, q.DISABLE_IVM, readonly=False)

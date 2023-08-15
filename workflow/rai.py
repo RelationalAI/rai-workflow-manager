@@ -81,16 +81,19 @@ def engine_exist(logger: logging.Logger, rai_config: RaiConfig) -> bool:
     return bool(api.get_engine(rai_config.ctx, rai_config.engine))
 
 
-def create_database(logger: logging.Logger, rai_config: RaiConfig) -> None:
+def create_database(logger: logging.Logger, rai_config: RaiConfig, source_db=None) -> None:
     """
     Create RAI DB specified in RAI config. The HTTP error 409(Conflict) swallowed since DB already exists.
     :param logger:      logger
     :param rai_config:  RAI config
+    :param source_db:   source DB to clone from
     :return:
     """
     logger.info(f"Creating database `{rai_config.database}`")
+    if source_db:
+        logger.info(f"Use `{source_db}` database for clone")
     try:
-        api.create_database(rai_config.ctx, rai_config.database)
+        api.create_database(rai_config.ctx, rai_config.database, source_db)
     except HTTPError as e:
         if e.status == 409:
             logger.info(f"Database '{rai_config.database}' already exists")

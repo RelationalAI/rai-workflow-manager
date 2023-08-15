@@ -25,6 +25,12 @@ def parse() -> Namespace:
         type=str
     )
     parser.add_argument(
+        "--source-database",
+        help="RAI database for clone",
+        required=False,
+        type=str
+    )
+    parser.add_argument(
         "--engine",
         help="RAI engine",
         required=True,
