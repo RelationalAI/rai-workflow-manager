@@ -79,6 +79,7 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
+        self.__logger.info(f"Trying to add managed engine with `{size}` size.")
         config = self.get_rai_config(size)
         if self.__engines:
             if size in self.__engines:
@@ -99,8 +100,9 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
+        self.__logger.info(f"Trying to remove managed engine with `{size}` size.")
         if size not in self.__engines:
-            self.__logger.info(f"{size}` isn't manged. Ignore deletion")
+            self.__logger.info(f"`{size}` isn't managed. Ignore deletion")
         else:
             if self.__engines[size].is_default:
                 raise Exception(f"Can't remove default `{size}` engine from managed engines")
@@ -117,6 +119,7 @@ class ResourceManager:
         :param size:    RAI engine size
         :return:
         """
+        self.__logger.info(f"Trying to provision engine with `{size}` size and add to managed.")
         config = self.get_rai_config(size)
         if self.__engines:
             if size in self.__engines:
@@ -124,7 +127,7 @@ class ResourceManager:
                     f"`{size}` already managed: `{self.__engines[size]}`. Provision engine {config.engine}")
                 self.__recreate_engine(config, size)
             else:
-                config.engine = f"wf-manager-{uuid.uuid4()}-{size}"
+                config.engine = f"wf-manager-{size}-{uuid.uuid4()}"
                 self.__logger.info(f"Provision engine `{config.engine}`")
                 self.__create_engine(config, size)
                 self.__engines[size] = EngineMetaInfo(config.engine, size, False)
@@ -142,7 +145,7 @@ class ResourceManager:
         """
         if rai.engine_exist(self.__logger, config):
             rai.delete_engine(self.__logger, config)
-        self.__create_engine(config, size)
+        rai.create_engine(self.__logger, config, size)
 
     def __create_engine(self, config, size: str) -> None:
         """
