@@ -1,6 +1,7 @@
 import logging
 import time
 import dataclasses
+from more_itertools import peekable
 from typing import List, Dict
 from enum import Enum
 
@@ -398,7 +399,8 @@ class WorkflowExecutor:
     def run(self):
         recover_step_reached = False
         rai_config = self.resource_manager.get_rai_config()
-        for step in self.steps:
+        steps_iter = peekable(self.steps)
+        for step in steps_iter:
             # `recover_step` option has higher priority than `recover` option
             if self.config.recover_step and not recover_step_reached:
                 if step.name == self.config.recover_step:
@@ -418,7 +420,9 @@ class WorkflowExecutor:
                 if step.engine_size:
                     self.resource_manager.add_engine(step.engine_size)
                     step.execute(self.logger, self.config.env, self.resource_manager.get_rai_config(step.engine_size))
-                    self.resource_manager.remove_engine(step.engine_size)
+                    next_step = steps_iter.peek(None)
+                    if next_step and next_step.engine_size != step.engine_size:
+                        self.resource_manager.remove_engine(step.engine_size)
                 else:
                     step.execute(self.logger, self.config.env, rai_config)
 

@@ -105,7 +105,7 @@ class ResourceManager:
             self.__logger.info(f"`{size}` isn't managed. Ignore deletion")
         else:
             if self.__engines[size].is_default:
-                raise Exception(f"Can't remove default `{size}` engine from managed engines")
+                self.__logger.warning(f"Can't remove default `{size}` engine from managed engines")
             config = self.get_rai_config(size)
             if rai.engine_exist(self.__logger, config):
                 rai.delete_engine(self.__logger, config)
