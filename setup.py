@@ -40,6 +40,7 @@ setup(
         "pyarrow==6.0.1",
         "requests==2.31.0",
         "requests-toolbelt==1.0.0",
+        "more-itertools==10.1.0",
         "urllib3==1.26.6",
         "azure-storage-blob==12.17.0"],
     license="http://www.apache.org/licenses/LICENSE-2.0",

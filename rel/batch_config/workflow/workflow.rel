@@ -42,6 +42,8 @@ module batch_workflow_step
 
     def name[s] = json_data[s, :name]
 
+    def engine_size[s] = uppercase[json_data[s, :engineSize]]
+
     def state(s in BatchWorkflowStep, st in BatchWorkflowStepState) {
         state_value(s, str_val) and
         st_v = ^BatchWorkflowStepStateValue[str_val] and
@@ -55,7 +57,7 @@ module batch_workflow_step
     def json_data(s in BatchWorkflowStep, :state, st_v) {
         st_v = batch_workflow_state_value_to_string[ batch_workflow_step_state:id[ state[s] ] ]
     }
-    def json_data(s in BatchWorkflowStep, :execution_time, t) { execution_time(s, t) }
+    def json_data(s in BatchWorkflowStep, :executionTime, t) { execution_time(s, t) }
 
     def json_data(s, rest...) {
         order(s, o) and
