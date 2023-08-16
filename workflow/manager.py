@@ -85,7 +85,7 @@ class ResourceManager:
             if size in self.__engines:
                 self.__logger.info(f"`{size}` already managed: `{self.__engines[size]}`. Ignore creation")
             else:
-                config.engine = f"wf-manager-{uuid.uuid4()}-{size}"
+                config.engine = self.__generate_engine_name(size)
                 self.__create_engine(config, size)
                 self.__engines[size] = EngineMetaInfo(config.engine, size, False)
         else:
@@ -128,7 +128,7 @@ class ResourceManager:
                     f"`{size}` already managed: `{self.__engines[size]}`. Provision engine {config.engine}")
                 self.__recreate_engine(config, size)
             else:
-                config.engine = f"wf-manager-{size}-{uuid.uuid4()}"
+                config.engine = self.__generate_engine_name(size)
                 self.__logger.info(f"Provision engine `{config.engine}`")
                 self.__create_engine(config, size)
                 self.__engines[size] = EngineMetaInfo(config.engine, size, False)
@@ -156,6 +156,15 @@ class ResourceManager:
         """
         if not rai.engine_exist(self.__logger, config):
             rai.create_engine(self.__logger, config, size)
+
+    @staticmethod
+    def __generate_engine_name(size: str) -> str:
+        """
+        Generate RAI engine name for workflow.
+        :param size:    RAI engine size
+        :return:
+        """
+        return f"wf-manager-{size}-{uuid.uuid4()}"
 
     @staticmethod
     def init(logger: logging.Logger, engine, database, env_vars: dict[str, Any] = MappingProxyType({})):
