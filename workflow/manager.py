@@ -106,12 +106,13 @@ class ResourceManager:
         else:
             if self.__engines[size].is_default:
                 self.__logger.warning(f"Can't remove default `{size}` engine from managed engines")
-            config = self.get_rai_config(size)
-            if rai.engine_exist(self.__logger, config):
-                rai.delete_engine(self.__logger, config)
             else:
-                self.__logger.warning(f"Can't find `{config.engine}` engine. Ignore deletion")
-            del self.__engines[size]
+                config = self.get_rai_config(size)
+                if rai.engine_exist(self.__logger, config):
+                    rai.delete_engine(self.__logger, config)
+                else:
+                    self.__logger.warning(f"Can't find `{config.engine}` engine. Ignore deletion")
+                del self.__engines[size]
 
     def provision_engine(self, size: str) -> None:
         """
