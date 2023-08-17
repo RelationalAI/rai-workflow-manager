@@ -13,7 +13,7 @@ def parse() -> Namespace:
     )
     parser.add_argument(
         "--batch-config-name",
-        help="Name of to batch configuration json",
+        help="The name of the batch configuration json",
         required=False,
         type=str,
         default="default"
