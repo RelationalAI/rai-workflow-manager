@@ -464,7 +464,7 @@ class WorkflowExecutor:
         logger = logger.getChild("workflow")
         rai_config = resource_manager.get_rai_config()
 
-        if not config.recover and not config.recover_step:
+        if not config.recover and not config.recover_step and not config.selected_steps:
             # Install common model for workflow manager
             core_models = build_models(constants.COMMON_MODEL, get_common_model_relative_path(__file__))
             extended_models = {**core_models, **models}
