@@ -135,7 +135,7 @@ def parse() -> Namespace:
     )
     parser.add_argument(
         "--selected-steps",
-        help="Steps from batch config to run",
+        help="Steps from batch config to rerun",
         nargs='+',
         required=False,
         type=str
