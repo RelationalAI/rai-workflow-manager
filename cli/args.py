@@ -131,7 +131,13 @@ def parse() -> Namespace:
         "--recover-step",
         help="Recover a batch run starting from specified step",
         required=False,
-        default=False,
+        type=str
+    )
+    parser.add_argument(
+        "--selected-steps",
+        help="Steps from batch config to run",
+        nargs='+',
+        required=False,
         type=str
     )
     parser.add_argument(
@@ -143,6 +149,9 @@ def parse() -> Namespace:
     )
     args = parser.parse_args()
     # Validation
+    if 'selected-steps' in vars(args) and args.selected_steps and (
+            ('recover' in vars(args) and args.recover) or ('recover_step' in vars(args) and args.recover_step)):
+        parser.error("`--recover` or `--recover-step` can't be used when selected-steps are specified.")
     if 'recover' in vars(args) and args.recover and 'recover_step' in vars(args) and args.recover_step:
-        parser.error("`--recover` and `--recover-step` options are mutually exclusive. Use must choose only 1 option.")
+        parser.error("`--recover` and `--recover-step` options are mutually exclusive. You must choose only 1 option.")
     return args
