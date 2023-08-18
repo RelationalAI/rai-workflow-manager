@@ -26,11 +26,6 @@ jobs:
           pip install -r $GITHUB_WORKSPACE/requirements.txt
           pip install $GITHUB_WORKSPACE
 
-      # Checkout code repo   
-      - name: Check out repository code
-        uses: actions/checkout@v3
-      - run: echo "The ${{ github.repository }} repository has been cloned to the runner."
-
       # Run Workflow tests
       - name: Python Workflow Manager tests
         run: |
