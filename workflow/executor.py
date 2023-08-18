@@ -44,6 +44,7 @@ class WorkflowConfig:
     batch_config: BatchConfig
     recover: bool
     recover_step: str
+    selected_steps: List[str]
     step_params: dict
 
 
@@ -401,17 +402,22 @@ class WorkflowExecutor:
         rai_config = self.resource_manager.get_rai_config()
         steps_iter = peekable(self.steps)
         for step in steps_iter:
-            # `recover_step` option has higher priority than `recover` option
-            if self.config.recover_step and not recover_step_reached:
-                if step.name == self.config.recover_step:
-                    recover_step_reached = True
-                if not recover_step_reached:
-                    self.logger.info(
-                        f"Recovery... Skipping the step {step.name} (id='{step.idt}') till reach recovery step")
-                    continue
-            elif self.config.recover and step.state == WorkflowStepState.SUCCESS:
-                self.logger.info(f"Recovery... Skipping the successful step {step.name} (id='{step.idt}')")
+            if self.config.selected_steps and step.name not in self.config.selected_steps:
+                self.logger.info(f"Step {step.name} (id='{step.idt}') is not selected. Skipping..")
                 continue
+            else:
+                # `recover_step` option has higher priority than `recover` option
+                if self.config.recover_step and not recover_step_reached:
+                    if step.name == self.config.recover_step:
+                        recover_step_reached = True
+                    if not recover_step_reached:
+                        self.logger.info(
+                            f"Recovery... Skipping the step {step.name} (id='{step.idt}') till reach recovery step")
+                        continue
+                elif self.config.recover and step.state == WorkflowStepState.SUCCESS:
+                    self.logger.info(f"Recovery... Skipping the successful step {step.name} (id='{step.idt}')")
+                    continue
+
             start_time = time.time()
             rai.execute_query(self.logger, rai_config,
                               q.update_step_state(step.idt, WorkflowStepState.IN_PROGRESS.name), readonly=False,
@@ -458,7 +464,7 @@ class WorkflowExecutor:
         logger = logger.getChild("workflow")
         rai_config = resource_manager.get_rai_config()
 
-        if not config.recover and not config.recover_step:
+        if not config.recover and not config.recover_step and not config.selected_steps:
             # Install common model for workflow manager
             core_models = build_models(constants.COMMON_MODEL, get_common_model_relative_path(__file__))
             extended_models = {**core_models, **models}
