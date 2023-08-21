@@ -1,6 +1,6 @@
 def json_source_config:store_data:string = {
-        "storeId" ;
-        "storeName"
+    "storeId" ;
+    "storeName"
 }
 
 def json_source_config:store_data:object(k) {
