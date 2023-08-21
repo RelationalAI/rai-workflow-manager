@@ -40,11 +40,11 @@ class ResourceManager:
         Delete RAI DB and engine from RAI Config and managed engines.
         :return:
         """
-        config = self.get_rai_config()
-        rai.delete_database(self.__logger, config)
+        self.delete_database()
         for size in self.__engines:
             config = self.get_rai_config(size)
-            rai.delete_engine(self.__logger, config)
+            if rai.engine_exist(self.__logger, config):
+                rai.delete_engine(self.__logger, config)
 
     def create_database(self, delete_db: bool = False, disable_ivm: bool = False, source_db=None) -> None:
         """

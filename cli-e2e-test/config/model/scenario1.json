@@ -1,0 +1,85 @@
+{
+  "workflow": [
+    {
+      "type": "ConfigureSources",
+      "name": "ConfigureSources",
+      "configFiles": [
+        "config/scenario1.rel"
+      ],
+      "sources": [
+        {
+          "relation": "zip_city_state_master_data",
+          "isPartitioned": false,
+          "relativePath": "master_source/zip_city_state",
+          "inputFormat": "csv",
+          "isMaster": true
+        },
+        {
+          "relation": "device_data",
+          "isPartitioned": true,
+          "relativePath": "device",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 60
+        },
+        {
+          "relation": "store_data",
+          "isPartitioned": true,
+          "relativePath": "store",
+          "inputFormat": "jsonl",
+          "extensions": [
+            "json",
+            "jsonl"
+          ],
+          "loadsNumberOfDays": 60
+        }
+      ]
+    },
+    {
+      "type": "InstallModels",
+      "name": "InstallModels1",
+      "modelFiles": [
+        "device.rel",
+        "zip.rel",
+        "store.rel",
+        "json_schema_mapping.rel"
+      ]
+    },
+    {
+      "type": "LoadData",
+      "name": "LoadData"
+    },
+    {
+      "type": "Materialize",
+      "name": "Materialize",
+      "relations": [
+        "city:name",
+        "device:name",
+        "store:name"
+      ],
+      "materializeJointly": true
+    },
+    {
+      "type": "Export",
+      "name": "Export",
+      "exportJointly": false,
+      "dateFormat": "%Y%m%d",
+      "exports": [
+        {
+          "type": "csv",
+          "configRelName": "cities_csv",
+          "relativePath": "cities"
+        },
+        {
+          "type": "csv",
+          "configRelName": "devices_csv",
+          "relativePath": "devices"
+        },
+        {
+          "type": "csv",
+          "configRelName": "stores_csv",
+          "relativePath": "stores"
+        }
+      ]
+    }
+  ]
+}

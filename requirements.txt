@@ -8,3 +8,4 @@ requests-toolbelt==1.0.0
 urllib3==1.26.6
 more-itertools==10.1.0
 azure-storage-blob==12.17.0
+csv-diff==1.1

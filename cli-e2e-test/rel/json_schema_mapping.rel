@@ -1,0 +1,64 @@
+/**
+ * The modules in this file automate the schema mapping of JSON or JSONL sources
+ * that are configured as part of the json_source_config module.
+ *
+ * To use this framework, simply populate the json_source_config relation for
+ * some *source* with the string values of keys for any one or more of the
+ * following types: (string, int, decimal, and object).
+ */
+
+def JsonSourceConfigKey(k) { json_source_config(k, x...) from x... }
+
+def json_source:value[src in JsonSourceConfigKey] = source_catalog[src, _, :value]
+def json_source:child[src in JsonSourceConfigKey] = source_catalog[src, _, :child]
+def json_source:root[src in JsonSourceConfigKey] = source_catalog[src, _, :root]
+def json_source:array[src in JsonSourceConfigKey] = source_catalog[src, _, :array]
+
+def json_source:value[src in JsonSourceConfigKey] = simple_source_catalog[src, :value]
+def json_source:child[src in JsonSourceConfigKey] = simple_source_catalog[src, :child]
+def json_source:root[src in JsonSourceConfigKey] = simple_source_catalog[src, :root]
+def json_source:array[src in JsonSourceConfigKey] = simple_source_catalog[src, :array]
+
+/**
+ * [REKS] Note that json_source, json_hash, json_name_sym, and json_schema cannot
+ *        be further consolidated into a container module because of limits on the
+ *        use of metafication (i.e., the #(...) operator) inside recursive
+ *        definitions.
+ */
+def json_hash(src, t, h, s) =
+    murmurhash3f(s, x) and
+    h = uint128_hash_value_convert[x] and
+    json_source_config(src, t, s)
+    from x
+
+def json_name_sym[src, x] = #(json_hash[src, _, x])
+
+module json_schema
+
+    def parent(src, y, x, z) { json_source:child(src, x, y, z) }
+
+    def value(src, r, o, val) {
+        parent(src, r, o, t) and
+        json_hash(src, :string, r, _) and
+        json_source:value(src, t, val) and
+        String(val)
+        from t
+    }
+
+    def value(src, r, o, v) {
+        parent(src, r, o, t) and
+        json_hash(src, :decimal, r, _) and
+        json_source:value(src, t, v) and
+        Float(v)
+        from t
+    }
+
+    def value(src, r, o, v) {
+        parent(src, r, o, t) and
+        json_hash(src, :int, r, _) and
+        json_source:value(src, t, v) and
+        Int(v)
+        from t
+    }
+
+end

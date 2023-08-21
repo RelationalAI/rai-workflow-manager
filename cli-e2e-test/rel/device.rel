@@ -1,0 +1,10 @@
+bound import_config:device_data:schema
+bound syntax:header
+
+module device_data
+    def DEVICE_NAME[idx, row] = source_catalog:device_data[idx, :device, row]
+end
+
+module device
+    def name = device_data:DEVICE_NAME[_, _]
+end
