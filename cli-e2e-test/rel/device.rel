@@ -1,5 +1,5 @@
-bound import_config:device_data:schema = Symbol, String
-bound syntax:header = Int, Symbol
+bound import_config:device_data:schema
+bound syntax:header
 
 module device_data
     def DEVICE_NAME[idx, row] = source_catalog:device_data[idx, :device, row]
