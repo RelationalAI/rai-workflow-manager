@@ -36,3 +36,27 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/test
           python -m unittest discover
+
+      # Setup config required for Python CLI run
+      - name: Config setup
+        run: |
+          mkdir ~/.rai
+          cd ~/.rai
+          echo "[default]" > config
+          echo "region = us-east" >> config
+          echo "host = azure.relationalai.com" >> config
+          echo "port = 443" >> config
+          echo "client_id = ${{ env.RAI_CLIENT_ID }}" >> config
+          echo "client_secret = ${{ env.RAI_CLIENT_SECRET }}" >> config
+          # Create empty toml
+          cd $GITHUB_WORKSPACE/cli-e2e-test/config
+          touch loader.toml
+        env:
+          RAI_CLIENT_ID: ${{ secrets.client_id }}
+          RAI_CLIENT_SECRET: ${{ secrets.client_secret }}
+
+      # Run e2e Python CLI test
+      - name: Python CLI tests
+        run: |
+          cd $GITHUB_WORKSPACE/cli-e2e-test
+          python -m unittest discover

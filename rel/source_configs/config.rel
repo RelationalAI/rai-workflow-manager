@@ -76,7 +76,7 @@ module part_resource
         uri:identifies(u, r) and
         d = parse_int[ uri:parse[u, "date"] ] and
         s = parse_int[ uri:parse[u, shard_alias] ] and
-        n =  ^PartIndex[ d * part_resource_index_multiplier + s ]
+        n = ^PartIndex[ d * part_resource_index_multiplier + s ]
         from u, d, s
     }
 end
