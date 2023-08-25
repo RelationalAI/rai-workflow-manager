@@ -269,10 +269,10 @@ class MaterializeWorkflowStep(WorkflowStep):
         logger.info("Executing Materialize step..")
 
         if self.materialize_jointly:
-            rai.execute_query(logger, rai_config, q.materialize(self.relations))
+            rai.execute_query(logger, rai_config, q.materialize(self.relations), readonly=False)
         else:
             for relation in self.relations:
-                rai.execute_query(logger, rai_config, q.materialize([relation]))
+                rai.execute_query(logger, rai_config, q.materialize([relation]), readonly=False)
 
 
 class MaterializeWorkflowStepFactory(WorkflowStepFactory):
