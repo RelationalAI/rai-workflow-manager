@@ -169,26 +169,27 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                          paths_builder: paths.PathsBuilder) -> List[Source]:
         result = []
         for source in sources:
-            relation = source["relation"]
-            relative_path = source["relativePath"]
-            input_format = source["inputFormat"]
-            extensions = source.get("extensions", [input_format])
-            is_partitioned = source["isPartitioned"]
-            is_master = source.get("isMaster", False)
-            loads_number_of_days = source.get("loadsNumberOfDays")
-            offset_by_number_of_days = source.get("offsetByNumberOfDays")
-            result.append(Source(
-                relation,
-                input_format,
-                paths_builder.build(logger,
-                                    extract_date_range(logger, start_date, end_date, loads_number_of_days,
-                                                       offset_by_number_of_days),
-                                    relative_path,
-                                    extensions,
-                                    is_master),
-                is_partitioned,
-                is_master
-            ))
+            if "future" not in source or not source["future"]:
+                relation = source["relation"]
+                relative_path = source["relativePath"]
+                input_format = source["inputFormat"]
+                extensions = source.get("extensions", [input_format])
+                is_partitioned = source["isPartitioned"]
+                is_master = source.get("isMaster", False)
+                loads_number_of_days = source.get("loadsNumberOfDays")
+                offset_by_number_of_days = source.get("offsetByNumberOfDays")
+                result.append(Source(
+                    relation,
+                    input_format,
+                    paths_builder.build(logger,
+                                        extract_date_range(logger, start_date, end_date, loads_number_of_days,
+                                                           offset_by_number_of_days),
+                                        relative_path,
+                                        extensions,
+                                        is_master),
+                    is_partitioned,
+                    is_master
+                ))
         return result
 
 
@@ -334,15 +335,16 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
         exports_json = src["exports"]
         exports = []
         for e in exports_json:
-            try:
-                meta_key = e["metaKey"] if "metaKey" in e else []
-                file_type_str = e["type"].upper()
-                offset_by_number_of_days = e["offsetByNumberOfDays"] if "offsetByNumberOfDays" in e else 0
-                cfg = Export(meta_key, e["configRelName"], e["relativePath"], FileType[file_type_str],
-                             offset_by_number_of_days)
-                exports.append(cfg)
-            except KeyError as ex:
-                logger.warning(f"Unsupported FileType: {ex}. Skipping export: {e}.")
+            if "future" not in e or not e["future"]:
+                try:
+                    meta_key = e["metaKey"] if "metaKey" in e else []
+                    file_type_str = e["type"].upper()
+                    offset_by_number_of_days = e["offsetByNumberOfDays"] if "offsetByNumberOfDays" in e else 0
+                    cfg = Export(meta_key, e["configRelName"], e["relativePath"], FileType[file_type_str],
+                                 offset_by_number_of_days)
+                    exports.append(cfg)
+                except KeyError as ex:
+                    logger.warning(f"Unsupported FileType: {ex}. Skipping export: {e}.")
         return exports
 
 
