@@ -48,7 +48,7 @@ def Resource(r) { resource:id(r, _) }
 value type PartIndex = Int
 def PartResource(r) { part_resource:hashes_to_part_index(r, _) }
 
-ic part_resource_hashes_to_date(p) { PartResource implies part_resource:hashes_to_date(p, _) }
+ic part_resource_hashes_to_date(p) { PartResource(p) implies part_resource:hashes_to_date(p, _) }
 
 module resource
     def id = transpose[uri:identifies]

@@ -402,9 +402,10 @@ class WorkflowExecutor:
         rai_config = self.resource_manager.get_rai_config()
         steps_iter = peekable(self.steps)
         for step in steps_iter:
-            if self.config.selected_steps and step.name not in self.config.selected_steps:
-                self.logger.info(f"Step {step.name} (id='{step.idt}') is not selected. Skipping..")
-                continue
+            if self.config.selected_steps:
+                if step.name not in self.config.selected_steps:
+                    self.logger.info(f"Step {step.name} (id='{step.idt}') is not selected. Skipping..")
+                    continue
             else:
                 # `recover_step` option has higher priority than `recover` option
                 if self.config.recover_step and not recover_step_reached:
@@ -464,7 +465,7 @@ class WorkflowExecutor:
         logger = logger.getChild("workflow")
         rai_config = resource_manager.get_rai_config()
 
-        if not config.recover and not config.recover_step and not config.selected_steps:
+        if not config.recover and not config.recover_step:
             # Install common model for workflow manager
             core_models = build_models(constants.COMMON_MODEL, get_common_model_relative_path(__file__))
             extended_models = {**core_models, **models}
