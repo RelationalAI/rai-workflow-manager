@@ -26,9 +26,6 @@ setup(
         "Intended Audience :: Developers",
         "Natural Language :: English",
         "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
     ],
     description="The RelationalAI Workflow Manager for batch runs",
@@ -44,7 +41,10 @@ setup(
         "urllib3==1.26.6",
         "azure-storage-blob==12.17.0"],
     license="http://www.apache.org/licenses/LICENSE-2.0",
-    long_description="Enables access to the RelationalAI REST APIs from Python",
+    long_description="The RAI Workflow Framework, which allows you to execute batch configurations, along with a "
+                     "default Command-Line Interface (CLI) implementation to interact with the RAI Workflow "
+                     "Framework. With this powerful combination, you can easily manage and execute batch "
+                     "configurations for various tasks using the RAI database.",
     long_description_content_type="text/markdown",
     name="rai-workflow-manager",
     packages=find_packages(exclude=['test', 'cli-e2e-test']),
