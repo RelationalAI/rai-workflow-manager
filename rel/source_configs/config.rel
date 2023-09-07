@@ -401,4 +401,148 @@ def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_ind
     from s, r, d
 }
 
-// def output = part_resource
+/**
+ */
+
+entity type BatchArtifact:import = RelName, Int
+entity type BatchArtifact:export = RelName, Int
+
+def Workflow(wf) {
+    batch_artifact:is_import(wf, _) or
+    batch_artifact:is_export(wf, _)
+}
+
+def ImportArtifact(a) = batch_artifact:is_import(_, a)
+def ExportArtifact(a) = batch_artifact:is_export(_, a)
+def BatchArtifact = ImportArtifact ; ExportArtifact
+
+def import_object[wf, r] = batch:config[wf, :workflow, :[], _, :sources, :[], r]
+def export_object[wf, r] = batch:config[wf, :workflow, :[], _, :exports, :[], r]
+
+module batch_artifact
+
+    def future(wf, a in ImportArtifact) {
+        import_object(wf, row[wf, a], :future, boolean_true)
+    }
+
+    def future(wf, a in ExportArtifact) {
+        export_object(wf, row[wf, a], :future, boolean_true)
+    }
+
+    def name(wf, a in ImportArtifact, n) {
+        import_object(wf, row[wf, a], :relation, n)
+    }
+
+    def name(wf, a in ExportArtifact, n) {
+        export_object(wf, row[wf, a], :configRelName, n)
+    }
+
+    def location(wf, a in ImportArtifact, l) {
+        import_object(wf, row[wf, a], :relativePath, l)
+    }
+
+    def location(wf, a in ExportArtifact, l) {
+        export_object(wf, row[wf, a], :relativePath, l)
+    }
+
+    def is_import(wf, a) { ^BatchArtifact:import(wf, row[wf, a], a) }
+    def is_export(wf, a) { ^BatchArtifact:export(wf, row[wf, a], a) }
+
+    def row(wf, a, r) {
+        import_object(wf, r, x...) and
+        ^BatchArtifact:import(wf, r, a)
+        from x...
+    }
+
+    def row(wf, a, r) {
+        export_object(wf, r, x...) and
+        ^BatchArtifact:export(wf, r, a)
+        from x...
+    }
+
+end
+
+module import_artifact[wf in Workflow]
+    def source_of(a, s) {
+        ImportArtifact(a) and
+        s = relation:identifies[
+                rel_name:identifies[
+                    ^RelName[batch_artifact:name[wf, a]] ] ]
+    }
+
+    def populated(a) { source:populated(source_of[a]) }
+    def populated_at(a, d) {
+        source:populated(source_of[a], idx) and
+        d = trunc_to_int[idx / part_resource_index_multiplier]
+        from idx
+    }
+
+    def populated_days[a] = count[populated_at[a]]
+
+    def requested_days(a, d) {
+        ImportArtifact(a) and
+        import_object(wf, batch_artifact:row[wf, a], :loadsNumberOfDays, d)
+    }
+
+end
+
+module export_artifact_report[wf in Workflow]
+
+     def future(a, b) {
+        batch_artifact:is_export(wf, a) and
+        ( boolean_false(b) and not batch_artifact:future(wf, a)
+          or
+          boolean_true(b) and batch_artifact:future(wf, a) )
+    }
+
+    def name(a, n) { ExportArtifact(a) and batch_artifact:name(wf, a, n) }
+    def location(a, l) { ExportArtifact(a) and batch_artifact:location(wf, a, l) }
+
+end
+
+module import_artifact_report[wf in Workflow]
+
+     def future(a, b) {
+        batch_artifact:is_import(wf, a) and
+        ( boolean_false(b) and not batch_artifact:future(wf, a)
+          or
+          boolean_true(b) and batch_artifact:future(wf, a) )
+    }
+
+    def populated(a, b) {
+        boolean_true(b) and
+        ( import_artifact(wf, :populated, a) or
+          import_artifact(wf, :populated_days, a, _) )
+    }
+
+    def populated_days = import_artifact[wf, :populated_days]
+    def requested_days = import_artifact[wf, :requested_days]
+    def name(a, n) { ImportArtifact(a) and batch_artifact:name(wf, a, n) }
+    def location(a, l) { ImportArtifact(a) and batch_artifact:location(wf, a, l) }
+
+end
+
+module import_artifact_report_config[wf in Workflow]
+    def data = import_artifact_report[wf]
+
+    def syntax:header = {
+        1, :future ;
+        2, :name ;
+        3, :location ;
+        4, :populated ;
+        5, :populated_days ;
+        6, :requested_days
+    }
+
+end
+
+module export_artifact_report_config[wf in Workflow]
+    def data = export_artifact_report[wf]
+
+    def syntax:header = {
+        1, :future ;
+        2, :name ;
+        3, :location
+    }
+
+end
