@@ -177,8 +177,8 @@ ic source_has_unique_input_format(s) {
     source:format(s, _)
 }
 // currently we do not support chunk partitioning for not date partitioned source
-ic not_date_partitioned_should_be_simple_source(s) {
-    SimpleSource(s)
+ic multi_part_source_is_date_partitioned(s) {
+    MultiPartSource(s)
     implies
     source:date_partitioned(s)
 }
