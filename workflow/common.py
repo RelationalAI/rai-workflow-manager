@@ -68,8 +68,8 @@ class Source:
     relative_path: str
     input_format: str
     extensions: List[str]
-    is_partitioned: bool
-    is_master: bool
+    is_chunk_partitioned: bool
+    is_date_partitioned: bool
     loads_number_of_days: int
     offset_by_number_of_days: int
     paths: List[str]

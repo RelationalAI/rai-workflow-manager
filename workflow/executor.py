@@ -153,7 +153,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             date_range = extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
                                             src.offset_by_number_of_days)
             inflated_paths = self.paths_builder.build(logger, date_range, src.relative_path, src.extensions,
-                                                      src.is_master)
+                                                      src.is_date_partitioned)
             src.paths = inflated_paths
 
 
@@ -190,8 +190,8 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                 relative_path = source["relativePath"]
                 input_format = source["inputFormat"]
                 extensions = source.get("extensions", [input_format])
-                is_partitioned = source["isPartitioned"]
-                is_master = source.get("isMaster", False)
+                is_chunk_partitioned = source.get("isChunkPartitioned", False)
+                is_date_partitioned = source.get("isDatePartitioned", False)
                 loads_number_of_days = source.get("loadsNumberOfDays")
                 offset_by_number_of_days = source.get("offsetByNumberOfDays")
                 result.append(Source(
@@ -199,8 +199,8 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                     relative_path,
                     input_format,
                     extensions,
-                    is_partitioned,
-                    is_master,
+                    is_chunk_partitioned,
+                    is_date_partitioned,
                     loads_number_of_days,
                     offset_by_number_of_days,
                     []
@@ -228,7 +228,7 @@ class LoadDataWorkflowStep(WorkflowStep):
 
     def _load_source(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, src):
         source_name = src["source"]
-        if 'is_master' in src and src['is_master'] == 'F':
+        if 'is_date_partitioned' in src and src['is_date_partitioned'] == 'Y':
             if self.collapse_partitions_on_load:
                 srcs = src["dates"]
                 first_date = srcs[0]["date"]

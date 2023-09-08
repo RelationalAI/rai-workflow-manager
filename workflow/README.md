@@ -46,10 +46,10 @@ Steps of this type are used to configure sources which workflow manager will use
 * `configFiles`(required) is used to specify the configuration files to install. Leave empty if no configuration files are needed.
 * `sources`(required) is used to specify the sources to configure.
   * `relation`(required) is used to specify the name of the relation to which the source should be uploaded.
-  * `isPartitioned`(required) is used to specify whether the source is partitioned(split on chunks).
+  * `isChunkPartitioned`(optional) is used to specify whether the source is chunk partitioned(split on chunks). By default `False`.
   * `relativePath`(required) is used to specify the relative path of the source on Blob storage or in data on file system.
   * `inputFormat`(required) is used to specify the input format of the source. The supported input formats are `csv`, `jsonl`.
-  * `isMaster`(optional) is used to specify whether the relation is a master relation. Master sources are used to load data which is not partitioned by date.
+  * `isDatePartitioned`(optional) is used to specify is partitioned by date. By default `False`.
   * `extensions`(optional) is used to specify the extensions of the source which will be associated with the `inputFormat`. If not specified, the `inputFormat` will be used default extensions are used.
   * `loadsNumberOfDays`(optional) is used to specify the number of days to load.
 ```json
@@ -62,14 +62,13 @@ Steps of this type are used to configure sources which workflow manager will use
   "sources": [
     {
       "relation": "master_data",
-      "isPartitioned": false,
       "relativePath": "master_source/data",
-      "inputFormat": "csv",
-      "isMaster": true
+      "inputFormat": "csv"
     },
     {
       "relation": "devices",
-      "isPartitioned": true,
+      "isChunkPartitioned": true,
+      "isDatePartitioned": true,
       "relativePath": "source/devices_info",
       "inputFormat": "jsonl",
       "extensions": [
@@ -81,6 +80,8 @@ Steps of this type are used to configure sources which workflow manager will use
   ]
 }
 ```
+#### Limitations
+- We do not support chunk partitioning for sources which are not partitioned by date.
 
 ### Install Model
 

@@ -1,6 +1,6 @@
 bound simple_relation = String
 bound multi_part_relation = String
-bound master_source = String
+bound date_partitioned_source = String
 bound source_declares_resource = String, String
 bound source_has_input_format = String, String
 bound source_catalog
@@ -176,11 +176,11 @@ ic source_has_unique_input_format(s) {
     implies
     source:format(s, _)
 }
-// currently no support for partitioned master source data
-ic master_source_not_partitioned(s) {
-    source:master(s)
+// currently we do not support chunk partitioning for not date partitioned source
+ic multi_part_source_is_date_partitioned(s) {
+    MultiPartSource(s)
     implies
-    SimpleSource(s)
+    source:date_partitioned(s)
 }
 
 module source
@@ -204,7 +204,7 @@ module source
         forall(r: declares(s, r) implies not resource:local(r) )
     }
 
-    def master(s) { s = relation:identifies[ rel_name:identifies[ ^RelName[master_source] ] ] }
+    def date_partitioned(s) { s = relation:identifies[ rel_name:identifies[ ^RelName[date_partitioned_source] ] ] }
 
     def format(s, f) {
         source_has_input_format(rel, raw_input_format) and
@@ -299,7 +299,7 @@ def resource:index(s, d, r, i) {
 }
 
 def resource:index(s, r, i) {
-    source:master(s) and
+    not source:date_partitioned(s) and
     sort[res:
          resource:needed(res) and
          resource:part_of(res, s)](i, r)
@@ -342,13 +342,13 @@ def missing_resources_json(:[], n, :is_local, "Y") {
     from s
 }
 
-def missing_resources_json(:[], n, :is_master, v) {
+def missing_resources_json(:[], n, :is_date_partitioned, v) {
     source:needs_resource(s) and
     source:index[s] = n and
-    ( source:master(s) and
+    ( source:date_partitioned(s) and
       v = "Y"
       or
-      not source:master(s) and
+      not source:date_partitioned(s) and
       v = "F" )
     from s
 }
