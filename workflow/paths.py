@@ -11,7 +11,7 @@ from workflow import blob, constants
 
 class PathsBuilder:
 
-    def build(self, logger: logging.Logger, date_range: List[datetime], relative_path: List[str], input_format,
+    def build(self, logger: logging.Logger, date_range: List[datetime], relative_path: str, input_format,
               is_date_partitioned: bool) -> List[str]:
         paths = self._build(logger, date_range, relative_path, input_format, is_date_partitioned)
         if not paths:
@@ -20,7 +20,7 @@ class PathsBuilder:
             input_format=`{input_format}`, is_date_partitioned=`{is_date_partitioned}`""")
         return paths
 
-    def _build(self, logger: logging.Logger, date_range: List[datetime], relative_path: List[str], input_format,
+    def _build(self, logger: logging.Logger, date_range: List[datetime], relative_path: str, input_format,
                is_date_partitioned: bool) -> List[str]:
         raise NotImplementedError("This class is abstract")
 
