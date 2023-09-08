@@ -125,19 +125,36 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     config_files: List[str]
     rel_config_dir: str
     sources: List[Source]
+    paths_builder: paths.PathsBuilder
+    start_date: str
+    end_date: str
 
-    def __init__(self, idt, name, state, timing, engine_size, config_files, rel_config_dir, sources):
+    def __init__(self, idt, name, state, timing, engine_size, config_files, rel_config_dir, sources, paths_builder,
+                 start_date, end_date):
         super().__init__(idt, name, state, timing, engine_size)
         self.config_files = config_files
         self.rel_config_dir = rel_config_dir
         self.sources = sources
+        self.paths_builder = paths_builder
+        self.start_date = start_date
+        self.end_date = end_date
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing ConfigureSources step..")
 
         rai.install_models(logger, rai_config, build_models(self.config_files, self.rel_config_dir))
 
+        self._inflate_sources(logger)
         rai.execute_query(logger, rai_config, q.populate_source_configs(self.sources), readonly=False)
+
+    def _inflate_sources(self, logger: logging.Logger):
+        for src in self.sources:
+            logger.info(f"Inflating source: '{src.relation}'")
+            date_range = extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
+                                            src.offset_by_number_of_days)
+            inflated_paths = self.paths_builder.build(logger, date_range, src.relative_path, src.extensions,
+                                                      src.is_master)
+            src.paths = inflated_paths
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
@@ -158,15 +175,14 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
         else:
             raise Exception("unsupported mode")
         rel_config_dir = config.step_params[constants.REL_CONFIG_DIR]
+        sources = self._parse_sources(step["sources"])
         start_date = config.step_params[constants.START_DATE]
         end_date = config.step_params[constants.END_DATE]
         return ConfigureSourcesWorkflowStep(idt, name, state, timing, engine_size, step["configFiles"], rel_config_dir,
-                                            self._inflate_sources(logger, step["sources"], start_date, end_date,
-                                                                  paths_builder))
+                                            sources, paths_builder, start_date, end_date)
 
     @staticmethod
-    def _inflate_sources(logger: logging.Logger, sources: List[Dict], start_date, end_date,
-                         paths_builder: paths.PathsBuilder) -> List[Source]:
+    def _parse_sources(sources: List[Dict],) -> List[Source]:
         result = []
         for source in sources:
             if "future" not in source or not source["future"]:
@@ -180,15 +196,14 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                 offset_by_number_of_days = source.get("offsetByNumberOfDays")
                 result.append(Source(
                     relation,
+                    relative_path,
                     input_format,
-                    paths_builder.build(logger,
-                                        extract_date_range(logger, start_date, end_date, loads_number_of_days,
-                                                           offset_by_number_of_days),
-                                        relative_path,
-                                        extensions,
-                                        is_master),
+                    extensions,
                     is_partitioned,
-                    is_master
+                    is_master,
+                    loads_number_of_days,
+                    offset_by_number_of_days,
+                    []
                 ))
         return result
 
@@ -237,7 +252,8 @@ class LoadDataWorkflowStep(WorkflowStep):
             logger.info(f"Loading master source'{source_name}'")
             self._load_resource(logger, env_config, rai_config, src["resources"], src)
 
-    def _load_resource(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) -> None:
+    @staticmethod
+    def _load_resource(logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) -> None:
         try:
             rai.execute_query(logger, rai_config, q.load_resources(logger, env_config, resources, src), readonly=False)
         except KeyError as e:

@@ -65,10 +65,14 @@ class SourceType(Enum):
 @dataclasses.dataclass
 class Source:
     relation: str
+    relative_path: str
     input_format: str
-    paths: List[str]
+    extensions: List[str]
     is_partitioned: bool
     is_master: bool
+    loads_number_of_days: int
+    offset_by_number_of_days: int
+    paths: List[str]
 
     def to_paths_csv(self) -> str:
         return "\n".join([f"{self.relation},{path}" for path in self.paths])
