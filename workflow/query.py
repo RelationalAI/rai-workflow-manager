@@ -42,9 +42,9 @@ def populate_source_configs(sources: List[Source]) -> str:
     source_config_csv = "\n".join([source.to_paths_csv() for source in sources])
     data_formats_csv = "\n".join([source.to_formats_csv() for source in sources])
 
-    simple_sources = list(filter(lambda source: not source.is_partitioned, sources))
-    multipart_sources = list(filter(lambda source: source.is_partitioned, sources))
-    master_sources = list(filter(lambda source: source.is_master, sources))
+    simple_sources = list(filter(lambda source: not source.is_chunk_partitioned, sources))
+    multipart_sources = list(filter(lambda source: source.is_chunk_partitioned, sources))
+    date_partitioned_sources = list(filter(lambda source: source.is_date_partitioned, sources))
 
     return f"""
         def resource_config[:data] = \"\"\"{source_config_csv}\"\"\"
@@ -72,7 +72,7 @@ def populate_source_configs(sources: List[Source]) -> str:
 
         {f"def insert:simple_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
         {f"def insert:multi_part_relation = {_to_rel_literal_relation([source.relation for source in multipart_sources])}" if len(multipart_sources) > 0 else ""}
-        {f"def insert:master_source = {_to_rel_literal_relation([source.relation for source in master_sources])}" if len(master_sources) > 0 else ""}
+        {f"def insert:date_partitioned_source = {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
     """
 
 

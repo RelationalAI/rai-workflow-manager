@@ -9,21 +9,21 @@
       "sources": [
         {
           "relation": "zip_city_state_master_data",
-          "isPartitioned": false,
           "relativePath": "master_source/zip_city_state",
-          "inputFormat": "csv",
-          "isMaster": true
+          "inputFormat": "csv"
         },
         {
           "relation": "device_data",
-          "isPartitioned": true,
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
           "relativePath": "device",
           "inputFormat": "csv",
           "loadsNumberOfDays": 60
         },
         {
           "relation": "store_data",
-          "isPartitioned": true,
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
           "relativePath": "store",
           "inputFormat": "jsonl",
           "extensions": [

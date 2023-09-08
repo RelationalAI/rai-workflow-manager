@@ -67,8 +67,8 @@ class Source:
     relation: str
     input_format: str
     paths: List[str]
-    is_partitioned: bool
-    is_master: bool
+    is_chunk_partitioned: bool
+    is_date_partitioned: bool
 
     def to_paths_csv(self) -> str:
         return "\n".join([f"{self.relation},{path}" for path in self.paths])
