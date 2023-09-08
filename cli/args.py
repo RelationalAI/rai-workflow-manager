@@ -50,7 +50,7 @@ def parse() -> Namespace:
     )
     parser.add_argument(
         "--end-date", help="End date for model data. Format: 'YYYYmmdd'",
-        required=True,
+        required=False,
         type=str
     )
     parser.add_argument(

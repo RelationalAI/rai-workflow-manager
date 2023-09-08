@@ -6,11 +6,9 @@ This Command-Line Interface (CLI) is designed to provide an easy and interactive
 1. Create a batch configuration (ex. `poc.json`) file using the syntax and structure outlined in the [RAI Workflow Framework README](../workflow/README.md).
 2. Add `rai-workflow-manager` as dependency to your `requirements.txt` file:
 ```txt
-git+ssh://git@github.com/RelationalAI/rai-workflow-manager.git@v0.0.2
+rai-workflow-manager==0.0.9
 ```
-3. Make sure you added ssh key to your GitHub account:
-> Settings > SSH and GPG keys
-4. Build the project:
+3. Build the project:
 ```bash
 pyenv install 3.9
 pyenv local 3.9
@@ -20,14 +18,14 @@ python -m virtualenv venv
 source ./venv/bin/activate
 pip install -r requirements.txt
 ```
-5. Create main.py file with the following content:
+4. Create main.py file with the following content:
 ```python
 import cli.runner
 
 if __name__ == "__main__":
     cli.runner.start()
 ```
-6. Run the following command to execute the batch configuration:
+5. Run the following command to execute the batch configuration:
 ```bash
 python main.py \
   --run-mode local \
@@ -36,7 +34,6 @@ python main.py \
   --batch-config poc.json \
   --env-config loader.toml \
   --engine <engine> \
-  --end-date 20220101 \
   --database <database> \
   --output-root ./output
 ```
@@ -53,7 +50,7 @@ where `<engine>`, `<database>` are the names of some RAI resources to use, `<pat
 | The size of RAI engine                                                                                    | `--engine-size`                 | `False`     | `XS`                    | `String`                | `['XS', 'S', 'M', 'L', 'XL']`                       |
 | Run mode                                                                                                  | `--run-mode`                    | `True`      |                         | `String`                | `['local', 'remote']`                               |
 | Model earliest date to consider                                                                           | `--start-date`                  | `False`     |                         | `String`                | format `YYYYmmdd`                                   |
-| Model latest date to consider                                                                             | `--end-date`                    | `True`      |                         | `String`                | format `YYYYmmdd`                                   |
+| Model latest date to consider                                                                             | `--end-date`                    | `False`     |                         | `String`                | format `YYYYmmdd`                                   |
 | Directory containing dev data                                                                             | `--dev-data-dir`                | `False`     | `../data`               | `String`                |                                                     |
 | Directory containing rel config files to install                                                          | `--rel-config-dir`              | `False`     | `../rel`                | `String`                |                                                     |
 | Path to `loader.toml`                                                                                     | `--env-config`                  | `False`     | `../config/loader.toml` | `String`                |                                                     |
