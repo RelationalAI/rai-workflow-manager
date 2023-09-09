@@ -12,7 +12,6 @@ from workflow.manager import ResourceManager
 from workflow import query as q, paths, rai, constants
 from types import MappingProxyType
 
-
 CONFIGURE_SOURCES = 'ConfigureSources'
 INSTALL_MODELS = 'InstallModels'
 LOAD_DATA = 'LoadData'
@@ -150,14 +149,26 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     def _inflate_sources(self, logger: logging.Logger):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
-            date_range = extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
-                                            src.offset_by_number_of_days)
+            date_range = []
+            if src.is_date_partitioned:
+                date_range.extend(extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
+                                                     src.offset_by_number_of_days))
+
             inflated_paths = self.paths_builder.build(logger, date_range, src.relative_path, src.extensions,
                                                       src.is_date_partitioned)
             src.paths = inflated_paths
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
+
+    def _validate_params(self, config: WorkflowConfig, step: dict) -> None:
+        super()._validate_params(config, step)
+        end_date = config.step_params[constants.END_DATE]
+        sources = self._parse_sources(step["sources"])
+        if not end_date:
+            for s in sources:
+                if s.is_date_partitioned:
+                    raise ValueError(f"End date is required for date partitioned source: {s.relation}")
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         required_params = [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]
@@ -182,7 +193,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                                             sources, paths_builder, start_date, end_date)
 
     @staticmethod
-    def _parse_sources(sources: List[Dict],) -> List[Source]:
+    def _parse_sources(sources: List[Dict]) -> List[Source]:
         result = []
         for source in sources:
             if "future" not in source or not source["future"]:
@@ -212,7 +223,7 @@ class LoadDataWorkflowStep(WorkflowStep):
     collapse_partitions_on_load: bool
 
     def __init__(self, idt, name, state, timing, engine_size, collapse_partitions_on_load):
-        super().__init__(idt, name, state, timing, engine_size,)
+        super().__init__(idt, name, state, timing, engine_size)
         self.collapse_partitions_on_load = collapse_partitions_on_load
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
