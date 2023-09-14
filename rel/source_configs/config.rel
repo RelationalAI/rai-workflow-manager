@@ -5,6 +5,7 @@ bound source_declares_resource = String, String
 bound source_has_input_format = String, String
 bound source_catalog
 bound simple_source_catalog
+bound resources_to_delete
 bound part_resource_date_pattern = String
 bound part_resource_index_pattern = String
 bound part_resource_index_multiplier = Int
@@ -73,11 +74,18 @@ module part_resource
     def shard_alias = "shard"; "rai_shard"
 
     def hashes_to_part_index(r, n) {
-        uri:identifies(u, r) and
-        d = parse_int[ uri:parse[u, "date"] ] and
-        s = parse_int[ uri:parse[u, shard_alias] ] and
+        uri:identifies(^URI[v], r) and
+        uri:value(v) and
+        parse_part_index[v](n)
+        from v
+    }
+
+    @inline
+    def parse_part_index[v](n) {
+        d = parse_int[ uri:parse_value[v, "date"] ] and
+        s = parse_int[ uri:parse_value[v, shard_alias] ] and
         n = ^PartIndex[ d * part_resource_index_multiplier + s ]
-        from u, d, s
+        from d, s
     }
 end
 
@@ -89,21 +97,24 @@ module uri
         r = ^Resource[u]
         from v
     }
-    
+
     def value(v) { source_declares_resource(_, v) }
 
     def parse(u, i, d) {
         value(v) and
         u = ^URI[v] and
-        d = capture_group_by_name[ part_resource_date_pattern, v, 1, i ]
+        parse_value[v](i, d)
         from v
     }
 
-    def parse(u, i, d) {
-        value(v) and
-        u = ^URI[v] and
+    @inline
+    def parse_value[v](i, d) {
         d = capture_group_by_name[ part_resource_index_pattern, v, 1, i ]
-        from v
+    }
+
+    @inline
+    def parse_value[v](i, d) {
+        d = capture_group_by_name[ part_resource_date_pattern, v, 1, i ]
     }
 
 end
@@ -399,6 +410,21 @@ def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_ind
     resource:index[s, d, r] = k and
     n = part_resource:hashes_to_part_index[r]
     from s, r, d
+}
+
+def resources_to_delete_idx = enumerate[resources_to_delete]
+def resources_to_delete_json(:[], i, :relation, s) {
+    resources_to_delete_idx(i, r, _) and
+    s = relname_string[r]
+    from r
+}
+def resources_to_delete_json(:[], i, :relation, s) {
+    resources_to_delete_idx(i, r) and
+    s = relname_string[r]
+    from r
+}
+def resources_to_delete_json(:[], i, :partition, p) {
+    resources_to_delete_idx(i, _, p)
 }
 
 /**

@@ -54,6 +54,22 @@ def parse() -> Namespace:
         type=str
     )
     parser.add_argument(
+        "--force-reimport-not-chunk-partitioned",
+        help="Force RAI workflow manager reimport only changed data for specified date range and all sources are not"
+             " partitioned by date",
+        required=False,
+        action="store_true",
+        default=False
+    )
+    parser.add_argument(
+        "--force-reimport",
+        help="Force RAI workflow manager reimport data for specified date range and all sources which are not"
+             " partitioned by date",
+        required=False,
+        action="store_true",
+        default=False
+    )
+    parser.add_argument(
         "--dev-data-dir", help="Directory containing dev data",
         required=False,
         default="../data",
@@ -96,9 +112,8 @@ def parse() -> Namespace:
     parser.add_argument(
         "--drop-db",
         help="Drop RAI database before run, or not",
-        required=False,
-        default=True,
-        type=bool
+        action=BooleanOptionalAction,
+        default=False
     )
     parser.add_argument(
         "--engine-size",

@@ -1,0 +1,26 @@
+{
+  "workflow": [
+    {
+      "type": "ConfigureSources",
+      "name": "ConfigureSources",
+      "configFiles": [
+        "config/scenario2.rel"
+      ],
+      "sources": [
+        {
+          "relation": "zip_city_state_master_data",
+          "relativePath": "master_source/zip_city_state",
+          "inputFormat": "csv"
+        },
+        {
+          "relation": "city_data",
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
+          "relativePath": "temp/city",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 60
+        }
+      ]
+    }
+  ]
+}

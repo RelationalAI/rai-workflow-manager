@@ -67,12 +67,113 @@ def populate_source_configs(sources: List[Source]) -> str:
 
         def input_format_config_csv = load_csv[input_format_config]
 
-        def insert:source_has_input_format(r,p) =
+        def insert:source_has_input_format(r, p) =
             exists(i : input_format_config_csv(:Relation, i, r) and input_format_config_csv(:InputFormatCode, i, p))
 
         {f"def insert:simple_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
         {f"def insert:multi_part_relation = {_to_rel_literal_relation([source.relation for source in multipart_sources])}" if len(multipart_sources) > 0 else ""}
         {f"def insert:date_partitioned_source = {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
+    """
+
+
+def discover_reimport_sources(sources: List[Source], force_reimport: bool, force_reimport_not_chunk_partitioned: bool) -> str:
+    date_partitioned_src_cfg_csv = ""
+    for src in sources:
+        date_partitioned_src_cfg_csv += f"{src.to_chunk_partitioned_paths_csv()}\n"
+    return f"""
+        def force_reimport = {"true" if force_reimport else "false"}
+        def force_reimport_not_chunk_partitioned = {"true" if force_reimport_not_chunk_partitioned else "false"}
+    
+        def resource_config[:data] = \"\"\"{date_partitioned_src_cfg_csv}\"\"\"
+        def resource_config[:syntax, :header_row] = -1
+        def resource_config[:syntax, :header] = (1, :Relation); (2, :Path); (3, :ChunkPartitioned)
+        def resource_config[:schema, :Relation] = "string"
+        def resource_config[:schema, :Path] = "string"
+        def resource_config[:schema, :ChunkPartitioned] = "string"
+
+        def source_config_csv = load_csv[resource_config]
+
+        def chunk_partitioned_sources(rel, path, p_idx) {{
+            source_config_csv(:Path, i, path) and
+            source_config_csv(:Relation, i, rel) and
+            source_config_csv(:ChunkPartitioned, i, "True") and
+            p_idx = part_resource:parse_part_index[path]
+            from i
+        }}
+        
+        def simple_sources(rel, path) {{ 
+            source_config_csv(:Path, i, path) and
+            source_config_csv(:Relation, i, rel) and
+            not chunk_partitioned_sources(rel, path, _)
+            from i
+        }}
+        // TODO: add support for chunk partitioned sources which are not date partitioned
+        /*
+         * All simple sources are affected if they match with declared sources.
+         */
+        def potentially_affected_sources(rel, path) {{
+            source_declares_resource(rel, path) and
+            simple_sources(rel, path)
+        }}
+        /*
+         * All chunk partitioned sources for given date are affected in case new sources have at least one partition in this date.
+         */
+        def potentially_affected_sources(rel, o_path, p_idx) {{
+            chunk_partitioned_sources(rel, n_path, _) and
+            res = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] . source:declares and
+            part_resource:hashes_to_date[res] = parse_date[ uri:parse_value[n_path, "date"], "yyyymmdd"] and
+            part_resource:hashes_to_part_index(res, p_idx) and
+            resource:id(res, ^URI[o_path])
+            from n_path, res
+        }}
+        /*
+         * Identify sources for replacement.
+         */
+        def part_resource_to_replace(rel, p_idx, path) {{
+            not force_reimport and
+            potentially_affected_sources(rel, path, p_idx) and
+            not chunk_partitioned_sources(rel, path, p_idx)
+        }}
+        
+        def part_resource_to_replace(rel, p_idx, path) {{
+            force_reimport and
+            potentially_affected_sources(rel, path, p_idx)
+        }}
+        
+        def resource_to_replace(rel, o_path) {{
+            force_reimport_not_chunk_partitioned and
+            simple_sources(rel, o_path)
+        }}
+        
+        def resource_to_replace(rel, o_path) {{
+            force_reimport and
+            simple_sources(rel, o_path)
+        }}
+        
+        /*
+         * Save resources that we are marked for data reimport.
+         */
+        // PRODUCT_LIMITATION: Message: Argument for specializing is more complex than the current staging implementation supports.
+        def reverse_part_resource_to_replace(path, p_idx, rel) = part_resource_to_replace(rel, p_idx, path)
+        // resource partitions to delete
+        def insert:resources_to_delete(rel, val) {{
+            rel = #(reverse_part_resource_to_replace[_, p_idx]) and
+            p_idx = ^PartIndex[val]
+            from p_idx
+        }}
+        // resources to delete
+        def insert:resources_to_delete(rel) {{
+            rel = #(transpose[resource_to_replace][_])
+        }}
+        /*
+         * Clean up the declared resources that we are marked for data reimport.
+         */
+        def delete:source_declares_resource(rel, path) {{
+            part_resource_to_replace(rel, _, path)
+        }}
+        def delete:source_declares_resource(rel, path) {{
+            resource_to_replace(rel, path)
+        }}
     """
 
 

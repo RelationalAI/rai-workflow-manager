@@ -47,6 +47,8 @@ def start():
             workflow.constants.LOCAL_DATA_DIR: args.dev_data_dir,
             workflow.constants.START_DATE: args.start_date,
             workflow.constants.END_DATE: args.end_date,
+            workflow.constants.FORCE_REIMPORT: args.force_reimport,
+            workflow.constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED: args.force_reimport_not_chunk_partitioned,
             workflow.constants.COLLAPSE_PARTITIONS_ON_LOAD: args.collapse_partitions_on_load
         }
         config = workflow.executor.WorkflowConfig(env_config, args.run_mode,
