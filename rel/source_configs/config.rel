@@ -5,7 +5,6 @@ bound source_declares_resource = String, String
 bound source_has_input_format = String, String
 bound source_catalog
 bound simple_source_catalog
-bound resources_to_delete
 bound part_resource_date_pattern = String
 bound part_resource_index_pattern = String
 bound part_resource_index_multiplier = Int
@@ -410,21 +409,6 @@ def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_ind
     resource:index[s, d, r] = k and
     n = part_resource:hashes_to_part_index[r]
     from s, r, d
-}
-
-def resources_to_delete_idx = enumerate[resources_to_delete]
-def resources_to_delete_json(:[], i, :relation, s) {
-    resources_to_delete_idx(i, r, _) and
-    s = relname_string[r]
-    from r
-}
-def resources_to_delete_json(:[], i, :relation, s) {
-    resources_to_delete_idx(i, r) and
-    s = relname_string[r]
-    from r
-}
-def resources_to_delete_json(:[], i, :partition, p) {
-    resources_to_delete_idx(i, _, p)
 }
 
 /**

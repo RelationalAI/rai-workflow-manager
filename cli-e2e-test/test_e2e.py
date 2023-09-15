@@ -38,7 +38,7 @@ class CliE2ETest(unittest.TestCase):
         rsp = call(self.cmd_with_common_arguments + test_args)
         # then
         self.assertNotEqual(rsp, 1)
-        self.assert_output_dir_files()
+        self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
     def test_scenario2_model_no_data_changes(self):
         # when
@@ -53,8 +53,8 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rps_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
-        self.assertEqual(rps_json, {})
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        self.assertEqual(rsp_json, {})
 
     def test_scenario2_model_force_reimport(self):
         # when
@@ -69,8 +69,8 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rps_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
-        self.assertEqual(rps_json, [{'partition': 2023090800001, 'relation': 'city_data'},
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'},
                                     {'partition': 2023090900001, 'relation': 'city_data'},
                                     {'relation': 'zip_city_state_master_data'}])
@@ -88,8 +88,8 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rps_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
-        self.assertEqual(rps_json, [{'relation': 'zip_city_state_master_data'}])
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        self.assertEqual(rsp_json, [{'relation': 'zip_city_state_master_data'}])
 
     def test_scenario3_model_single_partition_change(self):
         # when
@@ -110,8 +110,8 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rps_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
-        self.assertEqual(rps_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
 
     def test_scenario3_model_two_partitions_overriden_by_one(self):
         # when
@@ -133,9 +133,30 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rps_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
-        self.assertEqual(rps_json, [{'partition': 2023090800001, 'relation': 'city_data'},
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'}])
+
+    def test_scenario4_model_reimport_2_partitions_data_with_1(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario4.json",
+                     "--start-date", "20230908",
+                     "--end-date", "20230908"]
+        data_folder = "/city"
+        # copy data for scenario 3
+        shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        # replace files to simulate data refresh
+        shutil.rmtree(f"{self.temp_folder}{data_folder}/data_dt=20230908")
+        shutil.copytree(f"{self.dev_data_dir}{data_folder}/data_dt=20230909",
+                        f"{self.temp_folder}{data_folder}/data_dt=20230908")
+        rsp = call(self.cmd_with_common_arguments + test_args)
+        # then
+        self.assertNotEqual(rsp, 1)
+        self.assert_output_dir_files(self.test_scenario4_model_reimport_2_partitions_data_with_1.__name__)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -156,10 +177,10 @@ class CliE2ETest(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.resource_manager.cleanup_resources()
 
-    def assert_output_dir_files(self):
-        for filename in os.listdir(self.output):
+    def assert_output_dir_files(self, scenario: str):
+        for filename in os.listdir(f"{self.output}"):
             actual_path = os.path.join(self.output, filename)
-            expected_path = os.path.join(self.expected, filename)
+            expected_path = os.path.join(f"{self.expected}/{scenario}", filename)
             with open(actual_path, 'r') as actual, open(expected_path, 'r') as expected:
                 diff = compare(
                     load_csv(actual),

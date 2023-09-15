@@ -1,6 +1,7 @@
 
 COMMON_MODEL = [
     "source_configs/config.rel",
+    "source_configs/data_reload.rel",
     "batch_config/batch_config.rel",
     "batch_config/workflow/workflow.rel",
     "batch_config/workflow/steps/configure_sources.rel",

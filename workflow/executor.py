@@ -242,6 +242,8 @@ class LoadDataWorkflowStep(WorkflowStep):
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing LoadData step..")
 
+        rai.execute_query(logger, rai_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
+
         missed_resources = rai.execute_relation_json(logger, rai_config, constants.MISSED_RESOURCES_REL)
 
         if not missed_resources:

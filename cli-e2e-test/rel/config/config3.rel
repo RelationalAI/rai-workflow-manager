@@ -7,22 +7,6 @@ module export_config
             1, :name
         }
     end
-
-    module devices_csv
-        def data = device
-
-        def syntax:header = {
-            1, :name
-        }
-    end
-
-    module stores_csv
-        def data = store
-
-        def syntax:header = {
-            1, :name
-        }
-    end
 end
 
 def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"
