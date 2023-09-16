@@ -11,6 +11,18 @@ from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION
 # Static queries
 DISABLE_IVM = "def insert:relconfig:disable_ivm = true"
 
+DELETE_REFRESHED_SOURCES_DATA = """
+    def delete:source_catalog(r, p_i, data...) {
+        resources_data_to_delete(r, p_i) and
+        source_catalog(r, p_i, data...)
+    }
+    def delete:simple_source_catalog(r, data...) {
+        resources_data_to_delete(r) and
+        source_catalog(r, data...)
+    }
+    def delete:declared_sources_to_delete = declared_sources_to_delete
+    def delete:resources_data_to_delete = resources_data_to_delete
+"""
 
 @dataclasses.dataclass
 class QueryWithInputs:
@@ -47,6 +59,8 @@ def populate_source_configs(sources: List[Source]) -> str:
     date_partitioned_sources = list(filter(lambda source: source.is_date_partitioned, sources))
 
     return f"""
+        def delete:source_declares_resource = declared_sources_to_delete
+        
         def resource_config[:data] = \"\"\"{source_config_csv}\"\"\"
         def resource_config[:syntax, :header_row] = -1
         def resource_config[:syntax, :header] = (1, :Relation); (2, :Path)
@@ -67,12 +81,31 @@ def populate_source_configs(sources: List[Source]) -> str:
 
         def input_format_config_csv = load_csv[input_format_config]
 
-        def insert:source_has_input_format(r,p) =
+        def insert:source_has_input_format(r, p) =
             exists(i : input_format_config_csv(:Relation, i, r) and input_format_config_csv(:InputFormatCode, i, p))
 
         {f"def insert:simple_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
         {f"def insert:multi_part_relation = {_to_rel_literal_relation([source.relation for source in multipart_sources])}" if len(multipart_sources) > 0 else ""}
         {f"def insert:date_partitioned_source = {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
+    """
+
+
+def discover_reimport_sources(sources: List[Source], force_reimport: bool, force_reimport_not_chunk_partitioned: bool) -> str:
+    date_partitioned_src_cfg_csv = ""
+    for src in sources:
+        date_partitioned_src_cfg_csv += f"{src.to_chunk_partitioned_paths_csv()}\n"
+    return f"""
+        def force_reimport = {"true" if force_reimport else "false"}
+        def force_reimport_not_chunk_partitioned = {"true" if force_reimport_not_chunk_partitioned else "false"}
+
+        def resource_config = new_source_config
+        def resource_config[:data] = \"\"\"{date_partitioned_src_cfg_csv}\"\"\"
+        def new_source_config_csv = load_csv[resource_config]
+        
+        def insert:declared_sources_to_delete = resource_to_replace
+        def insert:declared_sources_to_delete(rel, path) = part_resource_to_replace(rel, _, path)
+        
+        def insert:resources_data_to_delete = resources_to_delete
     """
 
 

@@ -127,9 +127,11 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     paths_builder: paths.PathsBuilder
     start_date: str
     end_date: str
+    force_reimport: bool
+    force_reimport_not_chunk_partitioned: bool
 
     def __init__(self, idt, name, state, timing, engine_size, config_files, rel_config_dir, sources, paths_builder,
-                 start_date, end_date):
+                 start_date, end_date, force_reimport, force_reimport_not_chunk_partitioned):
         super().__init__(idt, name, state, timing, engine_size)
         self.config_files = config_files
         self.rel_config_dir = rel_config_dir
@@ -137,6 +139,8 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         self.paths_builder = paths_builder
         self.start_date = start_date
         self.end_date = end_date
+        self.force_reimport = force_reimport
+        self.force_reimport_not_chunk_partitioned = force_reimport_not_chunk_partitioned
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing ConfigureSources step..")
@@ -144,17 +148,22 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         rai.install_models(logger, rai_config, build_models(self.config_files, self.rel_config_dir))
 
         self._inflate_sources(logger)
+        # mark declared sources for reimport
+        rai.execute_query(logger, rai_config, q.discover_reimport_sources(self.sources, self.force_reimport,
+                                                                          self.force_reimport_not_chunk_partitioned),
+                          readonly=False)
+        # populate declared sources
         rai.execute_query(logger, rai_config, q.populate_source_configs(self.sources), readonly=False)
 
     def _inflate_sources(self, logger: logging.Logger):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
-            date_range = []
+            days = []
             if src.is_date_partitioned:
-                date_range.extend(extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
-                                                     src.offset_by_number_of_days))
+                days.extend(extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
+                                               src.offset_by_number_of_days))
 
-            inflated_paths = self.paths_builder.build(logger, date_range, src.relative_path, src.extensions,
+            inflated_paths = self.paths_builder.build(logger, days, src.relative_path, src.extensions,
                                                       src.is_date_partitioned)
             src.paths = inflated_paths
 
@@ -189,8 +198,12 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
         sources = self._parse_sources(step["sources"])
         start_date = config.step_params[constants.START_DATE]
         end_date = config.step_params[constants.END_DATE]
+        force_reimport = config.step_params.get(constants.FORCE_REIMPORT, False)
+        force_reimport_not_chunk_partitioned = config.step_params.get(constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED,
+                                                                      False)
         return ConfigureSourcesWorkflowStep(idt, name, state, timing, engine_size, step["configFiles"], rel_config_dir,
-                                            sources, paths_builder, start_date, end_date)
+                                            sources, paths_builder, start_date, end_date, force_reimport,
+                                            force_reimport_not_chunk_partitioned)
 
     @staticmethod
     def _parse_sources(sources: List[Dict]) -> List[Source]:
@@ -229,6 +242,8 @@ class LoadDataWorkflowStep(WorkflowStep):
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing LoadData step..")
 
+        rai.execute_query(logger, rai_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
+
         missed_resources = rai.execute_relation_json(logger, rai_config, constants.MISSED_RESOURCES_REL)
 
         if not missed_resources:
@@ -260,7 +275,7 @@ class LoadDataWorkflowStep(WorkflowStep):
                     resources = d["resources"]
                     self._load_resource(logger, env_config, rai_config, resources, src)
         else:
-            logger.info(f"Loading master source'{source_name}'")
+            logger.info(f"Loading source '{source_name}' not partitioned by date ")
             self._load_resource(logger, env_config, rai_config, src["resources"], src)
 
     @staticmethod

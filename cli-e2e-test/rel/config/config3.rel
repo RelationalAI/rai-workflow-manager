@@ -1,0 +1,14 @@
+@inline
+module export_config
+    module cities_csv
+        def data = city
+
+        def syntax:header = {
+            1, :name
+        }
+    end
+end
+
+def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"
+def part_resource_index_pattern = "^(.+)/data_dt=(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
+def part_resource_index_multiplier = 100000

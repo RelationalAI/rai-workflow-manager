@@ -1,0 +1,10 @@
+bound import_config:city_data:schema
+bound syntax:header
+
+module city_data
+    def CITY_NAME[idx, row] = source_catalog:city_data[idx, :city, row]
+end
+
+module city
+    def name = city_data:CITY_NAME[_, _]
+end

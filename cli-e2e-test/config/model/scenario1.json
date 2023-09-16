@@ -4,7 +4,7 @@
       "type": "ConfigureSources",
       "name": "ConfigureSources",
       "configFiles": [
-        "config/scenario1.rel"
+        "config/config1.rel"
       ],
       "sources": [
         {
