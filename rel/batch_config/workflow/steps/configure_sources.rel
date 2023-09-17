@@ -29,9 +29,11 @@ module batch_source
     def step(src, st) { batch_source_name:step_source_name_to_source(st, _, src) }
     def extensions(src, e) { extract_value:extensions(src, :[], _, e) }
     def partitioned(src) { extract_value:partitioned(src, boolean_true) }
+    def relation = extract_value:relation
     def relative_path = extract_value:relativePath
     def input_format = extract_value:inputFormat
     def loads_number_of_days = extract_value:loadsNumberOfDays
+    def snapshot_validity_days = extract_value:snapshotValidityDays
 
     @inline
     def extract_value[A](src, val...) {

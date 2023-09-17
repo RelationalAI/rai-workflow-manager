@@ -94,8 +94,8 @@ def get_common_model_relative_path(file) -> str:
     return os.path.dirname(os.path.realpath(file)) + constants.COMMON_MODEL_RELATIVE_PATH
 
 
-def extract_date_range(logger: logging.Logger, start_date_str, end_date_str, number_of_days, offset_of_days) -> List[
-    datetime]:
+def extract_date_range(logger: logging.Logger, start_date_str, end_date_str, number_of_days, offset_of_days) ->\
+                       List[datetime]:
     end_date = parse_date(end_date_str)
     offset = offset_of_days if offset_of_days is not None else 0
     end_date = end_date - timedelta(offset)
@@ -105,3 +105,15 @@ def extract_date_range(logger: logging.Logger, start_date_str, end_date_str, num
 
     logger.info(f"Building range from '{start_date}' to '{end_date}'")
     return range_days(start_date, end_date)
+
+
+def to_rai_date_format(date_format: str) -> str:
+    fmt_part_map = {
+        "%Y": "YYYY",
+        "%m": "mm",
+        "%d": "dd"
+    }
+    rai_date_format = date_format
+    for py_fmt, rai_fmt in fmt_part_map.items():
+        rai_date_format = rai_date_format.replace(py_fmt, rai_fmt)
+    return rai_date_format

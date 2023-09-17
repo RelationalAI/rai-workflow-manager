@@ -1,16 +1,19 @@
+import dataclasses
 import logging
 import time
-import dataclasses
-from more_itertools import peekable
-from typing import List, Dict
+from datetime import datetime
 from enum import Enum
+from itertools import groupby
+from types import MappingProxyType
+from typing import List, Dict
 
-from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
-    get_common_model_relative_path
+from more_itertools import peekable
+
+from workflow import query as q, paths, rai, constants
 from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType
 from workflow.manager import ResourceManager
-from workflow import query as q, paths, rai, constants
-from types import MappingProxyType
+from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
+    get_common_model_relative_path
 
 CONFIGURE_SOURCES = 'ConfigureSources'
 INSTALL_MODELS = 'InstallModels'
@@ -150,12 +153,29 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
             date_range = []
+
+            # For snapshot sources we restrict the `loads_number_of_days` to the `snapshot_validity_days` minus
+            # `offset_by_number_of_days` if the former is set, so we take a full data range to seek the latest
+            # snapshot within. Otherwise, we use the `loads_number_of_days` as is.
+            # Note: `offset_by_number_of_days` must be less than or equal to `snapshot_validity_days`.
             if src.is_date_partitioned:
-                date_range.extend(extract_date_range(logger, self.start_date, self.end_date, src.loads_number_of_days,
-                                                     src.offset_by_number_of_days))
+                offset_by_number_of_days = src.offset_by_number_of_days if src.offset_by_number_of_days else 0
+                loads_number_of_days = src.snapshot_validity_days - offset_by_number_of_days \
+                    if src.snapshot_validity_days else src.loads_number_of_days
+                if loads_number_of_days < 0:
+                    raise ValueError(f"Values must be: `offset_by_number_of_days` <= `snapshot_validity_days`")
+                date_range.extend(extract_date_range(logger, self.start_date, self.end_date, loads_number_of_days,
+                                                     offset_by_number_of_days))
 
             inflated_paths = self.paths_builder.build(logger, date_range, src.relative_path, src.extensions,
                                                       src.is_date_partitioned)
+            if src.is_date_partitioned:
+                # after inflating we take the last `src.loads_number_of_days` days and reduce into an array of paths
+                inflated_paths.sort(key=lambda v: v.as_of_date)
+                grouped_inflated_paths = {date: list(group) for date, group in
+                                          groupby(inflated_paths, key=lambda v: v.as_of_date)}
+                inflated_paths = [path for date, path in grouped_inflated_paths[-src.loads_number_of_days:].items()]
+
             src.paths = inflated_paths
 
 
@@ -205,6 +225,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                 is_date_partitioned = source.get("isDatePartitioned", False)
                 loads_number_of_days = source.get("loadsNumberOfDays")
                 offset_by_number_of_days = source.get("offsetByNumberOfDays")
+                snapshot_validity_days = source.get("snapshotValidityDays")
                 result.append(Source(
                     relation,
                     relative_path,
@@ -214,7 +235,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                     is_date_partitioned,
                     loads_number_of_days,
                     offset_by_number_of_days,
-                    []
+                    snapshot_validity_days
                 ))
         return result
 
@@ -314,20 +335,42 @@ class MaterializeWorkflowStepFactory(WorkflowStepFactory):
 class ExportWorkflowStep(WorkflowStep):
     exports: List[Export]
     export_jointly: bool
+    date_format: str
+    end_date: str
 
-    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly):
+    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date):
         super().__init__(idt, name, state, timing, engine_size)
         self.exports = exports
         self.export_jointly = export_jointly
+        self.date_format = date_format
+        self.end_date = end_date
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing Export step..")
 
+        exports = list(filter(lambda e: self._should_export(logger, rai_config, e), self.exports))
         if self.export_jointly:
-            self._export(logger, env_config, rai_config, self.exports)
+            self._export(logger, env_config, rai_config, exports)
         else:
-            for export in self.exports:
+            for export in exports:
                 self._export(logger, env_config, rai_config, [export])
+
+    def _should_export(self, logger: logging.Logger, rai_config: RaiConfig, export: Export) -> bool:
+        if export.snapshot_binding is None:
+            return True
+        logger.info(f"Checking validity of snapshot: {export.snapshot_binding}")
+        current_date = datetime.strptime(self.end_date, self.date_format)
+        query = q.get_snapshot_expiration_date(export.snapshot_binding, self.date_format)
+        expiration_date_str = rai.execute_query_take_single(logger, rai_config, query)
+        # if nothing returned we opt for exporting the snapshot
+        if expiration_date_str is None:
+            return True
+        expiration_date = datetime.strptime(expiration_date_str, self.date_format)
+        should_export = expiration_date <= current_date
+        if not should_export:
+            logger.info(
+                f"Skipping export of {export.relation}: defined as a snapshot and the current one is still valid")
+        return should_export
 
     def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
         raise NotImplementedError("This class is abstract")
@@ -346,12 +389,12 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
     def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         exports = self._load_exports(logger, step)
+        end_date = config.step_params[constants.END_DATE]
         if config.run_mode == WorkflowRunMode.LOCAL:
             output_root = config.step_params[constants.OUTPUT_ROOT]
             return LocalExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
-                                           output_root)
+                                           step["dateFormat"], end_date, output_root)
         elif config.run_mode == WorkflowRunMode.REMOTE:
-            end_date = config.step_params[constants.END_DATE]
             return RemoteExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
                                             step["dateFormat"], end_date)
         else:
@@ -366,9 +409,10 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
                 try:
                     meta_key = e["metaKey"] if "metaKey" in e else []
                     file_type_str = e["type"].upper()
+                    snapshot_binding = e["snapshotBinding"] if "snapshotBinding" in e else None
                     offset_by_number_of_days = e["offsetByNumberOfDays"] if "offsetByNumberOfDays" in e else 0
                     cfg = Export(meta_key, e["configRelName"], e["relativePath"], FileType[file_type_str],
-                                 offset_by_number_of_days)
+                                 snapshot_binding, offset_by_number_of_days)
                     exports.append(cfg)
                 except KeyError as ex:
                     logger.warning(f"Unsupported FileType: {ex}. Skipping export: {e}.")
@@ -378,8 +422,9 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
 class LocalExportWorkflowStep(ExportWorkflowStep):
     output_root: str
 
-    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, output_root):
-        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly)
+    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date,
+                 output_root):
+        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date)
         self.output_root = output_root
 
     def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
@@ -389,13 +434,8 @@ class LocalExportWorkflowStep(ExportWorkflowStep):
 
 
 class RemoteExportWorkflowStep(ExportWorkflowStep):
-    date_format: str
-    end_date: str
-
     def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date):
-        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly)
-        self.end_date = end_date
-        self.date_format = date_format
+        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date)
 
     def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
         rai.execute_query(

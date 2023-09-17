@@ -32,6 +32,7 @@ module batch_export
     def type = extract_value:type
     def relative_path = extract_value:relativePath
     def offset_by_number_of_days = extract_value:offsetByNumberOfDays
+    def snapshot_binding = extract_value:snapshotBinding
 
     @inline
     def extract_value[A](e, val...) {

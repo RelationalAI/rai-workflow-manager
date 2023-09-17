@@ -189,6 +189,23 @@ def execute_query_csv(logger: logging.Logger, rai_config: RaiConfig, query: str,
     return _parse_csv_string(rsp)
 
 
+def execute_query_take_single(logger: logging.Logger, rai_config: RaiConfig, query: str, readonly: bool = True,
+                              ignore_problems: bool = False) -> any:
+    """
+    Execute query and take the first result.
+    :param logger:          logger
+    :param rai_config:      RAI config
+    :param query:           Rel query
+    :param readonly:        Parameter to specify transaction type: Read/Write
+    :param ignore_problems: Ignore SDK problems if any
+    """
+    rsp = execute_query(logger, rai_config, query, readonly=readonly, ignore_problems=ignore_problems)
+    if not rsp.results:
+        logger.info(f"Query returned no results: {query}")
+        return None
+    return rsp.results[0]['table'].to_pydict()["v1"][0]
+
+
 def _assert_problems(logger: logging.Logger, rsp: api.TransactionAsyncResponse, ignore_problems: bool):
     problems_has_error = _handle_problems(logger, rsp.problems)
     txn_state = rsp.transaction.get('state')

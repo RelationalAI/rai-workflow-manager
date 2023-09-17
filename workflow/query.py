@@ -102,6 +102,20 @@ def load_resources(logger: logging.Logger, env_config: EnvConfig, resources, src
             return _remote_load_simple_query(rel_name, resources[0]["uri"], file_type, env_config)
 
 
+def get_snapshot_expiration_date(snapshot_binding: str, date_format: str) -> str:
+    rai_date_format = utils.to_rai_date_format(date_format)
+    return f"""
+    def output(valid_until) {{
+        batch_source:relation(cfg_src, "{snapshot_binding}") and
+        batch_source:snapshot_validity_days(cfg_src, validity_days) and
+        source:relname(src, :{snapshot_binding}) and
+        snapshot_date = source:spans[src] and
+        valid_until = format_date[snapshot_date + Day[validity_days], "{rai_date_format}"]
+        from cfg_src, src, snapshot_date, validity_days
+    }}
+    """
+
+
 def export_relations_local(logger: logging.Logger, exports: List[Export]) -> str:
     query = ""
     for export in exports:
