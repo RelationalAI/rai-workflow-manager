@@ -5,14 +5,14 @@ import os.path
 import pathlib
 from typing import List
 
-from workflow.common import EnvConfig
 from workflow import blob, constants
+from workflow.common import EnvConfig
 
 
 @dataclasses.dataclass
 class FilePath:
     path: str
-    as_of_date: datetime = None
+    as_of_date: str = None
 
 
 class PathsBuilder:

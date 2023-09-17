@@ -24,6 +24,7 @@ DELETE_REFRESHED_SOURCES_DATA = """
     def delete:resources_data_to_delete = resources_data_to_delete
 """
 
+
 @dataclasses.dataclass
 class QueryWithInputs:
     query: str
