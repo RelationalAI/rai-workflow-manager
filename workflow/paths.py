@@ -4,7 +4,6 @@ import logging
 import os.path
 import pathlib
 from typing import List
-from datetime import datetime
 
 from workflow.common import EnvConfig
 from workflow import blob, constants
@@ -18,16 +17,16 @@ class FilePath:
 
 class PathsBuilder:
 
-    def build(self, logger: logging.Logger, date_range: List[datetime], relative_path: str, input_format,
+    def build(self, logger: logging.Logger, days: List[str], relative_path: str, input_format,
               is_date_partitioned: bool) -> List[FilePath]:
-        paths = self._build(logger, date_range, relative_path, input_format, is_date_partitioned)
+        paths = self._build(logger, days, relative_path, input_format, is_date_partitioned)
         if not paths:
             raise AssertionError(f"""PathsBuilder didn't find any file for specified parameters:
-            date_range=`{date_range}`, relative_path=`{relative_path}`, 
-            input_format=`{input_format}`, is_date_partitioned=`{is_date_partitioned}`""")
+            days=`{days}`, relative_path=`{relative_path}`, input_format=`{input_format}`, 
+            is_date_partitioned=`{is_date_partitioned}`""")
         return paths
 
-    def _build(self, logger: logging.Logger, date_range: List[datetime], relative_path: str, input_format,
+    def _build(self, logger: logging.Logger, days: List[str], relative_path: str, input_format,
                is_date_partitioned: bool) -> List[FilePath]:
         raise NotImplementedError("This class is abstract")
 
@@ -38,14 +37,13 @@ class LocalPathsBuilder(PathsBuilder):
     def __init__(self, local_data_dir):
         self.local_data_dir = local_data_dir
 
-    def _build(self, logger: logging.Logger, date_range: List[datetime], relative_path, extensions: List[str],
+    def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
                is_date_partitioned: bool) -> List[FilePath]:
         paths = []
         files_path = f"{self.local_data_dir}/{relative_path}"
         if is_date_partitioned:
-            for day in date_range:
-                d = day.strftime(constants.DATE_FORMAT)
-                folder_path = f"{files_path}/{constants.DATE_PREFIX}{d}"
+            for day in days:
+                folder_path = f"{files_path}/{constants.DATE_PREFIX}{day}"
                 day_paths = [FilePath(path=os.path.abspath(path), as_of_date=day) for path in
                              self._get_folder_paths(folder_path, extensions)]
                 paths.extend(day_paths)
@@ -68,7 +66,7 @@ class RemotePathsBuilder(PathsBuilder):
     def __init__(self, env_config: EnvConfig):
         self.env_config = env_config
 
-    def _build(self, logger: logging.Logger, date_range: List[datetime], relative_path, extensions: List[str],
+    def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
                is_date_partitioned: bool) -> List[FilePath]:
         import_data_path = self.env_config.azure_import_data_path
         files_path = f"{import_data_path}/{relative_path}"
@@ -77,12 +75,11 @@ class RemotePathsBuilder(PathsBuilder):
 
         paths = []
         if is_date_partitioned:
-            for day in date_range:
-                d = day.strftime(constants.DATE_FORMAT)
-                logger.debug(f"Day from range: {d}")
+            for day in days:
+                logger.debug(f"Day from range: {day}")
                 day_paths = [FilePath(path=path, as_of_date=day) for path in
                              blob.list_files_in_containers(logger, self.env_config,
-                                                           f"{files_path}/{constants.DATE_PREFIX}{d}")]
+                                                           f"{files_path}/{constants.DATE_PREFIX}{day}")]
                 paths += day_paths
         else:
             paths = [FilePath(path=path) for path in blob.list_files_in_containers(logger, self.env_config, files_path)]

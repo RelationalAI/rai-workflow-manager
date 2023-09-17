@@ -1,0 +1,99 @@
+bound force_reimport
+bound force_reimport_not_chunk_partitioned
+bound resources_data_to_delete
+bound declared_sources_to_delete = String, String
+bound new_source_config_csv = RelName, FilePos, String
+
+def new_source_config[:syntax, :header_row] = -1
+def new_source_config[:syntax, :header] = (1, :Relation); (2, :Path); (3, :ChunkPartitioned)
+def new_source_config[:schema, :Relation] = "string"
+def new_source_config[:schema, :Path] = "string"
+def new_source_config[:schema, :ChunkPartitioned] = "string"
+
+def chunk_partitioned_sources(rel, path, p_idx) {
+    new_source_config_csv(:Path, i, path) and
+    new_source_config_csv(:Relation, i, rel) and
+    new_source_config_csv(:ChunkPartitioned, i, "True") and
+    p_idx = part_resource:parse_part_index[path]
+    from i
+}
+
+def simple_sources(rel, path) {
+    new_source_config_csv(:Path, i, path) and
+    new_source_config_csv(:Relation, i, rel) and
+    not chunk_partitioned_sources(rel, path, _)
+    from i
+}
+// TODO: add support for chunk partitioned sources which are not date partitioned
+/*
+ * All simple sources are affected if they match with declared sources.
+ */
+def potentially_affected_sources(rel, path) {
+    source_declares_resource(rel, path) and
+    simple_sources(rel, path)
+}
+/*
+ * All chunk partitioned sources for given date are affected in case new sources have at least one partition in this date.
+ */
+def potentially_affected_sources(rel, o_path, p_idx) {
+    chunk_partitioned_sources(rel, n_path, _) and
+    res = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] . source:declares and
+    part_resource:hashes_to_date[res] = parse_date[ uri:parse_value[n_path, "date"], "yyyymmdd"] and
+    part_resource:hashes_to_part_index(res, p_idx) and
+    resource:id(res, ^URI[o_path])
+    from n_path, res
+}
+/*
+ * Identify sources for replacement.
+ */
+def part_resource_to_replace(rel, p_idx, path) {
+    not force_reimport and
+    potentially_affected_sources(rel, path, p_idx) and
+    not chunk_partitioned_sources(rel, path, p_idx)
+}
+
+def part_resource_to_replace(rel, p_idx, path) {
+    force_reimport and
+    potentially_affected_sources(rel, path, p_idx)
+}
+
+def resource_to_replace(rel, o_path) {
+    force_reimport_not_chunk_partitioned and
+    simple_sources(rel, o_path)
+}
+
+def resource_to_replace(rel, o_path) {
+    force_reimport and
+    simple_sources(rel, o_path)
+}
+
+/*
+ * Save resources that we are marked for data reimport.
+ */
+// PRODUCT_LIMITATION: Message: Argument for specializing is more complex than the current staging implementation supports.
+def reverse_part_resource_to_replace(path, p_idx, rel) = part_resource_to_replace(rel, p_idx, path)
+// resource partitions to delete
+def resources_to_delete(rel, val) {
+    rel = #(reverse_part_resource_to_replace[_, p_idx]) and
+    p_idx = ^PartIndex[val]
+    from p_idx
+}
+// resources to delete
+def resources_to_delete(rel) {
+    rel = #(transpose[resource_to_replace][_])
+}
+
+def resources_data_to_delete_idx = enumerate[resources_data_to_delete]
+def resources_data_to_delete_json(:[], i, :relation, s) {
+    resources_data_to_delete_idx(i, r, _) and
+    s = relname_string[r]
+    from r
+}
+def resources_data_to_delete_json(:[], i, :relation, s) {
+    resources_data_to_delete_idx(i, r) and
+    s = relname_string[r]
+    from r
+}
+def resources_data_to_delete_json(:[], i, :partition, p) {
+    resources_data_to_delete_idx(i, _, p)
+}

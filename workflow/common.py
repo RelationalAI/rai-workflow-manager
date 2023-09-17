@@ -79,6 +79,9 @@ class Source:
     def to_paths_csv(self) -> str:
         return "\n".join([f"{self.relation},{p.path}" for p in self.paths])
 
+    def to_chunk_partitioned_paths_csv(self) -> str:
+        return "\n".join([f"{self.relation},{path},{self.is_chunk_partitioned}" for path in self.paths])
+
     def to_formats_csv(self) -> str:
         return f"{self.relation},{self.input_format.upper()}"
 

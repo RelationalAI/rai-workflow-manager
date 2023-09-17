@@ -73,11 +73,18 @@ module part_resource
     def shard_alias = "shard"; "rai_shard"
 
     def hashes_to_part_index(r, n) {
-        uri:identifies(u, r) and
-        d = parse_int[ uri:parse[u, "date"] ] and
-        s = parse_int[ uri:parse[u, shard_alias] ] and
+        uri:identifies(^URI[v], r) and
+        uri:value(v) and
+        parse_part_index[v](n)
+        from v
+    }
+
+    @inline
+    def parse_part_index[v](n) {
+        d = parse_int[ uri:parse_value[v, "date"] ] and
+        s = parse_int[ uri:parse_value[v, shard_alias] ] and
         n = ^PartIndex[ d * part_resource_index_multiplier + s ]
-        from u, d, s
+        from d, s
     }
 end
 
@@ -89,21 +96,24 @@ module uri
         r = ^Resource[u]
         from v
     }
-    
+
     def value(v) { source_declares_resource(_, v) }
 
     def parse(u, i, d) {
         value(v) and
         u = ^URI[v] and
-        d = capture_group_by_name[ part_resource_date_pattern, v, 1, i ]
+        parse_value[v](i, d)
         from v
     }
 
-    def parse(u, i, d) {
-        value(v) and
-        u = ^URI[v] and
+    @inline
+    def parse_value[v](i, d) {
         d = capture_group_by_name[ part_resource_index_pattern, v, 1, i ]
-        from v
+    }
+
+    @inline
+    def parse_value[v](i, d) {
+        d = capture_group_by_name[ part_resource_date_pattern, v, 1, i ]
     }
 
 end

@@ -1,6 +1,7 @@
 
 COMMON_MODEL = [
     "source_configs/config.rel",
+    "source_configs/data_reload.rel",
     "batch_config/batch_config.rel",
     "batch_config/workflow/workflow.rel",
     "batch_config/workflow/steps/configure_sources.rel",
@@ -53,4 +54,6 @@ OUTPUT_ROOT = "output_root"
 LOCAL_DATA_DIR = "local_data_dir"
 START_DATE = "start_date"
 END_DATE = "end_date"
+FORCE_REIMPORT = "force_reimport"
+FORCE_REIMPORT_NOT_CHUNK_PARTITIONED = "force_reimport_not_chunk_partitioned"
 COLLAPSE_PARTITIONS_ON_LOAD = "collapse_partitions_on_load"

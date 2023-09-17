@@ -95,7 +95,7 @@ def get_common_model_relative_path(file) -> str:
 
 
 def extract_date_range(logger: logging.Logger, start_date_str, end_date_str, number_of_days, offset_of_days) ->\
-                       List[datetime]:
+        List[str]:
     end_date = parse_date(end_date_str)
     offset = offset_of_days if offset_of_days is not None else 0
     end_date = end_date - timedelta(offset)
@@ -104,7 +104,8 @@ def extract_date_range(logger: logging.Logger, start_date_str, end_date_str, num
     start_date = start_date if start_date > start_date_adjusted else start_date_adjusted
 
     logger.info(f"Building range from '{start_date}' to '{end_date}'")
-    return range_days(start_date, end_date)
+    return [date.strftime(constants.DATE_FORMAT) for date in range_days(start_date, end_date)]
+
 
 
 def to_rai_date_format(date_format: str) -> str:

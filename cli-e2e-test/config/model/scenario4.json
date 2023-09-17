@@ -1,0 +1,53 @@
+{
+  "workflow": [
+    {
+      "type": "ConfigureSources",
+      "name": "ConfigureSources",
+      "configFiles": [
+        "config/config3.rel"
+      ],
+      "sources": [
+        {
+          "relation": "city_data",
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
+          "relativePath": "temp/city",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 60
+        }
+      ]
+    },
+    {
+      "type": "InstallModels",
+      "name": "InstallModels1",
+      "modelFiles": [
+        "city.rel"
+      ]
+    },
+    {
+      "type": "LoadData",
+      "name": "LoadData"
+    },
+    {
+      "type": "Materialize",
+      "name": "Materialize",
+      "relations": [
+        "city:name"
+      ],
+      "materializeJointly": true
+    },
+    {
+      "type": "Export",
+      "name": "Export",
+      "exportJointly": false,
+      "dateFormat": "%Y%m%d",
+      "exports": [
+        {
+          "type": "csv",
+          "configRelName": "cities_csv",
+          "relativePath": "cities"
+        }
+      ]
+    }
+  ]
+}
