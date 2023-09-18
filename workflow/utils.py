@@ -99,9 +99,14 @@ def extract_date_range(logger: logging.Logger, start_date_str, end_date_str, num
     end_date = parse_date(end_date_str)
     offset = offset_of_days if offset_of_days is not None else 0
     end_date = end_date - timedelta(offset)
-    start_date_adjusted = end_date - timedelta(number_of_days - 1) if number_of_days is not None else end_date
-    start_date = start_date_adjusted if start_date_str is None else parse_date(start_date_str)
-
+    start_date_adjusted = end_date - timedelta(number_of_days - 1) if number_of_days is not None else None
+    if start_date_str:
+        start_date = parse_date(start_date_str)
+        start_date = start_date_adjusted if start_date_adjusted is not None and start_date < start_date_adjusted\
+            else start_date
+    else:
+        start_date = start_date_adjusted
+    start_date = start_date if start_date is not None else end_date
     logger.info(f"Building range from '{start_date}' to '{end_date}'")
     return [date.strftime(constants.DATE_FORMAT) for date in range_days(start_date, end_date)]
 

@@ -29,7 +29,7 @@ class UtilsTest(unittest.TestCase):
         # when
         result = workflow.utils.extract_date_range(self.logger, None, "20220105", 2, None)
         # then
-        self.assertEqual(["20220105"], result)
+        self.assertEqual(["20220104", "20220105"], result)
 
     def test_should_extract_range_when_end_and_start_date_with_given_offset(self):
         # when
