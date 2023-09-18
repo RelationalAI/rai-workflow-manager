@@ -55,15 +55,15 @@ def parse() -> Namespace:
     )
     parser.add_argument(
         "--force-reimport-not-chunk-partitioned",
-        help="Force reimport only changed chunk partitioned data for specified date range and all sources which "
-             "are not chunk partitioned",
+        help="Force reimport of sources which are NOT chunk-partitioned, but may or may not be date-partitioned",
         required=False,
         action="store_true",
         default=False
     )
     parser.add_argument(
         "--force-reimport",
-        help="Force reimport data for specified date range and all sources which are not partitioned by date",
+        help="Force reimport of all non-chunk partitioned sources, for date-partitioned taking into account the date "
+             "range provided",
         required=False,
         action="store_true",
         default=False
