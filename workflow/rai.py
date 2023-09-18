@@ -1,6 +1,7 @@
 import logging
 import re
 import json
+import time
 from typing import Dict, Any
 from urllib.error import HTTPError
 from railib import api, config
@@ -137,9 +138,7 @@ def install_models(logger: logging.Logger, rai_config: RaiConfig, models: dict) 
     logger.info("Installing models")
 
     query_model = q.install_model(models)
-    rsp = api.exec(rai_config.ctx, rai_config.database, rai_config.engine, query_model.query, inputs=query_model.inputs,
-                   readonly=False)
-    _assert_problems(logger, rsp, False)
+    execute_query(logger, rai_config, query_model.query, query_model.inputs, False, False)
 
 
 def execute_query(logger: logging.Logger, rai_config: RaiConfig, query: str, inputs: dict = None, readonly: bool = True,
@@ -155,7 +154,30 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, query: str, inp
     :return: SDK response
     """
     try:
-        rsp = api.exec(rai_config.ctx, rai_config.database, rai_config.engine, query, inputs, readonly)
+        logger.info(f"Execute query: database={rai_config.database} engine={rai_config.engine} readonly={readonly}")
+        start_time = int(time.time())
+        txn = api.exec_async(rai_config.ctx, rai_config.database, rai_config.engine, query, readonly, inputs)
+        logger.info(f"Execute query: transaction id - {txn.transaction['id']}")
+
+        # in case of if short-path, return results directly, no need to poll for state
+        if not (txn.results is None):
+            return txn
+
+        logger.info(f"Execute query: polling for transaction with id - {txn.transaction['id']}")
+        rsp = api.TransactionAsyncResponse()
+        txn = api.get_transaction(rai_config.ctx, txn.transaction["id"])
+
+        api.poll_with_specified_overhead(
+            lambda: api.is_txn_term_state(api.get_transaction(rai_config.ctx, txn["id"])["state"]),
+            overhead_rate=0.2,
+            start_time=start_time
+        )
+
+        rsp.transaction = api.get_transaction(rai_config.ctx, txn["id"])
+        rsp.metadata = api.get_transaction_metadata(rai_config.ctx, txn["id"])
+        rsp.problems = api.get_transaction_problems(rai_config.ctx, txn["id"])
+        rsp.results = api.get_transaction_results(rai_config.ctx, txn["id"])
+
         _assert_problems(logger, rsp, ignore_problems)
         return rsp
     except HTTPError as e:
