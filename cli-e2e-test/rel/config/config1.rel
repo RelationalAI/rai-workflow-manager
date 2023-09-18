@@ -23,6 +23,15 @@ module export_config
             1, :name
         }
     end
+
+    module device_seen_snapshot_csv
+        def data = device_seen_snapshot_updated
+
+        def syntax:header = {
+            1, :device ;
+            2, :last_seen
+        }
+    end
 end
 
 def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"

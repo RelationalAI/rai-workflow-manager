@@ -31,6 +31,16 @@
             "jsonl"
           ],
           "loadsNumberOfDays": 60
+        },
+        {
+          "relation": "device_seen_snapshot",
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
+          "relativePath": "device_seen_snapshot",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 1,
+          "offsetByNumberOfDays": 1,
+          "snapshotValidityDays": 3
         }
       ]
     },
@@ -41,7 +51,8 @@
         "device.rel",
         "zip.rel",
         "store.rel",
-        "json_schema_mapping.rel"
+        "json_schema_mapping.rel",
+        "device_seen.rel"
       ]
     },
     {
@@ -78,6 +89,12 @@
           "type": "csv",
           "configRelName": "stores_csv",
           "relativePath": "stores"
+        },
+        {
+          "type": "csv",
+          "configRelName": "device_seen_snapshot_csv",
+          "relativePath": "device_seen_snapshot",
+          "snapshotBinding": "device_seen_snapshot"
         }
       ]
     }
