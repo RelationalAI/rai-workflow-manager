@@ -183,7 +183,10 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
                 inflated_paths.sort(key=lambda v: v.as_of_date)
                 grouped_inflated_paths = {date: list(group) for date, group in
                                           groupby(inflated_paths, key=lambda v: v.as_of_date)}
-                inflated_paths = [path for date, path in grouped_inflated_paths[-src.loads_number_of_days:].items()]
+                date_path_tuples = list(grouped_inflated_paths.items())
+                # Take the last `src.loads_number_of_days` tuples
+                last_date_paths_tuples = date_path_tuples[-src.loads_number_of_days:]
+                inflated_paths = [path for date, date_paths in last_date_paths_tuples for path in date_paths]
 
             src.paths = inflated_paths
 
