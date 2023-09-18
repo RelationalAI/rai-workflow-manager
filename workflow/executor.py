@@ -186,9 +186,9 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
                 date_path_tuples = list(grouped_inflated_paths.items())
                 # Take the last `src.loads_number_of_days` tuples
                 last_date_paths_tuples = date_path_tuples[-src.loads_number_of_days:]
-                inflated_paths = [path.path for date, date_paths in last_date_paths_tuples for path in date_paths]
+                inflated_paths = [path for date, date_paths in last_date_paths_tuples for path in date_paths]
 
-            src.paths = inflated_paths
+            src.paths = [p.path for p in inflated_paths]
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
