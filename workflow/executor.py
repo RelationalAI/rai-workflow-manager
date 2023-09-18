@@ -161,21 +161,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     def _inflate_sources(self, logger: logging.Logger):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
-            days = []
-
-            # For snapshot sources we restrict the `loads_number_of_days` to the `snapshot_validity_days` minus
-            # `offset_by_number_of_days` if the former is set, so we take a full data range to seek the latest
-            # snapshot within. Otherwise, we use the `loads_number_of_days` as is.
-            # Note: `offset_by_number_of_days` must be less than or equal to `snapshot_validity_days`.
-            if src.is_date_partitioned:
-                offset_by_number_of_days = src.offset_by_number_of_days if src.offset_by_number_of_days else 0
-                loads_number_of_days = src.snapshot_validity_days - offset_by_number_of_days \
-                    if src.snapshot_validity_days else src.loads_number_of_days
-                if loads_number_of_days < 0:
-                    raise ValueError(f"Values must be: `offset_by_number_of_days` <= `snapshot_validity_days`")
-                days.extend(extract_date_range(logger, self.start_date, self.end_date, loads_number_of_days,
-                                               offset_by_number_of_days))
-
+            days = self._get_date_range(logger, src)
             inflated_paths = self.paths_builder.build(logger, days, src.relative_path, src.extensions,
                                                       src.is_date_partitioned)
             if src.is_date_partitioned:
@@ -189,6 +175,22 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
                 inflated_paths = [path for date, date_paths in last_date_paths_tuples for path in date_paths]
 
             src.paths = [p.path for p in inflated_paths]
+
+    def _get_date_range(self, logger, src):
+        days = []
+        # For snapshot sources we restrict the `loads_number_of_days` to the `snapshot_validity_days` minus
+        # `offset_by_number_of_days` if the former is set, so we take a full data range to seek the latest
+        # snapshot within. Otherwise, we use the `loads_number_of_days` as is.
+        # Note: `offset_by_number_of_days` must be less than or equal to `snapshot_validity_days`.
+        if src.is_date_partitioned:
+            offset_by_number_of_days = src.offset_by_number_of_days if src.offset_by_number_of_days else 0
+            loads_number_of_days = (src.snapshot_validity_days - offset_by_number_of_days + 1) \
+                if src.snapshot_validity_days else src.loads_number_of_days
+            if loads_number_of_days < 0:
+                raise ValueError(f"Values must be: `offset_by_number_of_days` <= `snapshot_validity_days`")
+            days.extend(extract_date_range(logger, self.start_date, self.end_date, loads_number_of_days,
+                                           offset_by_number_of_days))
+        return days
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
