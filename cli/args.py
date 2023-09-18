@@ -55,16 +55,16 @@ def parse() -> Namespace:
     )
     parser.add_argument(
         "--force-reimport-not-chunk-partitioned",
-        help="Force RAI workflow manager reimport only changed data for specified date range and all sources which "
-             "are not partitioned by date",
+        help="Force reimport of sources which are NOT chunk-partitioned. If it's a date-partitioned source, it will be "
+             "re-imported with in `--start-date` & `--end-date` range.",
         required=False,
         action="store_true",
         default=False
     )
     parser.add_argument(
         "--force-reimport",
-        help="Force RAI workflow manager reimport data for specified date range and all sources which are not "
-             "partitioned by date",
+        help="Force reimport of sources which are date-partitioned (both chunk and NOT chunk-partitioned) with in "
+             "`--start-date` & `--end-date` range and all sources which are NOT date-partitioned.",
         required=False,
         action="store_true",
         default=False
