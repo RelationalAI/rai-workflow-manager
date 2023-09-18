@@ -77,7 +77,7 @@ class Source:
     paths: List[str] = dataclasses.field(default_factory=list)
 
     def to_paths_csv(self) -> str:
-        return "\n".join([f"{self.relation},{p.path}" for p in self.paths])
+        return "\n".join([f"{self.relation},{p}" for p in self.paths])
 
     def to_chunk_partitioned_paths_csv(self) -> str:
         return "\n".join([f"{self.relation},{path},{self.is_chunk_partitioned}" for path in self.paths])
