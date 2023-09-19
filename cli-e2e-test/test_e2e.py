@@ -32,7 +32,6 @@ class CliE2ETest(unittest.TestCase):
     def test_scenario1_model(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario1.json",
-                     "--start-date", "20220103",
                      "--end-date", "20220105",
                      "--drop-db"]
         rsp = call(self.cmd_with_common_arguments + test_args)

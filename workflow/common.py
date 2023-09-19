@@ -2,10 +2,11 @@ import dataclasses
 from enum import Enum, EnumMeta
 from typing import List, Any
 
+from railib import api
+
 from workflow.constants import AZURE_EXPORT_ACCOUNT, AZURE_EXPORT_CONTAINER, AZURE_EXPORT_DATA_PATH, \
     AZURE_EXPORT_NUM_FILES, AZURE_EXPORT_SAS, AZURE_IMPORT_ACCOUNT, AZURE_IMPORT_CONTAINER, AZURE_IMPORT_DATA_PATH, \
     AZURE_IMPORT_SAS
-from railib import api
 
 
 class MetaEnum(EnumMeta):
@@ -72,10 +73,11 @@ class Source:
     is_date_partitioned: bool
     loads_number_of_days: int
     offset_by_number_of_days: int
-    paths: List[str]
+    snapshot_validity_days: int
+    paths: List[str] = dataclasses.field(default_factory=list)
 
     def to_paths_csv(self) -> str:
-        return "\n".join([f"{self.relation},{path}" for path in self.paths])
+        return "\n".join([f"{self.relation},{p}" for p in self.paths])
 
     def to_chunk_partitioned_paths_csv(self) -> str:
         return "\n".join([f"{self.relation},{path},{self.is_chunk_partitioned}" for path in self.paths])
@@ -140,6 +142,7 @@ class Export:
     relation: str
     relative_path: str
     file_type: FileType
+    snapshot_binding: str
     offset_by_number_of_days: int = 0
 
 

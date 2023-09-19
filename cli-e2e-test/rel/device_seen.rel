@@ -1,0 +1,34 @@
+bound import_config:device_seen_snapshot:schema
+bound syntax:header
+
+module device_seen_snapshot
+    def DEVICE_NAME[idx, row] = source_catalog:device_seen_snapshot[idx, :device, row]
+    def LAST_SEEN[idx, row] = source_catalog:device_seen_snapshot[idx, :last_seen, row]
+end
+
+/*
+ * device_seen snapshot is a snapshot of the last time a device was seen, which is
+ * essentially an aggregation over the snapshot data and the current day's data
+ * found in the `device` relation.
+ */
+
+def current_date = max[source:spans[_]]
+def device_seen_today(n, t) {
+    device:name(n) and
+    t = current_date
+}
+
+def device_last_seen[d] = max[t:
+    device_seen_today(d, t)
+    or
+    (
+        device_seen_snapshot:DEVICE_NAME(idx, row, d) and
+        device_seen_snapshot:LAST_SEEN(idx, row, t)
+        from idx, row
+    )
+]
+
+module device_seen_snapshot_updated
+    def device(k, d) { device_last_seen(d, _) and k = d }
+    def last_seen(d, t) { device_last_seen(d, t) }
+end

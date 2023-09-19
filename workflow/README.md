@@ -52,6 +52,8 @@ Steps of this type are used to configure sources which workflow manager will use
   * `isDatePartitioned`(optional) is used to specify is partitioned by date. By default `False`.
   * `extensions`(optional) is used to specify the extensions of the source which will be associated with the `inputFormat`. If not specified, the `inputFormat` will be used default extensions are used.
   * `loadsNumberOfDays`(optional) is used to specify the number of days to load.
+  * `offsetByNumberOfDays`(optional) is used to specify the number of days to offset the current (end) date by.
+  * `snapshotValidityDays`(optional) is used to specify the number of days a snapshot is valid for. Currently only supported for `csv` sources.
 ```json
 {
   "type": "ConfigureSources",
@@ -155,6 +157,39 @@ The corresponding JSON configuration might look like this:
   "type": "csv",
   "configRelName": "high_risk_zipcodes_csv",
   "relativePath": "high_risk_zipcodes"
+}
+```
+
+#### Snapshot bindings to the input sources
+
+The workflow manager supports snapshots of the input sources. A snapshot may be valid for a certain period of time, after which a new
+snapshot is required. The steps to configure a snapshot are described below.
+
+This case involves a snapshot binding to the input sources. The most basic example would look like this, an entry in the `exports` array:
+```json
+{
+  "type": "csv",
+  "configRelName": "device_seen_snapshot_csv",
+  "relativePath": "device_seen_snapshot",
+  "snapshotBinding": "device_seen_snapshot"
+}
+```
+The configuration shown above would require a corresponding source configured with `snapshotValidityDays` field specified, telling
+the workflow manager how long the snapshot is valid for. `snapshotBinding` should point to the source name. During the export, if
+workflow manager encounters a snapshot binding, it will look for the validity of the current snapshot. If still valid, the export
+will be skipped.
+
+Example source config:
+```json
+{
+  "relation": "device_seen_snapshot",
+  "isChunkPartitioned": true,
+  "isDatePartitioned": true,
+  "relativePath": "device_seen_snapshot",
+  "inputFormat": "csv",
+  "loadsNumberOfDays": 1,
+  "offsetByNumberOfDays": 1,
+  "snapshotValidityDays": 3
 }
 ```
 
