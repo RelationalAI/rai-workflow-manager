@@ -60,7 +60,10 @@ def populate_source_configs(sources: List[Source]) -> str:
     date_partitioned_sources = list(filter(lambda source: source.is_date_partitioned, sources))
 
     return f"""
-        def delete:source_declares_resource = declared_sources_to_delete
+        def delete:source_declares_resource(r, c, p) {{
+            declared_sources_to_delete(r, p) and
+            source_declares_resource(r, c, p)
+        }}
         
         def resource_config[:data] = \"\"\"{source_config_csv}\"\"\"
         def resource_config[:syntax, :header_row] = -1
