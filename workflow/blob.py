@@ -8,12 +8,9 @@ from workflow.constants import BLOB_PAGE_SIZE
 
 
 def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_prefix) -> List[str]:
-    azure_account = config.account
-    azure_container = config.container
-    account_url = f"https://{azure_account}.blob.core.windows.net"
-
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=config.sas)
-    container_client = blob_service_client.get_container_client(azure_container)
+    blob_service_client = BlobServiceClient(account_url=f"https://{config.account}.blob.core.windows.net",
+                                            credential=config.sas)
+    container_client = blob_service_client.get_container_client(config.container)
 
     # Get a list of blobs in the folder
     logger.debug(f"Path prefix to list blob files: {path_prefix}")
@@ -22,7 +19,7 @@ def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_p
         for blob in page:
             blob_name = blob.name
             if FileFormat.is_supported(blob_name):
-                paths.append(f"azure://{azure_account}.blob.core.windows.net/{azure_container}/{blob_name}")
+                paths.append(f"azure://{config.account}.blob.core.windows.net/{config.container}/{blob_name}")
             else:
                 logger.debug(f"Skip unsupported file from blob: {blob_name}")
     return paths
