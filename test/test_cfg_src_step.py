@@ -24,7 +24,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             is_chunk_partitioned=False,
         )
         paths_builder = Mock()
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, None)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, None)
 
         # When calling _get_date_range
         days = workflow_step._get_date_range(self.logger, test_src)
@@ -41,7 +41,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         paths_builder = _create_path_builder_mock([
             paths.FilePath(path="test/test_non_part.csv"),
         ])
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, None)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, None)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -62,7 +62,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         )
         end_date = "20220105"
         paths_builder = Mock()
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
 
         # When calling _get_date_range
         days = workflow_step._get_date_range(self.logger, test_src)
@@ -85,7 +85,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/test_20220105_3.csv", as_of_date="20220105"),
         ])
         end_date = "20220105"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -104,7 +104,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         )
         end_date = "20220115"
         paths_builder = Mock()
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
 
         # When calling _get_date_range
         days = workflow_step._get_date_range(self.logger, test_src)
@@ -122,7 +122,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path=f"test/test_{day}_1.csv", as_of_date=f"{day}") for day in range(20220101, 20220116)
         ])  # 20220101, 20220102, ..., 20220115
         end_date = "20220115"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -137,7 +137,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         )
         end_date = "20220112"
         paths_builder = Mock()
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
 
         # When calling _get_date_range
         days = workflow_step._get_date_range(self.logger, test_src)
@@ -156,7 +156,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             for i in range(2)
         ])  # 20220101, 20220102, ..., 20220110
         end_date = "20220112"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -177,7 +177,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         )
         end_date = "20220105"
         paths_builder = Mock()
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
 
         # When calling _get_date_range
         days = workflow_step._get_date_range(self.logger, test_src)
@@ -198,7 +198,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220105.csv", as_of_date="20220105"),
         ])
         end_date = "20220105"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -238,7 +238,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220105.csv", as_of_date="20220105"),
         ])
         end_date = "20220105"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -256,7 +256,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         )
         end_date = "20220105"
         paths_builder = Mock()
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
 
         # When calling _get_date_range
         days = workflow_step._get_date_range(self.logger, test_src)
@@ -277,7 +277,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220104.csv", as_of_date="20220104"),
         ])
         end_date = "20220105"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -312,7 +312,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         )
         paths_builder = _create_path_builder_mock([])
         end_date = "20220131"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -330,7 +330,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220101.csv", as_of_date="20220101"),
         ])
         end_date = "20220131"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -348,7 +348,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220115.csv", as_of_date="20220115"),
         ])
         end_date = "20220131"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -366,7 +366,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220130.csv", as_of_date="20220130"),
         ])
         end_date = "20220131"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -387,7 +387,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/test_20220105_2.csv", as_of_date="20220105"),
         ])
         end_date = "20220105"
-        workflow_step = _create_cfg_sources_step([test_src], paths_builder, None, end_date)
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
         workflow_step._inflate_sources(self.logger)
         # Then
@@ -402,6 +402,7 @@ def _create_test_source(is_chunk_partitioned: bool = True, is_date_partitioned: 
                         loads_number_of_days: int = 1, offset_by_number_of_days: int = 0,
                         snapshot_validity_days=None) -> Source:
     return Source(
+        container="default",
         relation="test",
         relative_path="test",
         input_format="test",
@@ -415,8 +416,8 @@ def _create_test_source(is_chunk_partitioned: bool = True, is_date_partitioned: 
     )
 
 
-def _create_cfg_sources_step(sources: List[Source], paths_builder: paths.PathsBuilder, start_date, end_date) ->\
-        ConfigureSourcesWorkflowStep:
+def _create_cfg_sources_step(sources: List[Source], paths_builders: dict[str, paths.PathsBuilder], start_date,
+                             end_date) -> ConfigureSourcesWorkflowStep:
     return ConfigureSourcesWorkflowStep(
         idt=uuid.uuid4(),
         name="test",
@@ -426,7 +427,7 @@ def _create_cfg_sources_step(sources: List[Source], paths_builder: paths.PathsBu
         config_files=[],
         rel_config_dir="",
         sources=sources,
-        paths_builder=paths_builder,
+        paths_builders=paths_builders,
         start_date=start_date,
         end_date=end_date,
         force_reimport=False,

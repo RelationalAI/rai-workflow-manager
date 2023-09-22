@@ -6,6 +6,7 @@
       "configFiles": [
         "config/config1.rel"
       ],
+      "defaultContainer": "input",
       "sources": [
         {
           "relation": "zip_city_state_master_data",
@@ -74,6 +75,7 @@
       "name": "Export",
       "exportJointly": false,
       "dateFormat": "%Y%m%d",
+      "defaultContainer": "export",
       "exports": [
         {
           "type": "csv",

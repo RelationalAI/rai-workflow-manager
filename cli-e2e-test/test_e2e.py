@@ -21,13 +21,10 @@ class CliE2ETest(unittest.TestCase):
     expected = "./expected_results"
     resource_name = "wm-cli-e2e-test-" + str(uuid.uuid4())
     cmd_with_common_arguments = ["python", "main.py",
-                                 "--run-mode", "local",
                                  "--env-config", env_config,
                                  "--engine", resource_name,
                                  "--database", resource_name,
-                                 "--rel-config-dir", "./rel",
-                                 "--dev-data-dir", dev_data_dir,
-                                 "--output-root", output]
+                                 "--rel-config-dir", "./rel"]
 
     def test_scenario1_model(self):
         # when

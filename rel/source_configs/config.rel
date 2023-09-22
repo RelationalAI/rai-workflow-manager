@@ -1,7 +1,7 @@
 bound simple_relation = String
 bound multi_part_relation = String
 bound date_partitioned_source = String
-bound source_declares_resource = String, String
+bound source_declares_resource = String, String, String
 bound source_has_input_format = String, String
 bound source_catalog
 bound simple_source_catalog
@@ -97,7 +97,7 @@ module uri
         from v
     }
 
-    def value(v) { source_declares_resource(_, v) }
+    def value(v) { source_declares_resource(_, _, v) }
 
     def parse(u, i, d) {
         value(v) and
@@ -197,7 +197,7 @@ module source
     def populates = transpose[relation:identifies]
 
     def declares(s, r) {
-        source_declares_resource(rel, res) and
+        source_declares_resource(rel, _, res) and
         r = uri:identifies[ ^URI[res] ] and
         s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ]
         from rel, res
@@ -212,6 +212,12 @@ module source
     def remote(s) {
         declares(s, _) and
         forall(r: declares(s, r) implies not resource:local(r) )
+    }
+
+    def container(s, c) {
+        source_declares_resource(rel, c, _) and
+        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ]
+        from rel
     }
 
     def date_partitioned(s) { s = relation:identifies[ rel_name:identifies[ ^RelName[date_partitioned_source] ] ] }
@@ -349,6 +355,13 @@ def missing_resources_json(:[], n, :is_local, "Y") {
     source:needs_resource(s) and
     source:index[s] = n and
     source:local(s)
+    from s
+}
+
+def missing_resources_json(:[], n, :container, v) {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    source:container(s, v)
     from s
 }
 

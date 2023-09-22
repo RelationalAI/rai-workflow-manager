@@ -6,7 +6,7 @@ import pathlib
 from typing import List
 
 from workflow import blob, constants
-from workflow.common import EnvConfig
+from workflow.common import EnvConfig, AzureConfig, LocalConfig, Container, ContainerType
 
 
 @dataclasses.dataclass
@@ -32,15 +32,15 @@ class PathsBuilder:
 
 
 class LocalPathsBuilder(PathsBuilder):
-    local_data_dir: str
+    config: LocalConfig
 
-    def __init__(self, local_data_dir):
-        self.local_data_dir = local_data_dir
+    def __init__(self, config):
+        self.config = config
 
     def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
                is_date_partitioned: bool) -> List[FilePath]:
         paths = []
-        files_path = f"{self.local_data_dir}/{relative_path}"
+        files_path = f"{self.config.data_path}/{relative_path}"
         if is_date_partitioned:
             for day in days:
                 folder_path = f"{files_path}/{constants.DATE_PREFIX}{day}"
@@ -60,15 +60,15 @@ class LocalPathsBuilder(PathsBuilder):
         return paths
 
 
-class RemotePathsBuilder(PathsBuilder):
-    env_config: EnvConfig
+class AzurePathsBuilder(PathsBuilder):
+    config: AzureConfig
 
-    def __init__(self, env_config: EnvConfig):
-        self.env_config = env_config
+    def __init__(self, config: AzureConfig):
+        self.config = config
 
     def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
                is_date_partitioned: bool) -> List[FilePath]:
-        import_data_path = self.env_config.azure_import_data_path
+        import_data_path = self.config.data_path
         files_path = f"{import_data_path}/{relative_path}"
 
         logger.info(f"Loading data from blob import path: '{import_data_path}'")
@@ -78,9 +78,22 @@ class RemotePathsBuilder(PathsBuilder):
             for day in days:
                 logger.debug(f"Day from range: {day}")
                 day_paths = [FilePath(path=path, as_of_date=day) for path in
-                             blob.list_files_in_containers(logger, self.env_config,
+                             blob.list_files_in_containers(logger, self.config,
                                                            f"{files_path}/{constants.DATE_PREFIX}{day}")]
                 paths += day_paths
         else:
-            paths = [FilePath(path=path) for path in blob.list_files_in_containers(logger, self.env_config, files_path)]
+            paths = [FilePath(path=path) for path in blob.list_files_in_containers(logger, self.config, files_path)]
         return paths
+
+
+class PathsBuilderFactory:
+
+    __CONTAINER_TYPE_TO_BUILDER = {
+        ContainerType.LOCAL: lambda container: LocalPathsBuilder(EnvConfig.EXTRACTORS[container.type](container.params)),
+        ContainerType.AZURE: lambda container: AzurePathsBuilder(EnvConfig.EXTRACTORS[container.type](container.params))
+    }
+
+    @staticmethod
+    def get_path_builder(container: Container) -> PathsBuilder:
+        return PathsBuilderFactory.__CONTAINER_TYPE_TO_BUILDER[container.type](container)
+

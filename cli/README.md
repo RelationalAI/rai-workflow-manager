@@ -6,7 +6,7 @@ This Command-Line Interface (CLI) is designed to provide an easy and interactive
 1. Create a batch configuration (ex. `poc.json`) file using the syntax and structure outlined in the [RAI Workflow Framework README](../workflow/README.md).
 2. Add `rai-workflow-manager` as dependency to your `requirements.txt` file:
 ```txt
-rai-workflow-manager==0.0.9
+rai-workflow-manager==0.0.13
 ```
 3. Build the project:
 ```bash
@@ -25,20 +25,61 @@ import cli.runner
 if __name__ == "__main__":
     cli.runner.start()
 ```
-5. Run the following command to execute the batch configuration:
+5. Create `loader.toml` file with the following content:
+```toml
+[[container]]
+name="input"
+type="local"
+data_path="./data"
+
+[[container]]
+name="export"
+type="local"
+data_path="./output"
+```
+6. Run the following command to execute the batch configuration:
 ```bash
 python main.py \
-  --run-mode local \
-  --dev-data-dir <path>/data \
   --rel-config-dir <path>/rel \
   --batch-config poc.json \
   --env-config loader.toml \
   --engine <engine> \
-  --database <database> \
-  --output-root ./output
+  --database <database>
 ```
-where `<engine>`, `<database>` are the names of some RAI resources to use, `<path>` is the path to the directory containing directory with data and rel sources.
+where `<engine>`, `<database>` are the names of some RAI resources to use
+## `loader.toml` Configuration
+The `loader.toml` file is used to specify static properties for the RAI Workflow Framework. It contains the following properties:
 
+| Description                                                                      | Property               |
+|:---------------------------------------------------------------------------------|------------------------|
+| RAI profile.                                                                     | `rai_profile`          |
+| Path to RAI config.                                                              | `rai_profile_path`     |
+| HTTP retries for RAI sdk in case of errors. (Can be overridden by CLI argument)  | `rai_sdk_http_retries` |
+| A list of containers to use for loading and exporting data.                      | `container`            |
+| The name of the container.                                                       | `container.name`       |
+| The type of the container. Supported types: `local`, `azure`                     | `container.type`       |
+| The path in the container.                                                       | `container.data_path`  |
+| Remote container account                                                         | `container.account`    |
+| Remote container SAS token.                                                      | `container.sas`        |
+| Container for remote container SAS token. (Ex. Azure Blob container)             | `container.container`  |
+
+### Azure container example
+```toml
+[[container]]
+name="input"
+type="azure"
+data_path="input"
+account="account_name"
+sas="sas_token"
+container="container_name"
+```
+### Local container example
+```toml
+[[container]]
+name="input"
+type="local"
+data_path="./data"
+```
 ## CLI Arguments
 | Description                                                                                                                                                                             | CLI argument                             | Is required | Default value           | Parameter Type           | Recognized Values                                   |
 |:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------|-------------|-------------------------|--------------------------|-----------------------------------------------------|
@@ -48,14 +89,11 @@ where `<engine>`, `<database>` are the names of some RAI resources to use, `<pat
 | RAI Cloud source database name for clone                                                                                                                                                | `--source-database`                      | `False`     |                         | `String`                 |                                                     |
 | RAI Cloud engine name                                                                                                                                                                   | `--engine`                               | `True`      |                         | `String`                 |                                                     |
 | The size of RAI engine                                                                                                                                                                  | `--engine-size`                          | `False`     | `XS`                    | `String`                 | `['XS', 'S', 'M', 'L', 'XL']`                       |
-| Run mode                                                                                                                                                                                | `--run-mode`                             | `True`      |                         | `String`                 | `['local', 'remote']`                               |
 | Model earliest date to consider                                                                                                                                                         | `--start-date`                           | `False`     |                         | `String`                 | format `YYYYmmdd`                                   |
 | Model latest date to consider                                                                                                                                                           | `--end-date`                             | `False`     |                         | `String`                 | format `YYYYmmdd`                                   |
-| Directory containing dev data                                                                                                                                                           | `--dev-data-dir`                         | `False`     | `../data`               | `String`                 |                                                     |
 | Directory containing rel config files to install                                                                                                                                        | `--rel-config-dir`                       | `False`     | `../rel`                | `String`                 |                                                     |
 | Path to `loader.toml`                                                                                                                                                                   | `--env-config`                           | `False`     | `../config/loader.toml` | `String`                 |                                                     |
 | When loading each multi-part source, <br/>load all partitions (and shards) in one transaction                                                                                           | `--collapse-partitions-on-load`          | `False`     | `True`                  | `Bool`                   |                                                     |
-| Output folder path for local run mode                                                                                                                                                   | `--output-root`                          | `False`     | `../../output`          | `String`                 |                                                     |
 | Logging level for cli                                                                                                                                                                   | `--log-level`                            | `False`     | `INFO`                  | `String`                 | `['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']` |
 | Drop database before workflow run, or not                                                                                                                                               | `--drop-db`                              | `False`     | `False`                 | `BooleanOptionalAction`  | `True` in case argument presents                    |
 | Remove RAI engine and database after run or not                                                                                                                                         | `--cleanup-resources`                    | `False`     | `False`                 | `Bool`                   |                                                     |
