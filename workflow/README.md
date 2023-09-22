@@ -150,6 +150,7 @@ Steps of this type are used to export data from RAI database.
   "name": "Export",
   "exportJointly": false,
   "dateFormat": "%Y%m%d",
+  "defaultContainer": "export",
   "exports": [
     {
       "type": "csv",
