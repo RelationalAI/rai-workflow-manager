@@ -362,8 +362,8 @@ class ExportWorkflowStep(WorkflowStep):
         ContainerType.AZURE:
             lambda logger, rai_config, exports, end_date, date_format, container: rai.execute_query(
                 logger, rai_config,
-                q.export_relations_remote(logger, EnvConfig.EXTRACTORS[container.type](container.params), exports,
-                                          end_date, date_format))
+                q.export_relations_to_azure(logger, EnvConfig.EXTRACTORS[container.type](container.params), exports,
+                                            end_date, date_format))
     }
 
     def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date):
