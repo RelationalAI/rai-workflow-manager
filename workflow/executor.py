@@ -10,7 +10,7 @@ from typing import List, Dict
 from more_itertools import peekable
 
 from workflow import query as q, paths, rai, constants
-from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType
+from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
     get_common_model_relative_path
@@ -24,14 +24,6 @@ MATERIALIZE = 'Materialize'
 EXPORT = 'Export'
 
 
-class WorkflowRunMode(Enum):
-    LOCAL = 'local'
-    REMOTE = 'remote'
-
-    def __str__(self):
-        return self.value
-
-
 class WorkflowStepState(str, Enum):
     INIT = 'INIT'
     IN_PROGRESS = 'IN_PROGRESS'
@@ -42,7 +34,6 @@ class WorkflowStepState(str, Enum):
 @dataclasses.dataclass
 class WorkflowConfig:
     env: EnvConfig
-    run_mode: WorkflowRunMode
     batch_config: BatchConfig
     recover: bool
     recover_step: str
@@ -61,7 +52,7 @@ class WorkflowStep:
         self.idt = idt
         self.name = name
         self.state = state
-        self.time = timing
+        self.timing = timing
         self.engine_size = engine_size
 
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
@@ -127,19 +118,19 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     config_files: List[str]
     rel_config_dir: str
     sources: List[Source]
-    paths_builder: paths.PathsBuilder
+    paths_builders: dict[str, paths.PathsBuilder]
     start_date: str
     end_date: str
     force_reimport: bool
     force_reimport_not_chunk_partitioned: bool
 
-    def __init__(self, idt, name, state, timing, engine_size, config_files, rel_config_dir, sources, paths_builder,
+    def __init__(self, idt, name, state, timing, engine_size, config_files, rel_config_dir, sources, paths_builders,
                  start_date, end_date, force_reimport, force_reimport_not_chunk_partitioned):
         super().__init__(idt, name, state, timing, engine_size)
         self.config_files = config_files
         self.rel_config_dir = rel_config_dir
         self.sources = sources
-        self.paths_builder = paths_builder
+        self.paths_builders = paths_builders
         self.start_date = start_date
         self.end_date = end_date
         self.force_reimport = force_reimport
@@ -162,8 +153,8 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
             days = self._get_date_range(logger, src)
-            inflated_paths = self.paths_builder.build(logger, days, src.relative_path, src.extensions,
-                                                      src.is_date_partitioned)
+            inflated_paths = self.paths_builders[src.container].build(logger, days, src.relative_path, src.extensions,
+                                                                      src.is_date_partitioned)
             if src.is_date_partitioned:
                 # after inflating we take the last `src.loads_number_of_days` days and reduce into an array of paths
                 inflated_paths.sort(key=lambda v: v.as_of_date)
@@ -198,40 +189,39 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
     def _validate_params(self, config: WorkflowConfig, step: dict) -> None:
         super()._validate_params(config, step)
         end_date = config.step_params[constants.END_DATE]
-        sources = self._parse_sources(step["sources"])
+        sources = self._parse_sources(step)
         if not end_date:
             for s in sources:
                 if s.is_date_partitioned:
                     raise ValueError(f"End date is required for date partitioned source: {s.relation}")
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
-        required_params = [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]
-        if config.run_mode == WorkflowRunMode.LOCAL:
-            required_params.append(constants.LOCAL_DATA_DIR)
-        return required_params
+        return [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]
 
     def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
-                  step: dict) -> WorkflowStep:
-        if config.run_mode == WorkflowRunMode.LOCAL:
-            local_data_dir = config.step_params[constants.LOCAL_DATA_DIR]
-            paths_builder = paths.LocalPathsBuilder(local_data_dir)
-        elif config.run_mode == WorkflowRunMode.REMOTE:
-            paths_builder = paths.RemotePathsBuilder(config.env)
-        else:
-            raise Exception("unsupported mode")
+                  step: dict) -> ConfigureSourcesWorkflowStep:
         rel_config_dir = config.step_params[constants.REL_CONFIG_DIR]
-        sources = self._parse_sources(step["sources"])
+        sources = self._parse_sources(step)
         start_date = config.step_params[constants.START_DATE]
         end_date = config.step_params[constants.END_DATE]
         force_reimport = config.step_params.get(constants.FORCE_REIMPORT, False)
         force_reimport_not_chunk_partitioned = config.step_params.get(constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED,
                                                                       False)
+        env_config = config.env
+        paths_builders = {}
+        for src in sources:
+            container_name = src.container
+            if container_name not in paths_builders:
+                container = env_config.get_container(container_name)
+                paths_builders[container_name] = paths.PathsBuilderFactory.get_path_builder(container)
         return ConfigureSourcesWorkflowStep(idt, name, state, timing, engine_size, step["configFiles"], rel_config_dir,
-                                            sources, paths_builder, start_date, end_date, force_reimport,
+                                            sources, paths_builders, start_date, end_date, force_reimport,
                                             force_reimport_not_chunk_partitioned)
 
     @staticmethod
-    def _parse_sources(sources: List[Dict]) -> List[Source]:
+    def _parse_sources(step: dict) -> List[Source]:
+        sources = step["sources"]
+        default_container = step["defaultContainer"]
         result = []
         for source in sources:
             if "future" not in source or not source["future"]:
@@ -244,7 +234,9 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                 loads_number_of_days = source.get("loadsNumberOfDays")
                 offset_by_number_of_days = source.get("offsetByNumberOfDays")
                 snapshot_validity_days = source.get("snapshotValidityDays")
+                container = source.get("container", default_container)
                 result.append(Source(
+                    container,
                     relation,
                     relative_path,
                     input_format,
@@ -307,7 +299,11 @@ class LoadDataWorkflowStep(WorkflowStep):
     @staticmethod
     def _load_resource(logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) -> None:
         try:
-            rai.execute_query(logger, rai_config, q.load_resources(logger, env_config, resources, src), readonly=False)
+            container = env_config.get_container(src["container"])
+            rai.execute_query(logger, rai_config,
+                              q.load_resources(logger, EnvConfig.EXTRACTORS[container.type](container.params),
+                                               resources, src), readonly=False)
+
         except KeyError as e:
             logger.error(f"Unsupported file type: {src['file_type']}. Skip the source: {src}", e)
         except ValueError as e:
@@ -358,6 +354,18 @@ class ExportWorkflowStep(WorkflowStep):
     date_format: str
     end_date: str
 
+    EXPORT_FUNCTION = {
+        ContainerType.LOCAL:
+            lambda logger, rai_config, exports, end_date, date_format, container: save_csv_output(
+                rai.execute_query_csv(logger, rai_config, q.export_relations_local(logger, exports)),
+                EnvConfig.EXTRACTORS[container.type](container.params)),
+        ContainerType.AZURE:
+            lambda logger, rai_config, exports, end_date, date_format, container: rai.execute_query(
+                logger, rai_config,
+                q.export_relations_to_azure(logger, EnvConfig.EXTRACTORS[container.type](container.params), exports,
+                                            end_date, date_format))
+    }
+
     def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date):
         super().__init__(idt, name, state, timing, engine_size)
         self.exports = exports
@@ -369,11 +377,19 @@ class ExportWorkflowStep(WorkflowStep):
         logger.info("Executing Export step..")
 
         exports = list(filter(lambda e: self._should_export(logger, rai_config, e), self.exports))
+        name_to_type = env_config.container_name_to_type()
         if self.export_jointly:
-            self._export(logger, env_config, rai_config, exports)
+            exports.sort(key=lambda e: e.container)
+            container_groups = {container: list(group) for container, group in
+                                groupby(exports, key=lambda e: e.container)}
+            for container, grouped_exports in container_groups.items():
+                self.EXPORT_FUNCTION[name_to_type[container]](logger, rai_config, grouped_exports, self.end_date,
+                                                              self.date_format, env_config.get_container(container))
         else:
             for export in exports:
-                self._export(logger, env_config, rai_config, [export])
+                container = export.container
+                self.EXPORT_FUNCTION[name_to_type[container]](logger, rai_config, [export], self.end_date,
+                                                              self.date_format, env_config.get_container(container))
 
     def _should_export(self, logger: logging.Logger, rai_config: RaiConfig, export: Export) -> bool:
         if export.snapshot_binding is None:
@@ -392,75 +408,37 @@ class ExportWorkflowStep(WorkflowStep):
                 f"Skipping export of {export.relation}: defined as a snapshot and the current one is still valid")
         return should_export
 
-    def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
-        raise NotImplementedError("This class is abstract")
-
 
 class ExportWorkflowStepFactory(WorkflowStepFactory):
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
-        required_params = []
-        if config.run_mode == WorkflowRunMode.LOCAL:
-            required_params.append(constants.OUTPUT_ROOT)
-        elif config.run_mode == WorkflowRunMode.REMOTE:
-            required_params.append(constants.END_DATE)
-        return required_params
+        return [constants.END_DATE]
 
     def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, state, timing, engine_size,
                   step: dict) -> WorkflowStep:
         exports = self._load_exports(logger, step)
         end_date = config.step_params[constants.END_DATE]
-        if config.run_mode == WorkflowRunMode.LOCAL:
-            output_root = config.step_params[constants.OUTPUT_ROOT]
-            return LocalExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
-                                           step["dateFormat"], end_date, output_root)
-        elif config.run_mode == WorkflowRunMode.REMOTE:
-            return RemoteExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
-                                            step["dateFormat"], end_date)
-        else:
-            raise Exception("Unsupported mode")
+        return ExportWorkflowStep(idt, name, state, timing, engine_size, exports, step["exportJointly"],
+                                  step["dateFormat"], end_date)
 
     @staticmethod
     def _load_exports(logger: logging.Logger, src) -> List[Export]:
         exports_json = src["exports"]
+        default_container = src["defaultContainer"]
         exports = []
         for e in exports_json:
             if "future" not in e or not e["future"]:
                 try:
-                    meta_key = e["metaKey"] if "metaKey" in e else []
-                    file_type_str = e["type"].upper()
-                    snapshot_binding = e["snapshotBinding"] if "snapshotBinding" in e else None
-                    offset_by_number_of_days = e["offsetByNumberOfDays"] if "offsetByNumberOfDays" in e else 0
-                    cfg = Export(meta_key, e["configRelName"], e["relativePath"], FileType[file_type_str],
-                                 snapshot_binding, offset_by_number_of_days)
-                    exports.append(cfg)
+                    exports.append(Export(meta_key=e.get("metaKey", []),
+                                          relation=e["configRelName"],
+                                          relative_path=e["relativePath"],
+                                          file_type=FileType[e["type"].upper()],
+                                          snapshot_binding=e.get("snapshotBinding"),
+                                          container=e.get("container", default_container),
+                                          offset_by_number_of_days=e.get("offsetByNumberOfDays", 0)))
                 except KeyError as ex:
                     logger.warning(f"Unsupported FileType: {ex}. Skipping export: {e}.")
         return exports
-
-
-class LocalExportWorkflowStep(ExportWorkflowStep):
-    output_root: str
-
-    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date,
-                 output_root):
-        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date)
-        self.output_root = output_root
-
-    def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
-        save_csv_output(
-            rai.execute_query_csv(logger, rai_config, q.export_relations_local(logger, exports)),
-            self.output_root)
-
-
-class RemoteExportWorkflowStep(ExportWorkflowStep):
-    def __init__(self, idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date):
-        super().__init__(idt, name, state, timing, engine_size, exports, export_jointly, date_format, end_date)
-
-    def _export(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, exports):
-        rai.execute_query(
-            logger, rai_config,
-            q.export_relations_remote(logger, env_config, exports, self.end_date, self.date_format))
 
 
 DEFAULT_FACTORIES = MappingProxyType(

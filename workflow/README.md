@@ -44,12 +44,14 @@ The order of the steps in the batch configuration is important, as the RAI Workf
 
 Steps of this type are used to configure sources which workflow manager will use during [Load Data](#load-data) step.
 * `configFiles`(required) is used to specify the configuration files to install. Leave empty if no configuration files are needed.
+* `defaultContainer`(required) is used to specify the default container for sources input.
 * `sources`(required) is used to specify the sources to configure.
   * `relation`(required) is used to specify the name of the relation to which the source should be uploaded.
   * `isChunkPartitioned`(optional) is used to specify whether the source is chunk partitioned(split on chunks). By default `False`.
   * `relativePath`(required) is used to specify the relative path of the source on Blob storage or in data on file system.
   * `inputFormat`(required) is used to specify the input format of the source. The supported input formats are `csv`, `jsonl`.
   * `isDatePartitioned`(optional) is used to specify is partitioned by date. By default `False`.
+  * `container`(optional) is used to specify the container for particular source. If not specified, the `defaultContainer` will be used.
   * `extensions`(optional) is used to specify the extensions of the source which will be associated with the `inputFormat`. If not specified, the `inputFormat` will be used default extensions are used.
   * `loadsNumberOfDays`(optional) is used to specify the number of days to load.
   * `offsetByNumberOfDays`(optional) is used to specify the number of days to offset the current (end) date by.
@@ -61,9 +63,11 @@ Steps of this type are used to configure sources which workflow manager will use
   "configFiles": [
     "source_configs/my_config.rel"
   ],
+  "defaultContainer": "input",
   "sources": [
     {
       "relation": "master_data",
+      "container": "azure_input",
       "relativePath": "master_source/data",
       "inputFormat": "csv"
     },
@@ -128,7 +132,49 @@ Steps of this type are used to materialize relations in the RAI database.
 ```
 
 ### Export
+Steps of this type are used to export data from RAI database.
+* `exportJointly`(required) is used to specify whether the relations should be exported jointly or separately.
+* `dateFormat`(required) is used to specify date format for export folder.
+* `defaultContainer`(required) is used to specify the default container for export.
+* `exports`(required) is used to specify relations to export.
+  * `type`(required) is used to specify the type of export. The supported types are `csv`.
+  * `configRelName`(required) is used to specify the name of the relation which configures the export.
+  * `relativePath`(required) is used to specify the relative path of the export on Blob storage or in data on file system.
+  * `container`(optional) is used to specify the container for particular export. If not specified, the `defaultContainer` will be used.
+  * `snapshotBinding`(optional) is used to specify the name of the source which is bound to the export. If specified, the export will be skipped if the snapshot is still valid.
+  * `metaKey`(optional) is used to specify the meta-key for the export. If specified, the export will be specialized by the meta-key.
 
+```json
+{
+  "type": "Export",
+  "name": "Export",
+  "exportJointly": false,
+  "dateFormat": "%Y%m%d",
+  "defaultContainer": "export",
+  "exports": [
+    {
+      "type": "csv",
+      "configRelName": "account_journey_csv",
+      "relativePath": "account_journey"
+    },
+    {
+      "type": "csv",
+      "container": "azure_output",
+      "configRelName": "device_seen_snapshot_csv",
+      "relativePath": "device_seen_snapshot",
+      "snapshotBinding": "device_seen_snapshot"
+    },
+    {
+      "type": "csv",
+      "configRelName": "meta_exports",
+      "relativePath": "meta_exports",
+      "metaKey": [
+        "Symbol"
+      ]
+    }
+  ]
+}
+```
 #### Common config options:
 
 * `data` relation contains the well-defined (:col, key..., val) data to be exported;

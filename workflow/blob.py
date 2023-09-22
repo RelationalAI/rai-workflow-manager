@@ -3,17 +3,14 @@ from typing import List
 from azure.storage.blob import BlobServiceClient
 
 from workflow.common import FileFormat
-from workflow.common import EnvConfig
+from workflow.common import AzureConfig
 from workflow.constants import BLOB_PAGE_SIZE
 
 
-def list_files_in_containers(logger: logging.Logger, env_config: EnvConfig, path_prefix) -> List[str]:
-    azure_account = env_config.azure_import_account
-    azure_container = env_config.azure_import_container
-    account_url = f"https://{azure_account}.blob.core.windows.net"
-
-    blob_service_client = BlobServiceClient(account_url=account_url, credential=env_config.azure_import_sas)
-    container_client = blob_service_client.get_container_client(azure_container)
+def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_prefix) -> List[str]:
+    blob_service_client = BlobServiceClient(account_url=f"https://{config.account}.blob.core.windows.net",
+                                            credential=config.sas)
+    container_client = blob_service_client.get_container_client(config.container)
 
     # Get a list of blobs in the folder
     logger.debug(f"Path prefix to list blob files: {path_prefix}")
@@ -22,7 +19,7 @@ def list_files_in_containers(logger: logging.Logger, env_config: EnvConfig, path
         for blob in page:
             blob_name = blob.name
             if FileFormat.is_supported(blob_name):
-                paths.append(f"azure://{azure_account}.blob.core.windows.net/{azure_container}/{blob_name}")
+                paths.append(f"azure://{config.account}.blob.core.windows.net/{config.container}/{blob_name}")
             else:
                 logger.debug(f"Skip unsupported file from blob: {blob_name}")
     return paths

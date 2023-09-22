@@ -43,17 +43,14 @@ def start():
         # Init workflow executor
         parameters = {
             workflow.constants.REL_CONFIG_DIR: args.rel_config_dir,
-            workflow.constants.OUTPUT_ROOT: args.output_root,
-            workflow.constants.LOCAL_DATA_DIR: args.dev_data_dir,
             workflow.constants.START_DATE: args.start_date,
             workflow.constants.END_DATE: args.end_date,
             workflow.constants.FORCE_REIMPORT: args.force_reimport,
             workflow.constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED: args.force_reimport_not_chunk_partitioned,
             workflow.constants.COLLAPSE_PARTITIONS_ON_LOAD: args.collapse_partitions_on_load
         }
-        config = workflow.executor.WorkflowConfig(env_config, args.run_mode,
-                                                  workflow.common.BatchConfig(args.batch_config_name,
-                                                                              batch_config_json),
+        config = workflow.executor.WorkflowConfig(env_config, workflow.common.BatchConfig(args.batch_config_name,
+                                                                                          batch_config_json),
                                                   args.recover, args.recover_step, args.selected_steps, parameters)
         executor = workflow.executor.WorkflowExecutor.init(logger, config, resource_manager)
         end_time = time.time()

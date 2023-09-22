@@ -1,0 +1,12 @@
+rai_sdk_http_retries=0
+
+[[container]]
+name="input"
+type="local"
+data_path="./data"
+
+[[container]]
+name="export"
+type="local"
+data_path="./output"
+

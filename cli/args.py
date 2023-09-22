@@ -1,7 +1,5 @@
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 
-import workflow.executor
-
 
 def parse() -> Namespace:
     parser = ArgumentParser()
@@ -37,13 +35,6 @@ def parse() -> Namespace:
         type=str
     )
     parser.add_argument(
-        "--run-mode",
-        help="Type of run mode",
-        required=True,
-        type=workflow.executor.WorkflowRunMode,
-        choices=list(workflow.executor.WorkflowRunMode),
-    )
-    parser.add_argument(
         "--start-date", help="Start date for model data. Format: 'YYYYmmdd'",
         required=False,
         type=str
@@ -70,12 +61,6 @@ def parse() -> Namespace:
         default=False
     )
     parser.add_argument(
-        "--dev-data-dir", help="Directory containing dev data",
-        required=False,
-        default="../data",
-        type=str
-    )
-    parser.add_argument(
         "--rel-config-dir", help="Directory containing rel config files to install",
         required=False,
         default="../rel",
@@ -94,13 +79,6 @@ def parse() -> Namespace:
         required=False,
         default=True,
         type=bool
-    )
-    parser.add_argument(
-        "--output-root",
-        help="Output folder path for dev mode",
-        required=False,
-        default="../../output",
-        type=str
     )
     parser.add_argument(
         "--log-level",

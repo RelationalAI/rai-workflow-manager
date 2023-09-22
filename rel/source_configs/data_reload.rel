@@ -29,7 +29,7 @@ def simple_sources(rel, path) {
  * All simple sources are affected if they match with declared sources.
  */
 def potentially_affected_sources(rel, path) {
-    source_declares_resource(rel, path) and
+    source_declares_resource(rel, _, path) and
     simple_sources(rel, path)
 }
 /*

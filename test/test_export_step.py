@@ -15,7 +15,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
     @patch('workflow.rai.execute_query_take_single')
     def test_should_export_should_not_export_valid_snapshot(self,  mock_execute_query):
         # given
-        export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding")
+        export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding", "default")
         end_date = "20220105"
         step = _create_export_step([export], end_date)
         rai_config = RaiConfig(Mock(), "engine", "database")
@@ -29,7 +29,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
     @patch('workflow.rai.execute_query_take_single')
     def test_should_export_should_export_snapshot_expiring_today(self,  mock_execute_query):
         # given
-        export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding")
+        export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding", "default")
         end_date = "20220105"
         step = _create_export_step([export], end_date)
         rai_config = RaiConfig(Mock(), "engine", "database")
@@ -43,7 +43,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
     @patch('workflow.rai.execute_query_take_single')
     def test_should_export_should_export_expired_snapshot(self,  mock_execute_query):
         # given
-        export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding")
+        export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding", "default")
         end_date = "20220105"
         step = _create_export_step([export], end_date)
         rai_config = RaiConfig(Mock(), "engine", "database")

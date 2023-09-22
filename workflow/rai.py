@@ -19,9 +19,9 @@ def get_config(engine: str, database: str, env_vars: dict[str, Any]) -> RaiConfi
     :param env_vars:        Env vars dictionary
     :return: Env config
     """
-    rai_profile = env_vars[RAI_PROFILE] if RAI_PROFILE in env_vars else "default"
-    rai_profile_path = env_vars[RAI_PROFILE_PATH] if RAI_PROFILE_PATH in env_vars else "~/.rai/config"
-    retries = env_vars[RAI_SDK_HTTP_RETRIES] if RAI_SDK_HTTP_RETRIES in env_vars else 3
+    rai_profile = env_vars.get(RAI_PROFILE, "default")
+    rai_profile_path = env_vars.get(RAI_PROFILE_PATH, "~/.rai/config")
+    retries = env_vars.get(RAI_SDK_HTTP_RETRIES, 3)
     ctx = api.Context(**config.read(fname=rai_profile_path, profile=rai_profile), retries=retries)
     return RaiConfig(ctx=ctx, engine=engine, database=database)
 

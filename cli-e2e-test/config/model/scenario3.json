@@ -6,6 +6,7 @@
       "configFiles": [
         "config/config2.rel"
       ],
+      "defaultContainer": "input",
       "sources": [
         {
           "relation": "zip_city_state_master_data",

@@ -48,9 +48,6 @@ jobs:
           echo "port = 443" >> config
           echo "client_id = ${{ env.RAI_CLIENT_ID }}" >> config
           echo "client_secret = ${{ env.RAI_CLIENT_SECRET }}" >> config
-          # Create empty toml
-          cd $GITHUB_WORKSPACE/cli-e2e-test/config
-          touch loader.toml
         env:
           RAI_CLIENT_ID: ${{ secrets.client_id }}
           RAI_CLIENT_SECRET: ${{ secrets.client_secret }}

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict
 
 from workflow import constants
+from workflow.common import LocalConfig
 
 
 def range_days(start: datetime, end: datetime) -> List[datetime]:
@@ -30,17 +31,17 @@ def sansext(fname: str) -> str:
     return os.path.splitext(os.path.basename(fname))[0]
 
 
-def save_csv_output(outputs: Dict, output_root: str) -> None:
+def save_csv_output(outputs: Dict, config: LocalConfig) -> None:
     """
     Save the content of dictionary as CSV files
     :param outputs:     dictionary with outputs
-    :param output_root: output root folder
+    :param config:      local config
     :return:
     """
     for output in outputs.keys():
         # for the time being, this handles the specialized relations of meta-exports
         normalized_file_name = output.replace("/:", "_")
-        with open(f"{output_root}/{normalized_file_name}.csv", "w") as file:
+        with open(f"{config.data_path}/{normalized_file_name}.csv", "w") as file:
             file.write(outputs[output])
 
 
