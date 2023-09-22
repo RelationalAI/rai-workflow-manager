@@ -44,7 +44,6 @@ RAI_SDK_HTTP_RETRIES = "rai_sdk_http_retries"
 AZURE_ACCOUNT = "account"
 AZURE_CONTAINER = "container"
 AZURE_DATA_PATH = "data_path"
-AZURE_NUM_FILES = "num_files"
 AZURE_SAS = "sas"
 LOCAL_DATA_PATH = "data_path"
 

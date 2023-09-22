@@ -4,8 +4,8 @@ from typing import List, Any
 
 from railib import api
 
-from workflow.constants import AZURE_ACCOUNT, AZURE_CONTAINER, AZURE_DATA_PATH, AZURE_NUM_FILES, AZURE_SAS, \
-    LOCAL_DATA_PATH, CONTAINER, CONTAINER_TYPE, CONTAINER_NAME
+from workflow.constants import AZURE_ACCOUNT, AZURE_CONTAINER, AZURE_DATA_PATH, AZURE_SAS, LOCAL_DATA_PATH, CONTAINER, \
+    CONTAINER_TYPE, CONTAINER_NAME
 
 
 class MetaEnum(EnumMeta):
@@ -77,7 +77,6 @@ class AzureConfig:
     account: str
     container: str
     data_path: str
-    num_files: int
     sas: str
 
 
@@ -94,7 +93,6 @@ class ConfigExtractor:
             account=env_vars.get(AZURE_ACCOUNT, ""),
             container=env_vars.get(AZURE_CONTAINER, ""),
             data_path=env_vars.get(AZURE_DATA_PATH, ""),
-            num_files=env_vars.get(AZURE_NUM_FILES, 1),
             sas=env_vars.get(AZURE_SAS, "")
         )
 
