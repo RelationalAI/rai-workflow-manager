@@ -168,7 +168,10 @@ class EnvConfig:
     }
 
     def get_container(self, name: str) -> Container:
-        return self.containers[name]
+        try:
+            return self.containers[name]
+        except KeyError:
+            raise ValueError(f"Container `{name}` is missed in Environment Config.")
 
     @staticmethod
     def get_config(container: Container):
