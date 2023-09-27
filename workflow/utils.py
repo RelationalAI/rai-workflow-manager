@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from datetime import datetime, timedelta
 from typing import List, Dict
@@ -122,3 +123,37 @@ def to_rai_date_format(date_format: str) -> str:
     for py_fmt, rai_fmt in fmt_part_map.items():
         rai_date_format = rai_date_format.replace(py_fmt, rai_fmt)
     return rai_date_format
+
+
+def call_with_overhead(
+        f,
+        logger: logging.Logger,
+        overhead_rate: float,
+        start_time: int = time.time(),
+        timeout: int = None,
+        max_tries: int = None,
+        first_delay: float = 0.5,
+        max_delay: int = 120,  # 2 minutes
+):
+    tries = 0
+    max_time = time.time() + timeout if timeout else None
+
+    while True:
+        logger.debug(f"Calling function. The number of try: {tries + 1}")
+        if f():
+            break
+
+        if max_tries is not None and tries >= max_tries:
+            raise Exception(f'max tries {max_tries} exhausted')
+
+        if max_time is not None and time.time() >= max_time:
+            raise Exception(f'timed out after {timeout} seconds')
+
+        tries += 1
+        duration = min((time.time() - start_time) * overhead_rate, max_delay)
+        if tries == 1:
+            logger.debug(f"Sleep duration for the first try: {first_delay}s")
+            time.sleep(first_delay)
+        else:
+            logger.debug(f"Sleep duration for a try: {duration}s")
+            time.sleep(duration)

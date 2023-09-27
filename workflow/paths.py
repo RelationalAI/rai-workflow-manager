@@ -6,7 +6,7 @@ import pathlib
 from typing import List
 
 from workflow import blob, constants
-from workflow.common import EnvConfig, AzureConfig, LocalConfig, Container, ContainerType
+from workflow.common import EnvConfig, AzureConfig, LocalConfig, SnowflakeConfig, Container, ContainerType
 
 
 @dataclasses.dataclass
@@ -86,14 +86,24 @@ class AzurePathsBuilder(PathsBuilder):
         return paths
 
 
-class PathsBuilderFactory:
+class SnowflakePathsBuilder(PathsBuilder):
+    config: SnowflakeConfig
 
+    def __init__(self, config: SnowflakeConfig):
+        self.config = config
+
+    def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
+               is_date_partitioned: bool) -> List[FilePath]:
+        return [FilePath(path=f"{self.config.database}.{self.config.schema}.{relative_path}")]
+
+
+class PathsBuilderFactory:
     __CONTAINER_TYPE_TO_BUILDER = {
-        ContainerType.LOCAL: lambda container: LocalPathsBuilder(EnvConfig.EXTRACTORS[container.type](container.params)),
-        ContainerType.AZURE: lambda container: AzurePathsBuilder(EnvConfig.EXTRACTORS[container.type](container.params))
+        ContainerType.LOCAL: lambda container: LocalPathsBuilder(EnvConfig.get_config(container)),
+        ContainerType.AZURE: lambda container: AzurePathsBuilder(EnvConfig.get_config(container)),
+        ContainerType.SNOWFLAKE: lambda container: SnowflakePathsBuilder(EnvConfig.get_config(container)),
     }
 
     @staticmethod
     def get_path_builder(container: Container) -> PathsBuilder:
         return PathsBuilderFactory.__CONTAINER_TYPE_TO_BUILDER[container.type](container)
-

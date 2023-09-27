@@ -26,6 +26,7 @@ BLOB_PAGE_SIZE = 500
 IMPORT_CONFIG_REL = "import_config"
 
 MISSED_RESOURCES_REL = "missing_resources_json"
+RESOURCES_TO_DELETE_REL = "resources_data_to_delete_json"
 WORKFLOW_JSON_REL = "workflow_json"
 BATCH_CONFIG_REL = "batch:config"
 
@@ -41,11 +42,18 @@ CONTAINER_NAME = "name"
 RAI_PROFILE = "rai_profile"
 RAI_PROFILE_PATH = "rai_profile_path"
 RAI_SDK_HTTP_RETRIES = "rai_sdk_http_retries"
-AZURE_ACCOUNT = "account"
-AZURE_CONTAINER = "container"
-AZURE_DATA_PATH = "data_path"
+# Generic container params
+ACCOUNT_PARAM = "account"
+USER_PARAM = "user"
+PASSWORD_PARAM = "password"
+SCHEMA_PARAM = "schema"
+DATABASE_PARAM = "database"
+CONTAINER_PARAM = "container"
+DATA_PATH_PARAM = "data_path"
+# Datasource specific params
 AZURE_SAS = "sas"
-LOCAL_DATA_PATH = "data_path"
+SNOWFLAKE_ROLE = "role"
+SNOWFLAKE_WAREHOUSE = "warehouse"
 
 # Step parameters
 REL_CONFIG_DIR = "rel_config_dir"
@@ -54,3 +62,13 @@ END_DATE = "end_date"
 FORCE_REIMPORT = "force_reimport"
 FORCE_REIMPORT_NOT_CHUNK_PARTITIONED = "force_reimport_not_chunk_partitioned"
 COLLAPSE_PARTITIONS_ON_LOAD = "collapse_partitions_on_load"
+
+# Snowflake constants
+
+# Properties
+SNOWFLAKE_SYNC_STATUS = "Data sync status"
+SNOWFLAKE_STREAM_HEALTH_STATUS = "Data stream health"
+SNOWFLAKE_TOTAL_ROWS = "Latest changes written to RAI - Total rows"
+# Values
+SNOWFLAKE_FINISHED_SYNC_STATUS = "\"Fully synced\""
+SNOWFLAKE_HEALTHY_STREAM_STATUS = "\"Healthy\""

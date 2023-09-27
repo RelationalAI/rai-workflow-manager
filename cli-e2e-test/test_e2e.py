@@ -4,9 +4,9 @@ import logging
 import shutil
 import uuid
 
-import test_query as q
 import workflow.manager
 import workflow.rai
+from workflow.constants import RESOURCES_TO_DELETE_REL
 from csv_diff import load_csv, compare, human_text
 from subprocess import call
 
@@ -49,7 +49,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, {})
 
     def test_scenario2_model_force_reimport(self):
@@ -65,7 +65,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'},
                                     {'partition': 2023090900001, 'relation': 'city_data'},
@@ -84,7 +84,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'zip_city_state_master_data'}])
 
     def test_scenario3_model_single_partition_change(self):
@@ -106,7 +106,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
 
     def test_scenario3_model_two_partitions_overriden_by_one(self):
@@ -129,7 +129,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, q.RESOURCES_TO_DELETE)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'}])
 
