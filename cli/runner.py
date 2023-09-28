@@ -58,12 +58,16 @@ def start():
         # Print execution time information
         executor.print_timings()
         logger.info(f"Infrastructure setup time is {workflow.utils.format_duration(end_time - start_time)}")
-
-        if args.cleanup_resources:
-            resource_manager.cleanup_resources()
     except Exception as e:
         # Cleanup resources in case of any failure.
         logger.exception(e)
+        sys.exit(1)
+    finally:
         if args.cleanup_resources:
             resource_manager.cleanup_resources()
-        sys.exit(1)
+        else:
+            if args.cleanup_db:
+                resource_manager.delete_database()
+            if args.cleanup_engine:
+                resource_manager.cleanup_engines()
+

@@ -41,6 +41,13 @@ class ResourceManager:
         :return:
         """
         self.delete_database()
+        self.cleanup_engines()
+
+    def cleanup_engines(self) -> None:
+        """
+        Delete RAI engines from RAI Config and managed engines.
+        :return:
+        """
         for size in self.__engines:
             config = self.get_rai_config(size)
             if rai.engine_exist(self.__logger, config):
@@ -58,7 +65,8 @@ class ResourceManager:
         if delete_db:
             self.delete_database()
         config = self.get_rai_config()
-        rai.create_database(self.__logger, config, source_db)
+        if not rai.database_exist(self.__logger, config):
+            rai.create_database(self.__logger, config, source_db)
         if disable_ivm:
             self.__logger.info(f"Disabling IVM for `{config.database}`")
             rai.execute_query(self.__logger, config, q.DISABLE_IVM, readonly=False)
