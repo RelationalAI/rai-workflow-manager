@@ -6,7 +6,7 @@ This Command-Line Interface (CLI) is designed to provide an easy and interactive
 1. Create a batch configuration (ex. `poc.json`) file using the syntax and structure outlined in the [RAI Workflow Framework README](../workflow/README.md).
 2. Add `rai-workflow-manager` as dependency to your `requirements.txt` file:
 ```txt
-rai-workflow-manager==0.0.15
+rai-workflow-manager==0.0.16
 ```
 3. Build the project:
 ```bash
