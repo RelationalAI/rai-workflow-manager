@@ -5,6 +5,8 @@ def configure(level=logging.INFO) -> logging.Logger:
     # override default logging level for azure
     logger = logging.getLogger('azure.core')
     logger.setLevel(logging.ERROR)
+    logger = logging.getLogger('snowflake')
+    logger.setLevel(logging.ERROR)
 
     logger = logging.getLogger()
     logger.setLevel(level)

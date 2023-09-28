@@ -3,6 +3,7 @@ bound multi_part_relation = String
 bound date_partitioned_source = String
 bound source_declares_resource = String, String, String
 bound source_has_input_format = String, String
+bound source_has_container_type = String, String
 bound source_catalog
 bound simple_source_catalog
 bound part_resource_date_pattern = String
@@ -37,6 +38,31 @@ end
 def input_format_code_to_string = transpose[^InputFormatCode]
 
 /**
+ * Container types
+ */
+
+value type ContainerTypeCode = String
+entity type ContainerType = ContainerTypeCode
+
+def ContainerType(t) { container_type:id(t, _) }
+
+module container_type
+    def id = transpose[container_type_code:identifies]
+end
+
+module container_type_code
+    def value = { "AZURE" ; "LOCAL" ; "SNOWFLAKE" }
+
+    def identifies(c, t) {
+        value(v) and
+        ^ContainerTypeCode(v, c) and
+        ^ContainerType(c, t)
+        from v
+    }
+end
+
+def container_type_code_to_string = transpose[^ContainerTypeCode]
+/**
  * Resources
  */
 
@@ -54,13 +80,6 @@ module resource
     def id = transpose[uri:identifies]
     
     def part_of = transpose[source:declares]
-    
-    def local(r) {
-        str = uri_to_string[resource:id[r]] and
-        not regex_match( "^azure://(.+)$", str ) and
-        not regex_match( "^https://(.+)$", str )
-        from str
-    }
 end
 
 module part_resource
@@ -167,24 +186,16 @@ ic multi_part_source_declares_part_resources(s) {
     forall(r in source:declares[s]: PartResource(r))
 }
 
-ic source_is_local_or_remote(s, rel) {
-    source:declares(s, _) and
-    source:populates(s, rel)
-    implies
-    source:local(s) or source:remote(s)
-}
-
-ic not_local_and_remote(s, rel) {
-    source:populates(s, rel) and
-    source:local(s)
-    implies
-    not source:remote(s)
-}
-
 ic source_has_unique_input_format(s) {
     Source(s)
     implies
     source:format(s, _)
+}
+
+ic source_has_container_type(s) {
+    Source(s)
+    implies
+    source:container_type(s, _)
 }
 // currently we do not support chunk partitioning for not date partitioned source
 ic multi_part_source_is_date_partitioned(s) {
@@ -204,15 +215,6 @@ module source
     }
 
     def spans[s] = part_resource:hashes_to_date[declares[s]]
-
-    def local(s) {
-        declares(s, _) and
-        forall(r: declares(s, r) implies resource:local(r) )
-    }
-    def remote(s) {
-        declares(s, _) and
-        forall(r: declares(s, r) implies not resource:local(r) )
-    }
 
     def container(s, c) {
         source_declares_resource(rel, c, _) and
@@ -234,6 +236,13 @@ module source
         not source_has_input_format(rel, _) and
         CSVInputFormat(f)
         from rel
+    }
+
+    def container_type(s, typ) {
+        source_has_container_type(rel, raw_container_type) and
+        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] and
+        typ = container_type_code:identifies[^ContainerTypeCode[raw_container_type]]
+        from raw_container_type, rel
     }
 end
 
@@ -344,24 +353,17 @@ def missing_resources_json(:[], n, :is_multi_part, "Y") {
     from s
 }
 
-def missing_resources_json(:[], n, :is_remote, "Y") {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    source:remote(s)
-    from s
-}
-
-def missing_resources_json(:[], n, :is_local, "Y") {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    source:local(s)
-    from s
-}
-
 def missing_resources_json(:[], n, :container, v) {
     source:needs_resource(s) and
     source:index[s] = n and
     source:container(s, v)
+    from s
+}
+
+def missing_resources_json(:[], n, :container_type, typ) {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    typ = container_type_code_to_string[ container_type:id[ source:container_type[s] ] ]
     from s
 }
 

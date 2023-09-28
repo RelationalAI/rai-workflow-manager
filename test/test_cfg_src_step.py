@@ -6,7 +6,7 @@ from typing import List
 from unittest.mock import Mock
 
 from workflow import paths
-from workflow.common import Source
+from workflow.common import Source, Container, ContainerType
 from workflow.executor import ConfigureSourcesWorkflowStep, WorkflowStepState
 
 
@@ -402,7 +402,7 @@ def _create_test_source(is_chunk_partitioned: bool = True, is_date_partitioned: 
                         loads_number_of_days: int = 1, offset_by_number_of_days: int = 0,
                         snapshot_validity_days=None) -> Source:
     return Source(
-        container="default",
+        container=Container("default", ContainerType.LOCAL, {}),
         relation="test",
         relative_path="test",
         input_format="test",

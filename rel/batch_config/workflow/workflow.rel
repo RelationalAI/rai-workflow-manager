@@ -69,6 +69,7 @@ module batch_workflow_step
 end
 
 def batch_workflow_step(part, s, v) { batch_workflow_step:json_data(s, part, :[], _, v) }
+def batch_workflow_step(part, s, v) { batch_workflow_step:json_data(s, part, v) }
 
 module batch_workflow_step_order
     def step_order_to_workflow(o, s, w) {

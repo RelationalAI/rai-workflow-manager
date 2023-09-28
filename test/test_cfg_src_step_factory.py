@@ -14,13 +14,16 @@ class TestConfigureSourcesWorkflowStepFactory(unittest.TestCase):
     def test_get_step(self):
         # Setup factory spy
         factory = ConfigureSourcesWorkflowStepFactory()
-        spy = MagicMock(wraps=factory._parse_sources)
-        sources = [_create_test_source("azure", "src1"), _create_test_source("local", "src2"),
-                   _create_test_source("local", "src3"), _create_test_source("local", "src4")]
-        spy.return_value = sources
-        factory._parse_sources = spy
         config = _create_wf_cfg(EnvConfig({"azure": _create_container("default", ContainerType.AZURE),
                                            "local": _create_container("local", ContainerType.LOCAL)}), Mock())
+        spy = MagicMock(wraps=factory._parse_sources)
+        sources = [_create_test_source(config.env.get_container("azure"), "src1"),
+                   _create_test_source(config.env.get_container("local"), "src2"),
+                   _create_test_source(config.env.get_container("local"), "src3"),
+                   _create_test_source(config.env.get_container("local"), "src4")]
+        spy.return_value = sources
+        factory._parse_sources = spy
+
         # When
         step = factory._get_step(self.logger, config, "1", "name", WorkflowStepState.INIT, 0, None, {"configFiles": []})
         # Then
@@ -34,14 +37,14 @@ class TestConfigureSourcesWorkflowStepFactory(unittest.TestCase):
         self.assertEqual(sources, step.sources)
         self.assertEqual(2, len(step.paths_builders.keys()))
         self.assertIsInstance(step.paths_builders.get("local"), paths.LocalPathsBuilder)
-        self.assertIsInstance(step.paths_builders.get("azure"), paths.AzurePathsBuilder)
+        self.assertIsInstance(step.paths_builders.get("default"), paths.AzurePathsBuilder)
         self.assertEqual("2021-01-01", step.start_date)
         self.assertEqual("2021-01-01", step.end_date)
         self.assertFalse(step.force_reimport)
         self.assertFalse(step.force_reimport_not_chunk_partitioned)
 
 
-def _create_test_source(container: str, relation: str) -> Source:
+def _create_test_source(container: Container, relation: str) -> Source:
     return Source(
         container=container,
         relation=relation,

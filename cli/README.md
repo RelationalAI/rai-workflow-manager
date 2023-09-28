@@ -6,7 +6,7 @@ This Command-Line Interface (CLI) is designed to provide an easy and interactive
 1. Create a batch configuration (ex. `poc.json`) file using the syntax and structure outlined in the [RAI Workflow Framework README](../workflow/README.md).
 2. Add `rai-workflow-manager` as dependency to your `requirements.txt` file:
 ```txt
-rai-workflow-manager==0.0.13
+rai-workflow-manager==0.0.14
 ```
 3. Build the project:
 ```bash
@@ -50,18 +50,23 @@ where `<engine>`, `<database>` are the names of some RAI resources to use
 ## `loader.toml` Configuration
 The `loader.toml` file is used to specify static properties for the RAI Workflow Framework. It contains the following properties:
 
-| Description                                                                      | Property               |
-|:---------------------------------------------------------------------------------|------------------------|
-| RAI profile.                                                                     | `rai_profile`          |
-| Path to RAI config.                                                              | `rai_profile_path`     |
-| HTTP retries for RAI sdk in case of errors. (Can be overridden by CLI argument)  | `rai_sdk_http_retries` |
-| A list of containers to use for loading and exporting data.                      | `container`            |
-| The name of the container.                                                       | `container.name`       |
-| The type of the container. Supported types: `local`, `azure`                     | `container.type`       |
-| The path in the container.                                                       | `container.data_path`  |
-| Remote container account                                                         | `container.account`    |
-| Remote container SAS token.                                                      | `container.sas`        |
-| Container for remote container SAS token. (Ex. Azure Blob container)             | `container.container`  |
+| Description                                                                                 | Property               |
+|:--------------------------------------------------------------------------------------------|------------------------|
+| RAI profile.                                                                                | `rai_profile`          |
+| Path to RAI config.                                                                         | `rai_profile_path`     |
+| HTTP retries for RAI sdk in case of errors. (Can be overridden by CLI argument)             | `rai_sdk_http_retries` |
+| A list of containers to use for loading and exporting data.                                 | `container`            |
+| The name of the container.                                                                  | `container.name`       |
+| The type of the container. Supported types: `local`, `azure`, `snowflake`(only data import) | `container.type`       |
+| The path in the container.                                                                  | `container.data_path`  |
+| Remote container account                                                                    | `container.account`    |
+| Remote container SAS token.                                                                 | `container.sas`        |
+| User for remote container.                                                                  | `container.user`       |
+| Password for remote container.                                                              | `container.password`   |
+| User role for remote container (e.g. Snowflake user role).                                  | `container.role`       |
+| Database for remote container.                                                              | `container.database`   |
+| Schema for remote container.                                                                | `container.schema`     |
+| Warehouse for Snowflake container.                                                          | `container.warehouse`  |
 
 ### Azure container example
 ```toml
@@ -72,6 +77,19 @@ data_path="input"
 account="account_name"
 sas="sas_token"
 container="container_name"
+```
+### Snowflake container example
+```toml
+[[container]]
+name="input"
+type="snowflake"
+account="account"
+user="use"
+password="password"
+role="snowflake role"
+warehouse="warehouse"
+database="database"
+schema="schema"
 ```
 ### Local container example
 ```toml

@@ -11,6 +11,7 @@ def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_p
     blob_service_client = BlobServiceClient(account_url=f"https://{config.account}.blob.core.windows.net",
                                             credential=config.sas)
     container_client = blob_service_client.get_container_client(config.container)
+    logger = logger.getChild("blob")
 
     # Get a list of blobs in the folder
     logger.debug(f"Path prefix to list blob files: {path_prefix}")

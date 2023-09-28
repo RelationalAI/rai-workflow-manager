@@ -54,6 +54,7 @@ def install_model(models: dict) -> QueryWithInputs:
 def populate_source_configs(sources: List[Source]) -> str:
     source_config_csv = "\n".join([source.to_paths_csv() for source in sources])
     data_formats_csv = "\n".join([source.to_formats_csv() for source in sources])
+    container_types_csv = "\n".join([source.to_container_type_csv() for source in sources])
 
     simple_sources = list(filter(lambda source: not source.is_chunk_partitioned, sources))
     multipart_sources = list(filter(lambda source: source.is_chunk_partitioned, sources))
@@ -71,9 +72,7 @@ def populate_source_configs(sources: List[Source]) -> str:
         def resource_config[:schema, :Relation] = "string"
         def resource_config[:schema, :Container] = "string"
         def resource_config[:schema, :Path] = "string"
-
         def source_config_csv = load_csv[resource_config]
-
         def insert:source_declares_resource(r, c, p) =
             exists(i : 
                 source_config_csv(:Relation, i, r) and 
@@ -82,16 +81,22 @@ def populate_source_configs(sources: List[Source]) -> str:
             )
 
         def input_format_config[:data] = \"\"\"{data_formats_csv}\"\"\"
-
         def input_format_config[:syntax, :header_row] = -1
         def input_format_config[:syntax, :header] = (1, :Relation); (2, :InputFormatCode)
         def input_format_config[:schema, :Relation] = "string"
         def input_format_config[:schema, :InputFormatCode] = "string"
-
         def input_format_config_csv = load_csv[input_format_config]
-
         def insert:source_has_input_format(r, p) =
             exists(i : input_format_config_csv(:Relation, i, r) and input_format_config_csv(:InputFormatCode, i, p))
+        
+        def container_type_config[:data] = \"\"\"{container_types_csv}\"\"\"
+        def container_type_config[:syntax, :header_row] = -1
+        def container_type_config[:syntax, :header] = (1, :Relation); (2, :ContainerType)
+        def container_type_config[:schema, :Relation] = "string"
+        def container_type_config[:schema, :ContainerType] = "string"
+        def container_type_config_csv = load_csv[container_type_config]
+        def insert:source_has_container_type(r, t) =
+            exists(i : container_type_config_csv(:Relation, i, r) and container_type_config_csv(:ContainerType, i, t))
 
         {f"def insert:simple_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
         {f"def insert:multi_part_relation = {_to_rel_literal_relation([source.relation for source in multipart_sources])}" if len(multipart_sources) > 0 else ""}

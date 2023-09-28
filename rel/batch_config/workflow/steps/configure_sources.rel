@@ -4,6 +4,8 @@ module batch_workflow_step
     module configure_sources
         def config_files(st in BatchWorkflowConfigureSourcesStep, f) { batch_workflow_step:configFiles(st, f) }
 
+        def default_container(st in BatchWorkflowConfigureSourcesStep, c) { batch_workflow_step:defaultContainer(st, c) }
+
         def sources = transpose[batch_source:step]
     end
 end
@@ -28,8 +30,10 @@ end
 module batch_source
     def step(src, st) { batch_source_name:step_source_name_to_source(st, _, src) }
     def extensions(src, e) { extract_value:extensions(src, :[], _, e) }
-    def partitioned(src) { extract_value:partitioned(src, boolean_true) }
+    def date_partitioned(src) { extract_value:isDatePartitioned(src, boolean_true) }
+    def chunk_partitioned(src) { extract_value:isChunkPartitioned(src, boolean_true) }
     def relation = extract_value:relation
+    def container = extract_value:container
     def relative_path = extract_value:relativePath
     def input_format = extract_value:inputFormat
     def loads_number_of_days = extract_value:loadsNumberOfDays
@@ -44,4 +48,8 @@ module batch_source
     }
 end
 
-// TODO: declare ICs
+ic configure_sources_step_default_container_is_mandatory(s) {
+    BatchWorkflowConfigureSourcesStep(s)
+    implies
+    batch_workflow_step:configure_sources:default_container(s, _)
+}
