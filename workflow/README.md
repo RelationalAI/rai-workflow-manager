@@ -303,7 +303,7 @@ look like the one shown below:
 ## Snowflake Integration
 Workflow manager supports Snowflake as a data source container only for data ingestion. 
 ### Integration Details
-Workflow Manager use RAI integration for data sync from Snowflake. Workflow Manager creates a data stream for each source in batch config with Snowflake container. Integration Service creates an ingestion engine per rai account with prefix `ingestion-engine-*` and use this engine for data ingestion. Relation for data ingestion: `simple_source_catalog`. Once data sync is completed, Workflow Manager deletes the data stream. 
+Workflow Manager uses RAI integration for data sync from Snowflake. Workflow Manager creates a data stream for each source in batch config with Snowflake container. Integration Service creates an ingestion engine per rai account with prefix `ingestion-engine-*` and uses this engine for data ingestion. Relation for data ingestion: `simple_source_catalog`. Once data sync is completed, Workflow Manager deletes the data stream. 
 
 **Note:** Workflow Manager is not responsible for creating and deleting an ingestion engine. The ingestion engine is not deleted automatically after data sync.   
 ### Configure RAI Integration

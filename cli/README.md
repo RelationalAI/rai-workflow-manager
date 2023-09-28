@@ -61,9 +61,9 @@ The `loader.toml` file is used to specify static properties for the RAI Workflow
 | The path in the container.                                                                  | `container.data_path`  |
 | Remote container account                                                                    | `container.account`    |
 | Remote container SAS token.                                                                 | `container.sas`        |
-| User for remote container SAS token.                                                        | `container.user`       |
+| User for remote container.                                                                  | `container.user`       |
 | Password for remote container.                                                              | `container.password`   |
-| User role for remote container. (Ex. Snowflake user role)                                   | `container.role`       |
+| User role for remote container (e.g. Snowflake user role).                                  | `container.role`       |
 | Database for remote container.                                                              | `container.database`   |
 | Schema for remote container.                                                                | `container.schema`     |
 | Warehouse for Snowflake container.                                                          | `container.warehouse`  |
