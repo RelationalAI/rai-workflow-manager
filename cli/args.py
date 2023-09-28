@@ -48,16 +48,14 @@ def parse() -> Namespace:
         "--force-reimport-not-chunk-partitioned",
         help="Force reimport of sources which are NOT chunk-partitioned. If it's a date-partitioned source, it will be "
              "re-imported with in `--start-date` & `--end-date` range.",
-        required=False,
-        action="store_true",
+        action=BooleanOptionalAction,
         default=False
     )
     parser.add_argument(
         "--force-reimport",
         help="Force reimport of sources which are date-partitioned (both chunk and NOT chunk-partitioned) with in "
              "`--start-date` & `--end-date` range and all sources which are NOT date-partitioned.",
-        required=False,
-        action="store_true",
+        action=BooleanOptionalAction,
         default=False
     )
     parser.add_argument(
@@ -76,9 +74,8 @@ def parse() -> Namespace:
     parser.add_argument(
         "--collapse-partitions-on-load",
         help="When loading each multi-part source, load all partitions (and shards) in one transaction",
-        required=False,
-        default=True,
-        type=bool
+        action=BooleanOptionalAction,
+        default=True
     )
     parser.add_argument(
         "--log-level",
@@ -103,16 +100,14 @@ def parse() -> Namespace:
     parser.add_argument(
         "--cleanup-resources",
         help="Remove RAI engine and database after run or not",
-        required=False,
-        default=False,
-        type=bool
+        action=BooleanOptionalAction,
+        default=False
     )
     parser.add_argument(
         "--disable-ivm",
         help="Disable IVM for RAI database",
-        required=False,
-        default=True,
-        type=bool
+        action=BooleanOptionalAction,
+        default=True
     )
     parser.add_argument(
         "--recover",
