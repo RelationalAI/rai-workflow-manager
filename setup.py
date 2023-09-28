@@ -20,7 +20,6 @@ import workflow
 
 setup(
     author="RelationalAI, Inc.",
-    author_email="support@relational.ai",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
