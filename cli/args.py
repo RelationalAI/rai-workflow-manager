@@ -104,6 +104,18 @@ def parse() -> Namespace:
         default=False
     )
     parser.add_argument(
+        "--cleanup-db",
+        help="Remove RAI database after run or not",
+        action=BooleanOptionalAction,
+        default=False
+    )
+    parser.add_argument(
+        "--cleanup-engine",
+        help="Remove RAI engine after run or not",
+        action=BooleanOptionalAction,
+        default=False
+    )
+    parser.add_argument(
         "--disable-ivm",
         help="Disable IVM for RAI database",
         action=BooleanOptionalAction,
