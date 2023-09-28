@@ -46,7 +46,7 @@ To learn more about the CLI implementation, its features, installation guide, an
 
 ## Support
 
-This software is released as-is. RelationalAI provides no warranty and no support on this software. 
+This software is released as-is. RelationalAI provides no warranty and no support on this software. If you have any issues with the software, please file an issue. 
 
 ## License
 
