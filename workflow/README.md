@@ -87,8 +87,6 @@ Steps of this type are used to configure sources which workflow manager will use
   ]
 }
 ```
-#### Limitations
-- We do not support chunk partitioning for sources which are not partitioned by date.
 
 ### Install Model
 

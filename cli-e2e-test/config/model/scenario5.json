@@ -17,7 +17,7 @@
           "relation": "city_data",
           "isChunkPartitioned": true,
           "isDatePartitioned": true,
-          "relativePath": "temp/city",
+          "relativePath": "city",
           "inputFormat": "csv",
           "loadsNumberOfDays": 60
         },
@@ -25,7 +25,7 @@
           "relation": "product_data",
           "isChunkPartitioned": true,
           "isDatePartitioned": false,
-          "relativePath": "product",
+          "relativePath": "temp/product",
           "inputFormat": "csv"
         }
       ]

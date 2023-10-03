@@ -1,0 +1,7 @@
+module product_data
+    def PRODUCT_NAME[idx, row] = source_catalog:product_data[idx, :product, row]
+end
+
+module product_info
+    def name = product_data:PRODUCT_NAME[_, _]
+end

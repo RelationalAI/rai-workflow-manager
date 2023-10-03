@@ -74,8 +74,6 @@ def Resource(r) { resource:id(r, _) }
 value type PartIndex = Int
 def PartResource(r) { part_resource:hashes_to_part_index(r, _) }
 
-ic part_resource_hashes_to_date(p) { PartResource(p) implies part_resource:hashes_to_date(p, _) }
-
 module resource
     def id = transpose[uri:identifies]
     
@@ -104,6 +102,14 @@ module part_resource
         s = parse_int[ uri:parse_value[v, shard_alias] ] and
         n = ^PartIndex[ d * part_resource_index_multiplier + s ]
         from d, s
+    }
+
+    @inline
+    def parse_part_index[v](n) {
+        not uri:parse_value(v, "date", _) and
+        s = parse_int[ uri:parse_value[v, shard_alias] ] and
+        n = ^PartIndex[s]
+        from s
     }
 end
 
@@ -197,12 +203,6 @@ ic source_has_container_type(s) {
     implies
     source:container_type(s, _)
 }
-// currently we do not support chunk partitioning for not date partitioned source
-ic multi_part_source_is_date_partitioned(s) {
-    MultiPartSource(s)
-    implies
-    source:date_partitioned(s)
-}
 
 module source
     def populates = transpose[relation:identifies]
@@ -279,14 +279,7 @@ def source:populated(s) {
 
 def source:needs_resource(s) {
     resource:needed(r) and
-    not PartResource(r) and
-    resource:part_of(r, s)
-    from r
-}
-
-def source:needs_resource(s) {
-    resource:needed(r) and
-    not PartResource(r) and
+    not part_resource:hashes_to_date(r, _) and
     resource:part_of(r, s)
     from r
 }

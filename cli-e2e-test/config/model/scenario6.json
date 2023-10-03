@@ -14,18 +14,10 @@
           "inputFormat": "csv"
         },
         {
-          "relation": "city_data",
-          "isChunkPartitioned": true,
-          "isDatePartitioned": true,
-          "relativePath": "temp/city",
-          "inputFormat": "csv",
-          "loadsNumberOfDays": 60
-        },
-        {
           "relation": "product_data",
           "isChunkPartitioned": true,
           "isDatePartitioned": false,
-          "relativePath": "product",
+          "relativePath": "temp/product",
           "inputFormat": "csv"
         }
       ]

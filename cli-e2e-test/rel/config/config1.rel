@@ -24,6 +24,14 @@ module export_config
         }
     end
 
+    module products_csv
+        def data = product_info
+
+        def syntax:header = {
+            1, :name
+        }
+    end
+
     module device_seen_snapshot_csv
         def data = device_seen_snapshot_updated
 
@@ -35,5 +43,5 @@ module export_config
 end
 
 def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"
-def part_resource_index_pattern = "^(.+)/data_dt=(.+)/part-(?<shard>[0-9]).(csv|json|jsonl)$"
+def part_resource_index_pattern = "^(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
 def part_resource_index_multiplier = 100000

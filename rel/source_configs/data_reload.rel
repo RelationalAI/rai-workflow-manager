@@ -24,13 +24,26 @@ def simple_sources(rel, path) {
     not chunk_partitioned_sources(rel, path, _)
     from i
 }
-// TODO: add support for chunk partitioned sources which are not date partitioned
+
 /*
  * All simple sources are affected if they match with declared sources.
  */
 def potentially_affected_sources(rel, path) {
     source_declares_resource(rel, _, path) and
     simple_sources(rel, path)
+}
+/*
+ * All chunk partitioned and not partitioned by date sources are affected if they match with declared sources.
+ */
+def potentially_affected_sources(rel, path, p_idx) {
+    chunk_partitioned_sources(rel, _, _) and
+    source_declares_resource(rel, _, path) and
+    s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] and
+    not source:date_partitioned(s) and
+    source:declares(s, res) and
+    part_resource:hashes_to_part_index(res, p_idx) and
+    resource:id(res, ^URI[path])
+    from s, res
 }
 /*
  * All chunk partitioned sources for given date are affected in case new sources have at least one partition in this date.
