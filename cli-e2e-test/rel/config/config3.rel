@@ -10,5 +10,5 @@ module export_config
 end
 
 def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"
-def part_resource_index_pattern = "^(.+)/data_dt=(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
+def part_resource_index_pattern = "^(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
 def part_resource_index_multiplier = 100000

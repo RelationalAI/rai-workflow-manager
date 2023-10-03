@@ -69,6 +69,8 @@ class CliE2ETest(unittest.TestCase):
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'},
                                     {'partition': 2023090900001, 'relation': 'city_data'},
+                                    {'partition': 1, 'relation': 'product_data'},
+                                    {'partition': 2, 'relation': 'product_data'},
                                     {'relation': 'zip_city_state_master_data'}])
 
     def test_scenario2_model_force_reimport_chunk_partitioned(self):
@@ -87,7 +89,7 @@ class CliE2ETest(unittest.TestCase):
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'zip_city_state_master_data'}])
 
-    def test_scenario3_model_single_partition_change(self):
+    def test_scenario3_model_single_partition_change_for_date_partitioned(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario3.json",
                      "--start-date", "20230908",
@@ -109,7 +111,7 @@ class CliE2ETest(unittest.TestCase):
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
 
-    def test_scenario3_model_two_partitions_overriden_by_one(self):
+    def test_scenario3_model_two_partitions_overriden_by_one_for_date_partitioned(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario3.json",
                      "--start-date", "20230908",
@@ -153,6 +155,50 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario4_model_reimport_2_partitions_data_with_1.__name__)
+
+    def test_scenario5_model_single_partition_change(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario5.json",
+                     "--start-date", "20230908",
+                     "--end-date", "20230909"]
+        # copy data for scenario 5
+        data_folder = "/product"
+        shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        # rename files to simulate data refresh
+        os.rename(f"{self.temp_folder}{data_folder}/part-1-3q1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv",
+                  f"{self.temp_folder}{data_folder}/part-1-{uuid.uuid4()}.csv")
+        rsp = call(self.cmd_with_common_arguments + test_args)
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'}])
+
+    def test_scenario6_model_two_partitions_overriden_by_one(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario6.json"]
+        data_folder = "/product"
+        # copy data for scenario 3
+        shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        # rename files to simulate data refresh
+        os.rename(f"{self.temp_folder}{data_folder}/part-1-3q1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv",
+                  f"{self.temp_folder}{data_folder}/part-1-{uuid.uuid4()}.csv")
+        os.remove(f"{self.temp_folder}{data_folder}/part-2-3w1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv")
+        rsp = call(self.cmd_with_common_arguments + test_args)
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'},
+                                    {'partition': 2, 'relation': 'product_data'}])
 
     @classmethod
     def setUpClass(cls) -> None:
