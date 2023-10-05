@@ -2,7 +2,7 @@ bound force_reimport
 bound force_reimport_not_chunk_partitioned
 bound resources_data_to_delete
 bound declared_sources_to_delete = String, String
-bound new_source_config_csv = RelationName, FilePos, String
+bound new_source_config_csv = RelName, FilePos, String
 
 def new_source_config[:syntax, :header_row] = -1
 def new_source_config[:syntax, :header] = (1, :Relation); (2, :Path); (3, :ChunkPartitioned)
