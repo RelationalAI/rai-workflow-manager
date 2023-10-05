@@ -159,13 +159,23 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
                                                                            src.is_date_partitioned)
             if src.is_date_partitioned:
                 # after inflating we take the last `src.loads_number_of_days` days and reduce into an array of paths
-                inflated_paths.sort(key=lambda v: v.as_of_date)
-                grouped_inflated_paths = {date: list(group) for date, group in
-                                          groupby(inflated_paths, key=lambda v: v.as_of_date)}
+                grouped_inflated_paths = ConfigureSourcesWorkflowStep.__group_paths_by_date(inflated_paths)
                 date_path_tuples = list(grouped_inflated_paths.items())
                 # Take the last `src.loads_number_of_days` tuples
                 last_date_paths_tuples = date_path_tuples[-src.loads_number_of_days:]
                 inflated_paths = [path for date, date_paths in last_date_paths_tuples for path in date_paths]
+
+            if not src.is_chunk_partitioned:
+                grouped_inflated_paths = ConfigureSourcesWorkflowStep.__group_paths_by_date(inflated_paths)
+                inflated_paths = []
+                # Take only one (the first) file from each not chunk partitioned source
+                for date, date_paths in grouped_inflated_paths.items():
+                    if len(date_paths) > 1:
+                        elements = "\n".join([f"{obj.path}" for obj in date_paths])
+                        logger.warning(
+                            f"Source '{src.relation}' is not chunk partitioned, but has more than one file:\n"
+                            f"{elements}.\nTaking only the first one: {date_paths[0]}")
+                    inflated_paths.append(date_paths[0])
 
             src.paths = [p.path for p in inflated_paths]
 
@@ -184,6 +194,12 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             days.extend(extract_date_range(logger, self.start_date, self.end_date, loads_number_of_days,
                                            offset_by_number_of_days))
         return days
+
+    @staticmethod
+    def __group_paths_by_date(src_paths) -> dict[str, List[paths.FilePath]]:
+        src_paths.sort(key=lambda v: v.as_of_date)
+        return {date: list(group) for date, group in
+                groupby(src_paths, key=lambda v: v.as_of_date)}
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
