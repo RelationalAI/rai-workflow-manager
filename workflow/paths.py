@@ -12,7 +12,7 @@ from workflow.common import EnvConfig, AzureConfig, LocalConfig, SnowflakeConfig
 @dataclasses.dataclass
 class FilePath:
     path: str
-    as_of_date: str = None
+    as_of_date: str = ""
 
 
 class PathsBuilder:
@@ -21,7 +21,7 @@ class PathsBuilder:
               is_date_partitioned: bool) -> List[FilePath]:
         paths = self._build(logger, days, relative_path, input_format, is_date_partitioned)
         if not paths:
-            raise AssertionError(f"""PathsBuilder didn't find any file for specified parameters:
+            logger.warning(f"""PathsBuilder didn't find any file for specified parameters:
             days=`{days}`, relative_path=`{relative_path}`, input_format=`{input_format}`, 
             is_date_partitioned=`{is_date_partitioned}`""")
         return paths

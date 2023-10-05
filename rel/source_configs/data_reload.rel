@@ -38,7 +38,7 @@ def potentially_affected_sources(rel, path) {
 def potentially_affected_sources(rel, path, p_idx) {
     chunk_partitioned_sources(rel, _, _) and
     source_declares_resource(rel, _, path) and
-    s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] and
+    s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
     not source:date_partitioned(s) and
     source:declares(s, res) and
     part_resource:hashes_to_part_index(res, p_idx) and
@@ -50,7 +50,7 @@ def potentially_affected_sources(rel, path, p_idx) {
  */
 def potentially_affected_sources(rel, o_path, p_idx) {
     chunk_partitioned_sources(rel, n_path, _) and
-    res = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] . source:declares and
+    res = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] . source:declares and
     part_resource:hashes_to_date[res] = parse_date[ uri:parse_value[n_path, "date"], "yyyymmdd"] and
     part_resource:hashes_to_part_index(res, p_idx) and
     resource:id(res, ^URI[o_path])
