@@ -143,15 +143,15 @@ module uri
 
 end
 
-value type RelName = String
-entity type Relation = RelName
+value type RelationName = String
+entity type Relation = RelationName
 def Relation(r) { relation:id(r, _) }
 
 module relation
     def id = transpose[rel_name:identifies]
     def relstr[r] = relation_to_string[id[r]]
 
-    def multi_part = rel_name:identifies[ ^RelName[ multi_part_relation ] ]
+    def multi_part = rel_name:identifies[ ^RelationName[ multi_part_relation ] ]
 
     def identifies(r, s) {
         Relation(r) and
@@ -166,7 +166,7 @@ module rel_name
 
     def identifies(n, r) {
         value(v) and
-        n = ^RelName[v] and
+        n = ^RelationName[v] and
         r = ^Relation[n]
         from v
     }
@@ -210,7 +210,7 @@ module source
     def declares(s, r) {
         source_declares_resource(rel, _, res) and
         r = uri:identifies[ ^URI[res] ] and
-        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ]
+        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ]
         from rel, res
     }
 
@@ -218,15 +218,15 @@ module source
 
     def container(s, c) {
         source_declares_resource(rel, c, _) and
-        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ]
+        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ]
         from rel
     }
 
-    def date_partitioned(s) { s = relation:identifies[ rel_name:identifies[ ^RelName[date_partitioned_source] ] ] }
+    def date_partitioned(s) { s = relation:identifies[ rel_name:identifies[ ^RelationName[date_partitioned_source] ] ] }
 
     def format(s, f) {
         source_has_input_format(rel, raw_input_format) and
-        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] and
+        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
         f = input_format_code:identifies[^InputFormatCode[raw_input_format]]
         from raw_input_format, rel
     }
@@ -240,7 +240,7 @@ module source
 
     def container_type(s, typ) {
         source_has_container_type(rel, raw_container_type) and
-        s = relation:identifies[ rel_name:identifies[ ^RelName[rel] ] ] and
+        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
         typ = container_type_code:identifies[^ContainerTypeCode[raw_container_type]]
         from raw_container_type, rel
     }
@@ -251,7 +251,7 @@ end
  * by source.
  */
 
-def relation_to_string = transpose[^RelName]
+def relation_to_string = transpose[^RelationName]
 def uri_to_string = transpose[^URI]
 def part_index_to_int = transpose[^PartIndex]
 
@@ -422,8 +422,8 @@ def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_ind
 /**
  */
 
-entity type BatchArtifact:import = RelName, Int
-entity type BatchArtifact:export = RelName, Int
+entity type BatchArtifact:import = RelationName, Int
+entity type BatchArtifact:export = RelationName, Int
 
 def Workflow(wf) {
     batch_artifact:is_import(wf, _) or
@@ -485,7 +485,7 @@ module import_artifact[wf in Workflow]
         ImportArtifact(a) and
         s = relation:identifies[
                 rel_name:identifies[
-                    ^RelName[batch_artifact:name[wf, a]] ] ]
+                    ^RelationName[batch_artifact:name[wf, a]] ] ]
     }
 
     def populated(a) { source:populated(source_of[a]) }
