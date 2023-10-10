@@ -395,9 +395,10 @@ class ExportWorkflowStep(WorkflowStep):
         exports = list(filter(lambda e: self._should_export(logger, rai_config, e), self.exports))
         if self.export_jointly:
             exports.sort(key=lambda e: e.container.name)
-            container_groups = {container: list(group) for container, group in
+            container_groups = {container_name: list(group) for container_name, group in
                                 groupby(exports, key=lambda e: e.container.name)}
-            for container, grouped_exports in container_groups.items():
+            for container_name, grouped_exports in container_groups.items():
+                container = env_config.get_container(container_name)
                 ExportWorkflowStep.get_export_function(container)(logger, rai_config, grouped_exports, self.end_date,
                                                                   self.date_format, container)
         else:
