@@ -82,7 +82,7 @@
     {
       "type": "Export",
       "name": "Export",
-      "exportJointly": false,
+      "exportJointly": true,
       "dateFormat": "%Y%m%d",
       "defaultContainer": "export",
       "exports": [
