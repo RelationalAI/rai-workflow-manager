@@ -31,9 +31,9 @@ setup(
     install_requires=[
         "tomli==2.0.1",
         "ed25519==1.5",
-        "rai-sdk==0.6.14",
-        "protobuf==3.20.2",
-        "pyarrow==6.0.1",
+        "rai-sdk==0.6.17",
+        "protobuf==3.20.3",
+        "pyarrow==10.0.1",
         "requests==2.31.0",
         "requests-toolbelt==1.0.0",
         "more-itertools==10.1.0",
