@@ -419,6 +419,46 @@ def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_ind
     from s, r, d
 }
 
+/*
+ * Declared date partitioned sources
+ */
+module declared_date_partitioned_sources
+
+    def paths(rel, d, p) {
+        source_declares_resource(rel, _, p) and
+        r = ^RelationName[rel] . rel_name:identifies . relation:identifies . source:declares and
+        resource:id(r, ^URI[p]) and
+        uri:identifies(u, r) and
+        d = uri:parse[u, "date"]
+        from r, u
+    }
+
+    def dates(s, d) = paths(s, d, _)
+
+    def sources(s) = dates(s, _)
+
+    def sources_idx = enumerate[sources]
+    def dates_idx = enumerate[dates]
+    def paths_idx = enumerate[paths]
+
+    def json(:[], idx, :source, s) {
+        sources_idx(idx, s)
+    }
+
+    def json(:[], idx, :dates, :[], d_idx, :date, d) {
+        sources_idx(idx, s) and
+        dates_idx(d_idx, s, d)
+        from s
+    }
+
+    def json(:[], idx, :dates, :[], d_idx, :paths, :[], p_idx, p) {
+        sources_idx(idx, s) and
+        dates_idx(d_idx, s, d) and
+        paths_idx(p_idx, s, d, p)
+        from s, d
+    }
+end
+
 /**
  */
 

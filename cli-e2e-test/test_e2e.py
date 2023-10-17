@@ -200,6 +200,64 @@ class CliE2ETest(unittest.TestCase):
         self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'},
                                     {'partition': 2, 'relation': 'product_data'}])
 
+    def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario7.json"]
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103", "--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220104"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'partition': 2022010200001, 'relation': 'device_seen_snapshot'}])
+
+    def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario7.json"]
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220103", "--end-date", "20220104",
+                                                                 "--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
+
+    def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario7.json"]
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105", "--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, {})
+
+    def test_scenario8_model_2_day_snapshot_2_day_declared_2_days_out_of_range(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario8.json"]
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220104", "--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220105", "--end-date", "20220106"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'},
+                                    {'partition': 2022010400001, 'relation': 'device_seen_snapshot'}])
+
     @classmethod
     def setUpClass(cls) -> None:
         # Make sure output folder is empty since the folder share across repository. Remove README.md, other files left.

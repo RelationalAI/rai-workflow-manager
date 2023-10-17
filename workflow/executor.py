@@ -143,9 +143,15 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         rai.install_models(logger, rai_config, build_models(self.config_files, self.rel_config_dir))
 
         self._inflate_sources(logger)
+        # calculate expired sources
+        declared_sources = {src["source"]: src for src in
+                            rai.execute_relation_json(logger, rai_config, "declared_date_partitioned_sources:json")}
+        expired_sources = self._calculate_expired_sources(logger, declared_sources)
+
         # mark declared sources for reimport
-        rai.execute_query(logger, rai_config, q.discover_reimport_sources(self.sources, self.force_reimport,
-                                                                          self.force_reimport_not_chunk_partitioned),
+        rai.execute_query(logger, rai_config,
+                          q.discover_reimport_sources(self.sources, expired_sources, self.force_reimport,
+                                                      self.force_reimport_not_chunk_partitioned),
                           readonly=False)
         # populate declared sources
         rai.execute_query(logger, rai_config, q.populate_source_configs(self.sources), readonly=False)
@@ -194,6 +200,19 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             days.extend(extract_date_range(logger, self.start_date, self.end_date, loads_number_of_days,
                                            offset_by_number_of_days))
         return days
+
+    def _calculate_expired_sources(self, logger: logging.Logger, declared_sources: dict[str, dict]) -> \
+            List[tuple[str, str]]:
+        expired_resources = []
+        for source in self.sources:
+            if source.relation in declared_sources:
+                declared_source = declared_sources[source.relation]
+                source_days = self._get_date_range(logger, source)
+                for date_res in declared_source["dates"]:
+                    if date_res["date"] not in source_days:
+                        for p in date_res["paths"]:
+                            expired_resources.append((source.relation, p))
+        return expired_resources
 
     @staticmethod
     def __group_paths_by_date(src_paths) -> dict[str, List[paths.FilePath]]:

@@ -397,13 +397,103 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         ]
         self.assertEqual(expected_paths, test_src.paths)
 
+    def test_calculate_expired_sources_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
+        # setup
+        test_src = _create_test_source(
+            snapshot_validity_days=1
+        )
+        declared_sources = {
+            "test": {
+                "source": "test",
+                "dates": [
+                    {
+                        "paths": [
+                            "/test/data_dt=20220104/part-1.csv"
+                        ],
+                        "date": "20220104"
+                    }
+                ]
+            }
+        }
+        paths_builder = Mock()
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, "20220106")
+        # when
+        expired_source = workflow_step._calculate_expired_sources(self.logger, declared_sources)
+        # then
+        expected_sources = [("test", "/test/data_dt=20220104/part-1.csv")]
+        self.assertEqual(expected_sources, expired_source)
+
+    def test_calculate_expired_sources_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
+        # setup
+        test_src = _create_test_source(
+            snapshot_validity_days=1
+        )
+        declared_sources = {
+            "test": {
+                "source": "test",
+                "dates": [
+                    {
+                        "paths": [
+                            "/test/data_dt=20220104/part-1.csv"
+                        ],
+                        "date": "20220104"
+                    },
+                    {
+                        "paths": [
+                            "/test/data_dt=20220105/part-1.csv"
+                        ],
+                        "date": "20220105"
+                    }
+                ]
+            }
+        }
+        paths_builder = Mock()
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, "20220106")
+        # when
+        expired_source = workflow_step._calculate_expired_sources(self.logger, declared_sources)
+        # then
+        expected_sources = [("test", "/test/data_dt=20220104/part-1.csv")]
+        self.assertEqual(expected_sources, expired_source)
+
+    def test_calculate_expired_sources_1_day_snapshot_2_day_declared_0_day_out_of_range(self):
+        # setup
+        test_src = _create_test_source(
+            snapshot_validity_days=1
+        )
+        declared_sources = {
+            "test": {
+                "source": "test",
+                "dates": [
+                    {
+                        "paths": [
+                            "/test/data_dt=20220104/part-1.csv"
+                        ],
+                        "date": "20220104"
+                    },
+                    {
+                        "paths": [
+                            "/test/data_dt=20220105/part-1.csv"
+                        ],
+                        "date": "20220105"
+                    }
+                ]
+            }
+        }
+        paths_builder = Mock()
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, "20220105")
+        # when
+        expired_source = workflow_step._calculate_expired_sources(self.logger, declared_sources)
+        # then
+        expected_sources = []
+        self.assertEqual(expected_sources, expired_source)
+
 
 def _create_test_source(is_chunk_partitioned: bool = True, is_date_partitioned: bool = True,
-                        loads_number_of_days: int = 1, offset_by_number_of_days: int = 0,
+                        loads_number_of_days: int = 1, offset_by_number_of_days: int = 0, relation="test",
                         snapshot_validity_days=None) -> Source:
     return Source(
         container=Container("default", ContainerType.LOCAL, {}),
-        relation="test",
+        relation=relation,
         relative_path="test",
         input_format="test",
         extensions=["test"],
