@@ -243,20 +243,19 @@ class CliE2ETest(unittest.TestCase):
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, {})
 
-    def test_scenario8_model_2_day_snapshot_2_day_declared_2_days_out_of_range(self):
+    def test_scenario8_model_2_day_snapshot_1_day_declared_1_days_out_of_range(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario8.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220104", "--drop-db"])
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103", "--drop-db"])
         # then
         self.assertNotEqual(rsp, 1)
         # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220105", "--end-date", "20220106"])
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220104", "--end-date", "20220105"])
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'},
-                                    {'partition': 2022010400001, 'relation': 'device_seen_snapshot'}])
+        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
 
     @classmethod
     def setUpClass(cls) -> None:

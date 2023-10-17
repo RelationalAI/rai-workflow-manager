@@ -145,7 +145,8 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         self._inflate_sources(logger)
         # calculate expired sources
         declared_sources = {src["source"]: src for src in
-                            rai.execute_relation_json(logger, rai_config, "declared_date_partitioned_source:json")}
+                            rai.execute_relation_json(logger, rai_config,
+                                                      constants.DECLARED_DATE_PARTITIONED_SOURCE_REL)}
         expired_sources = self._calculate_expired_sources(logger, declared_sources)
 
         # mark declared sources for reimport

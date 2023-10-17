@@ -14,7 +14,7 @@
           "isDatePartitioned": true,
           "relativePath": "device_seen_snapshot",
           "inputFormat": "csv",
-          "loadsNumberOfDays": 2,
+          "loadsNumberOfDays": 1,
           "offsetByNumberOfDays": 0,
           "snapshotValidityDays": 2
         }
