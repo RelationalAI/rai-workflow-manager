@@ -231,7 +231,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
             if s.loads_number_of_days and s.snapshot_validity_days and \
                     s.loads_number_of_days > 1 and s.snapshot_validity_days > 0:
                 raise ValueError(f"No support more than 1 `loadNumberOfDays` for snapshot source: {s.relation}")
-            if s.loads_number_of_days and s.loads_number_of_days and \
+            if s.loads_number_of_days and s.snapshot_validity_days and \
                     s.loads_number_of_days > s.snapshot_validity_days > 0:
                 raise ValueError(
                     f"`snapshotValidityDays` should be less or equal to `loadNumberOfDays`. Source: {s.relation}")
