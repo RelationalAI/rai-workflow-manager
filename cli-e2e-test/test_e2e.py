@@ -203,7 +203,7 @@ class CliE2ETest(unittest.TestCase):
     def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario7.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103", "--drop-db"])
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
         # then
         self.assertNotEqual(rsp, 1)
         # and when
@@ -227,7 +227,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
+        self.assertEqual(rsp_json, {})
 
     def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
         # when

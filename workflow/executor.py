@@ -145,7 +145,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         self._inflate_sources(logger)
         # calculate expired sources
         declared_sources = {src["source"]: src for src in
-                            rai.execute_relation_json(logger, rai_config, "declared_date_partitioned_sources:json")}
+                            rai.execute_relation_json(logger, rai_config, "declared_date_partitioned_source:json")}
         expired_sources = self._calculate_expired_sources(logger, declared_sources)
 
         # mark declared sources for reimport
@@ -227,10 +227,14 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
         super()._validate_params(config, step)
         end_date = config.step_params[constants.END_DATE]
         sources = self._parse_sources(step, config.env)
-        if not end_date:
-            for s in sources:
-                if s.is_date_partitioned:
-                    raise ValueError(f"End date is required for date partitioned source: {s.relation}")
+        for s in sources:
+            if s.loads_number_of_days > 1 and s.snapshot_validity_days > 0:
+                raise ValueError(f"No support more than 1 `loadNumberOfDays` for snapshot source: {s.relation}")
+            if s.loads_number_of_days > s.snapshot_validity_days > 0:
+                raise ValueError(
+                    f"`snapshotValidityDays` should be less or equal to `loadNumberOfDays`. Source: {s.relation}")
+            if s.is_date_partitioned and not end_date:
+                raise ValueError(f"End date is required for date partitioned source: {s.relation}")
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]
