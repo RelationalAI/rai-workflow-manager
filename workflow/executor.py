@@ -143,9 +143,16 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         rai.install_models(logger, rai_config, build_models(self.config_files, self.rel_config_dir))
 
         self._inflate_sources(logger)
+        # calculate expired sources
+        declared_sources = {src["source"]: src for src in
+                            rai.execute_relation_json(logger, rai_config,
+                                                      constants.DECLARED_DATE_PARTITIONED_SOURCE_REL)}
+        expired_sources = self._calculate_expired_sources(logger, declared_sources)
+
         # mark declared sources for reimport
-        rai.execute_query(logger, rai_config, q.discover_reimport_sources(self.sources, self.force_reimport,
-                                                                          self.force_reimport_not_chunk_partitioned),
+        rai.execute_query(logger, rai_config,
+                          q.discover_reimport_sources(self.sources, expired_sources, self.force_reimport,
+                                                      self.force_reimport_not_chunk_partitioned),
                           readonly=False)
         # populate declared sources
         rai.execute_query(logger, rai_config, q.populate_source_configs(self.sources), readonly=False)
@@ -195,6 +202,19 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
                                            offset_by_number_of_days))
         return days
 
+    def _calculate_expired_sources(self, logger: logging.Logger, declared_sources: dict[str, dict]) -> \
+            List[tuple[str, str]]:
+        expired_resources = []
+        for source in self.sources:
+            if source.relation in declared_sources:
+                declared_source = declared_sources[source.relation]
+                source_days = self._get_date_range(logger, source)
+                for date_res in declared_source["dates"]:
+                    if date_res["date"] not in source_days:
+                        for p in date_res["paths"]:
+                            expired_resources.append((source.relation, p))
+        return expired_resources
+
     @staticmethod
     def __group_paths_by_date(src_paths) -> dict[str, List[paths.FilePath]]:
         src_paths.sort(key=lambda v: v.as_of_date)
@@ -208,10 +228,16 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
         super()._validate_params(config, step)
         end_date = config.step_params[constants.END_DATE]
         sources = self._parse_sources(step, config.env)
-        if not end_date:
-            for s in sources:
-                if s.is_date_partitioned:
-                    raise ValueError(f"End date is required for date partitioned source: {s.relation}")
+        for s in sources:
+            if s.loads_number_of_days and s.snapshot_validity_days and \
+                    s.loads_number_of_days > 1 and s.snapshot_validity_days > 0:
+                raise ValueError(f"No support more than 1 `loadNumberOfDays` for snapshot source: {s.relation}")
+            if s.loads_number_of_days and s.snapshot_validity_days and \
+                    s.loads_number_of_days > s.snapshot_validity_days > 0:
+                raise ValueError(
+                    f"`snapshotValidityDays` should be less or equal to `loadNumberOfDays`. Source: {s.relation}")
+            if s.is_date_partitioned and not end_date:
+                raise ValueError(f"End date is required for date partitioned source: {s.relation}")
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]

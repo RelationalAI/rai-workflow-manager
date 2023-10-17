@@ -1,0 +1,24 @@
+{
+  "workflow": [
+    {
+      "type": "ConfigureSources",
+      "name": "ConfigureSources",
+      "configFiles": [
+        "config/config1.rel"
+      ],
+      "defaultContainer": "input",
+      "sources": [
+        {
+          "relation": "device_seen_snapshot",
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
+          "relativePath": "device_seen_snapshot",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 1,
+          "offsetByNumberOfDays": 0,
+          "snapshotValidityDays": 2
+        }
+      ]
+    }
+  ]
+}

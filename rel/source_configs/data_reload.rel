@@ -3,12 +3,18 @@ bound force_reimport_not_chunk_partitioned
 bound resources_data_to_delete
 bound declared_sources_to_delete = String, String
 bound new_source_config_csv = RelName, FilePos, String
+bound expired_source_config_csv = RelName, FilePos, String
 
 def new_source_config[:syntax, :header_row] = -1
 def new_source_config[:syntax, :header] = (1, :Relation); (2, :Path); (3, :ChunkPartitioned)
 def new_source_config[:schema, :Relation] = "string"
 def new_source_config[:schema, :Path] = "string"
 def new_source_config[:schema, :ChunkPartitioned] = "string"
+
+def expired_source_config[:syntax, :header_row] = -1
+def expired_source_config[:syntax, :header] = (1, :Relation); (2, :Path)
+def expired_source_config[:schema, :Relation] = "string"
+def expired_source_config[:schema, :Path] = "string"
 
 def chunk_partitioned_sources(rel, path, p_idx) {
     new_source_config_csv(:Path, i, path) and
@@ -22,6 +28,12 @@ def simple_sources(rel, path) {
     new_source_config_csv(:Path, i, path) and
     new_source_config_csv(:Relation, i, rel) and
     not chunk_partitioned_sources(rel, path, _)
+    from i
+}
+
+def expired_sources(rel, path) {
+    expired_source_config_csv(:Path, i, path) and
+    expired_source_config_csv(:Relation, i, rel)
     from i
 }
 
@@ -57,25 +69,30 @@ def potentially_affected_sources(rel, o_path, p_idx) {
     from n_path, res
 }
 /*
- * Identify sources for replacement.
+ * Identify sources for invalidation.
  */
-def part_resource_to_replace(rel, p_idx, path) {
+def part_resource_to_invalidate(rel, p_idx, path) {
     not force_reimport and
     potentially_affected_sources(rel, path, p_idx) and
     not chunk_partitioned_sources(rel, path, p_idx)
 }
 
-def part_resource_to_replace(rel, p_idx, path) {
+def part_resource_to_invalidate(rel, p_idx, path) {
     force_reimport and
     potentially_affected_sources(rel, path, p_idx)
 }
+// We support invalidation only for partitioned expired sources
+def part_resource_to_invalidate(rel, p_idx, path) {
+    expired_sources(rel, path) and
+    part_resource:parse_part_index[path](p_idx)
+}
 
-def resource_to_replace(rel, o_path) {
+def resource_to_invalidate(rel, o_path) {
     force_reimport_not_chunk_partitioned and
     simple_sources(rel, o_path)
 }
 
-def resource_to_replace(rel, o_path) {
+def resource_to_invalidate(rel, o_path) {
     force_reimport and
     simple_sources(rel, o_path)
 }
@@ -84,16 +101,16 @@ def resource_to_replace(rel, o_path) {
  * Save resources that we are marked for data reimport.
  */
 // PRODUCT_LIMITATION: Message: Argument for specializing is more complex than the current staging implementation supports.
-def reverse_part_resource_to_replace(path, p_idx, rel) = part_resource_to_replace(rel, p_idx, path)
+def reverse_part_resource_to_invalidate(path, p_idx, rel) = part_resource_to_invalidate(rel, p_idx, path)
 // resource partitions to delete
 def resources_to_delete(rel, val) {
-    rel = #(reverse_part_resource_to_replace[_, p_idx]) and
+    rel = #(reverse_part_resource_to_invalidate[_, p_idx]) and
     p_idx = ^PartIndex[val]
     from p_idx
 }
 // resources to delete
 def resources_to_delete(rel) {
-    rel = #(transpose[resource_to_replace][_])
+    rel = #(transpose[resource_to_invalidate][_])
 }
 
 def resources_data_to_delete_idx = enumerate[resources_data_to_delete]

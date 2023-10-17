@@ -29,6 +29,7 @@ MISSED_RESOURCES_REL = "missing_resources_json"
 RESOURCES_TO_DELETE_REL = "resources_data_to_delete_json"
 WORKFLOW_JSON_REL = "workflow_json"
 BATCH_CONFIG_REL = "batch:config"
+DECLARED_DATE_PARTITIONED_SOURCE_REL = "declared_date_partitioned_source:json"
 
 FILE_LOAD_RELATION = {
     "CSV": "load_csv",

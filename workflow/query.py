@@ -104,10 +104,14 @@ def populate_source_configs(sources: List[Source]) -> str:
     """
 
 
-def discover_reimport_sources(sources: List[Source], force_reimport: bool, force_reimport_not_chunk_partitioned: bool) -> str:
+def discover_reimport_sources(sources: List[Source], expired_sources: List[tuple[str, str]], force_reimport: bool,
+                              force_reimport_not_chunk_partitioned: bool) -> str:
     date_partitioned_src_cfg_csv = ""
+    expired_sources_src_cfg_csv = ""
     for src in sources:
         date_partitioned_src_cfg_csv += f"{src.to_chunk_partitioned_paths_csv()}\n"
+    for src in expired_sources:
+        expired_sources_src_cfg_csv += f"{src[0]},{src[1]}\n"
     return f"""
         def force_reimport = {"true" if force_reimport else "false"}
         def force_reimport_not_chunk_partitioned = {"true" if force_reimport_not_chunk_partitioned else "false"}
@@ -116,8 +120,12 @@ def discover_reimport_sources(sources: List[Source], force_reimport: bool, force
         def resource_config[:data] = \"\"\"{date_partitioned_src_cfg_csv}\"\"\"
         def new_source_config_csv = load_csv[resource_config]
         
-        def insert:declared_sources_to_delete = resource_to_replace
-        def insert:declared_sources_to_delete(rel, path) = part_resource_to_replace(rel, _, path)
+        def expired_resource_config = expired_source_config
+        def expired_resource_config[:data] = \"\"\"{expired_sources_src_cfg_csv}\"\"\"
+        def expired_source_config_csv = load_csv[expired_resource_config]
+        
+        def insert:declared_sources_to_delete = resource_to_invalidate
+        def insert:declared_sources_to_delete(rel, path) = part_resource_to_invalidate(rel, _, path)
         
         def insert:resources_data_to_delete = resources_to_delete
     """
