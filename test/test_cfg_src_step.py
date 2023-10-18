@@ -3,15 +3,16 @@ import unittest
 import uuid
 from datetime import datetime
 from typing import List
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from workflow import paths
-from workflow.common import Source, Container, ContainerType
+from workflow.common import Source, Container, ContainerType, RaiConfig
 from workflow.executor import ConfigureSourcesWorkflowStep, WorkflowStepState
 
 
 class TestConfigureSourcesWorkflowStep(unittest.TestCase):
     logger: logging.Logger = Mock()
+    rai_config: RaiConfig = Mock()
 
     #
     # Not partitioned file tests
@@ -43,7 +44,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         ])
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, None)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [
             "test/test_non_part.csv",
@@ -87,7 +88,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [
             "test/test_20220105_1.csv",
@@ -124,7 +125,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220115"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [f"test/test_{day}_1.csv" for day in range(20220106, 20220116)]
         self.assertEqual(expected_paths, test_src.paths)
@@ -158,7 +159,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220112"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         # 20220101, 20220102, ..., 20220110
         expected_paths = [f"test/test_{day}_{i}.csv" for day in range(20220101, 20220111) for i in range(2)]
@@ -200,7 +201,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [
             "test/snapshot_20220105.csv",
@@ -224,7 +225,8 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         expected_days = ["20220104", "20220105"]  # valid two days
         self.assertEqual(expected_days, days)
 
-    def test_inflate_sources_snapshot_1day(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_inflate_sources_snapshot_1day_snapshot_expired(self, mock_execute_query_take_single):
         # Look up snapshot file paths from the last day
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -237,10 +239,11 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220104.csv", as_of_date="20220104"),
             paths.FilePath(path="test/snapshot_20220105.csv", as_of_date="20220105"),
         ])
+        mock_execute_query_take_single.return_value = "20220101"
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [
             "test/snapshot_20220105.csv",
@@ -264,7 +267,8 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         expected_days = ["20220104"]
         self.assertEqual(expected_days, days)
 
-    def test_inflate_sources_snapshot_1day_offset_by_1day(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_inflate_sources_snapshot_1day_offset_by_1day_snapshot_expired(self, mock_execute_query_take_single):
         # Look up snapshot file paths from the last day offset by 1 day
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -276,10 +280,11 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/snapshot_20220103.csv", as_of_date="20220103"),
             paths.FilePath(path="test/snapshot_20220104.csv", as_of_date="20220104"),
         ])
+        mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [
             "test/snapshot_20220104.csv",
@@ -303,7 +308,8 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         expected_days = [f"{day}" for day in range(20220101, 20220131)]  # 20220101, 20220102, ..., 20220130
         self.assertEqual(expected_days, days)
 
-    def test_get_date_range_snapshot_30days_before_start(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_get_date_range_snapshot_30days_before_start_snapshot_expired(self, mock_execute_query_take_single):
         # Look up snapshot file paths last 30 days before start date
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -311,15 +317,17 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=30
         )
         paths_builder = _create_path_builder_mock([])
+        mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = []
         self.assertEqual(expected_paths, test_src.paths)
 
-    def test_get_date_range_snapshot_30days_at_start(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_get_date_range_snapshot_30days_at_start_snapshot_expired(self, mock_execute_query_take_single):
         # Look up snapshot file paths last 30 days at start date
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -329,15 +337,17 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         paths_builder = _create_path_builder_mock([
             paths.FilePath(path="test/snapshot_20220101.csv", as_of_date="20220101"),
         ])
+        mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = ["test/snapshot_20220101.csv"]
         self.assertEqual(expected_paths, test_src.paths)
 
-    def test_get_date_range_snapshot_30days_in_the_middle(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_get_date_range_snapshot_30days_in_the_middle_snapshot_expired(self, mock_execute_query_take_single):
         # Look up snapshot file paths last 30 days in the middle
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -347,15 +357,17 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         paths_builder = _create_path_builder_mock([
             paths.FilePath(path="test/snapshot_20220115.csv", as_of_date="20220115"),
         ])
+        mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = ["test/snapshot_20220115.csv"]
         self.assertEqual(expected_paths, test_src.paths)
 
-    def test_get_date_range_snapshot_30days_at_the_end(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_get_date_range_snapshot_30days_at_the_end_snapshot_expired(self, mock_execute_query_take_single):
         # Look up snapshot file paths last 30 days at the end
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -365,15 +377,37 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         paths_builder = _create_path_builder_mock([
             paths.FilePath(path="test/snapshot_20220130.csv", as_of_date="20220130"),
         ])
+        mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = ["test/snapshot_20220130.csv"]
         self.assertEqual(expected_paths, test_src.paths)
 
-    def test_inflate_sources_snapshot_1day_multiple_paths(self):
+    @patch("workflow.rai.execute_query_take_single")
+    def test_get_date_range_snapshot_30days_at_the_end_valid_snapshot(self, mock_execute_query_take_single):
+        # Look up snapshot file paths last 30 days at the end
+        test_src = _create_test_source(
+            loads_number_of_days=1,
+            offset_by_number_of_days=1,
+            snapshot_validity_days=30
+        )
+        paths_builder = _create_path_builder_mock([
+            paths.FilePath(path="test/snapshot_20220130.csv", as_of_date="20220130"),
+        ])
+        mock_execute_query_take_single.return_value = "20220201"
+        end_date = "20220131"
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
+        # When calling _inflate_sources
+        workflow_step._inflate_sources(self.logger, self.rai_config)
+        # Then
+        expected_paths = []
+        self.assertEqual(expected_paths, test_src.paths)
+
+    @patch("workflow.rai.execute_query_take_single")
+    def test_inflate_sources_snapshot_1day_multiple_paths_snapshot_expired(self, mock_execute_query_take_single):
         # We look up snapshot files for the last 3 days
         test_src = _create_test_source(
             loads_number_of_days=1,
@@ -386,15 +420,39 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             paths.FilePath(path="test/test_20220105_1.csv", as_of_date="20220105"),
             paths.FilePath(path="test/test_20220105_2.csv", as_of_date="20220105"),
         ])
+        mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger)
+        workflow_step._inflate_sources(self.logger, self.rai_config)
         # Then
         expected_paths = [
             "test/test_20220105_1.csv",
             "test/test_20220105_2.csv",
         ]
+        self.assertEqual(expected_paths, test_src.paths)
+
+    @patch("workflow.rai.execute_query_take_single")
+    def test_inflate_sources_snapshot_1day_multiple_paths_valid_snapshot(self, mock_execute_query_take_single):
+        # We look up snapshot files for the last 3 days
+        test_src = _create_test_source(
+            loads_number_of_days=1,
+            offset_by_number_of_days=0,
+            snapshot_validity_days=3
+        )
+        paths_builder = _create_path_builder_mock([
+            paths.FilePath(path="test/test_20220103_1.csv", as_of_date="20220103"),
+            paths.FilePath(path="test/test_20220104_1.csv", as_of_date="20220104"),
+            paths.FilePath(path="test/test_20220105_1.csv", as_of_date="20220105"),
+            paths.FilePath(path="test/test_20220105_2.csv", as_of_date="20220105"),
+        ])
+        mock_execute_query_take_single.return_value = "20220106"
+        end_date = "20220105"
+        workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
+        # When calling _inflate_sources
+        workflow_step._inflate_sources(self.logger, self.rai_config)
+        # Then
+        expected_paths = []
         self.assertEqual(expected_paths, test_src.paths)
 
     def test_calculate_expired_sources_1_day_snapshot_1_day_declared_1_day_out_of_range(self):

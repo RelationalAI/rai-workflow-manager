@@ -1,0 +1,36 @@
+{
+  "workflow": [
+    {
+      "type": "ConfigureSources",
+      "name": "ConfigureSources",
+      "configFiles": [
+        "config/config1.rel"
+      ],
+      "defaultContainer": "input",
+      "sources": [
+        {
+          "relation": "device_seen_snapshot",
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
+          "relativePath": "device_seen_snapshot",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 1,
+          "offsetByNumberOfDays": 0,
+          "snapshotValidityDays": 2
+        }
+      ]
+    },
+    {
+      "type": "InstallModels",
+      "name": "InstallModels1",
+      "modelFiles": [
+        "device_seen.rel",
+        "device.rel"
+      ]
+    },
+    {
+      "type": "LoadData",
+      "name": "LoadData"
+    }
+  ]
+}
