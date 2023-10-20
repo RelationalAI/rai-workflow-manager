@@ -236,8 +236,11 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                     s.loads_number_of_days > s.snapshot_validity_days > 0:
                 raise ValueError(
                     f"`snapshotValidityDays` should be less or equal to `loadNumberOfDays`. Source: {s.relation}")
-            if s.is_date_partitioned and not end_date:
-                raise ValueError(f"End date is required for date partitioned source: {s.relation}")
+            if s.is_date_partitioned:
+                if not end_date:
+                    raise ValueError(f"End date is required for date partitioned source: {s.relation}")
+                if not s.loads_number_of_days:
+                    raise ValueError(f"`loadNumberOfDays` is required for date partitioned source: {s.relation}")
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]
