@@ -37,8 +37,8 @@ jobs:
           echo "client_id = ${{ env.RAI_CLIENT_ID }}" >> config
           echo "client_secret = ${{ env.RAI_CLIENT_SECRET }}" >> config
         env:
-          RAI_CLIENT_ID: ${{ secrets.ea_client_id }}
-          RAI_CLIENT_SECRET: ${{ secrets.ea_client_secret }}
+          RAI_CLIENT_ID: ${{ secrets.EA_CLIENT_ID }}
+          RAI_CLIENT_SECRET: ${{ secrets.EA_CLIENT_SECRET }}
 
       # Run e2e Python CLI test
       - name: Python CLI tests
