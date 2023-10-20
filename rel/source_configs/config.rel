@@ -106,6 +106,14 @@ module part_resource
 
     @inline
     def parse_part_index[v](n) {
+        d = parse_int[ uri:parse_value[v, "date"] ] and
+        not uri:parse_value(v, shard_alias, _) and
+        n = ^PartIndex[ d * part_resource_index_multiplier ]
+        from d
+    }
+
+    @inline
+    def parse_part_index[v](n) {
         not uri:parse_value(v, "date", _) and
         s = parse_int[ uri:parse_value[v, shard_alias] ] and
         n = ^PartIndex[s]

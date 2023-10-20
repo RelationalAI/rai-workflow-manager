@@ -40,6 +40,14 @@ module export_config
             2, :last_seen
         }
     end
+
+    module users_csv
+        def data = user
+
+        def syntax:header = {
+            1, :name
+        }
+    end
 end
 
 def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"

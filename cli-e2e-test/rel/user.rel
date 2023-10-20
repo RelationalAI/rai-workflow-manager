@@ -1,0 +1,7 @@
+module user_data
+    def USER_NAME[idx, row] = source_catalog:user_data[idx, :user_name, row]
+end
+
+module user
+    def name = user_data:USER_NAME[_, _]
+end

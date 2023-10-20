@@ -41,6 +41,14 @@
           "inputFormat": "csv"
         },
         {
+          "relation": "user_data",
+          "isChunkPartitioned": false,
+          "isDatePartitioned": true,
+          "relativePath": "user",
+          "inputFormat": "csv",
+          "loadsNumberOfDays": 10
+        },
+        {
           "relation": "device_seen_snapshot",
           "isChunkPartitioned": true,
           "isDatePartitioned": true,
@@ -59,6 +67,7 @@
         "device.rel",
         "zip.rel",
         "store.rel",
+        "user.rel",
         "product.rel",
         "json_schema_mapping.rel",
         "device_seen.rel"
@@ -75,7 +84,8 @@
         "city:name",
         "device:name",
         "store:name",
-        "product:name"
+        "product:name",
+        "user:name"
       ],
       "materializeJointly": true
     },
@@ -105,6 +115,11 @@
           "type": "csv",
           "configRelName": "stores_csv",
           "relativePath": "stores"
+        },
+        {
+          "type": "csv",
+          "configRelName": "users_csv",
+          "relativePath": "users"
         },
         {
           "type": "csv",
