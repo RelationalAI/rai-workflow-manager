@@ -56,8 +56,9 @@ def populate_source_configs(sources: List[Source]) -> str:
     data_formats_csv = "\n".join([source.to_formats_csv() for source in sources])
     container_types_csv = "\n".join([source.to_container_type_csv() for source in sources])
 
-    simple_sources = list(filter(lambda source: not source.is_chunk_partitioned, sources))
-    multipart_sources = list(filter(lambda source: source.is_chunk_partitioned, sources))
+    multipart_sources = list(filter(lambda source: source.is_chunk_partitioned or source.is_date_partitioned, sources))
+    simple_sources = list(
+        filter(lambda source: not source.is_chunk_partitioned and not source.is_date_partitioned, sources))
     date_partitioned_sources = list(filter(lambda source: source.is_date_partitioned, sources))
 
     return f"""
