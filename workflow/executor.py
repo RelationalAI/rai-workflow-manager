@@ -313,22 +313,30 @@ class LoadDataWorkflowStep(WorkflowStep):
         if not missed_resources:
             logger.info("Missed resources list is empty")
 
+        # separate async and simple resources to avoid parallel writes to the same database by 2 different engines
+        async_resources = []
+        simple_resources = []
         for src in missed_resources:
+            if self._resource_is_async(src):
+                async_resources.append(src)
+            else:
+                simple_resources.append(src)
+
+        for src in simple_resources:
             self._load_source(logger, env_config, rai_config, src)
 
-        self.await_pending(env_config, logger, missed_resources)
+        if async_resources:
+            for src in async_resources:
+                self._load_source(logger, env_config, rai_config, src)
+            self.await_pending(env_config, logger, missed_resources)
 
     def await_pending(self, env_config, logger, missed_resources):
         loop = asyncio.get_event_loop()
         if loop.is_running():
             raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion.')
-        pending = [resource for resource in missed_resources if self._resource_is_async(env_config, resource)]
+        pending = [src for src in missed_resources if self._resource_is_async(src)]
         pending_cos = [self._await_async_resource(logger, env_config, resource) for resource in pending]
         loop.run_until_complete(asyncio.gather(*pending_cos))
-
-    def _resource_is_async(self, env_config: EnvConfig, src):
-        container = env_config.get_container(src["container"])
-        return True if ContainerType.SNOWFLAKE == container.type else False
 
     async def _await_async_resource(self, logger: logging.Logger, env_config: EnvConfig, src):
         container = env_config.get_container(src["container"])
@@ -361,6 +369,10 @@ class LoadDataWorkflowStep(WorkflowStep):
         else:
             logger.info(f"Loading source '{source_name}' not partitioned by date ")
             self._load_resource(logger, env_config, rai_config, src["resources"], src)
+
+    @staticmethod
+    def _resource_is_async(src):
+        return True if ContainerType.SNOWFLAKE == ContainerType.from_source(src) else False
 
     @staticmethod
     def _load_resource(logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) -> None:
