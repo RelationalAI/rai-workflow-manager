@@ -1,20 +1,13 @@
-name: RAI Workflow Manager Tests
+name: RAI Workflow Manager EA Tests
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Runs every day at midnight UTC
 
 jobs:
   Run-RWM-Tests:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-
       # Install Python
       - run: echo "Installing Python"
       - uses: actions/setup-python@v4
@@ -31,12 +24,6 @@ jobs:
           pip install -r $GITHUB_WORKSPACE/requirements.txt
           pip install $GITHUB_WORKSPACE
 
-      # Run Workflow tests
-      - name: Python Workflow Manager tests
-        run: |
-          cd $GITHUB_WORKSPACE/test
-          python -m unittest discover
-
       # Setup config required for Python CLI run
       - name: Config setup
         run: |
@@ -44,13 +31,14 @@ jobs:
           cd ~/.rai
           echo "[default]" > config
           echo "region = us-east" >> config
-          echo "host = azure.relationalai.com" >> config
+          echo "host = azure-ea.relationalai.com" >> config
+          echo "client_credentials_url = https://login-ea.relationalai.com/oauth/token" >> config
           echo "port = 443" >> config
           echo "client_id = ${{ env.RAI_CLIENT_ID }}" >> config
           echo "client_secret = ${{ env.RAI_CLIENT_SECRET }}" >> config
         env:
-          RAI_CLIENT_ID: ${{ secrets.client_id }}
-          RAI_CLIENT_SECRET: ${{ secrets.client_secret }}
+          RAI_CLIENT_ID: ${{ secrets.ea_client_id }}
+          RAI_CLIENT_SECRET: ${{ secrets.ea_client_secret }}
 
       # Run e2e Python CLI test
       - name: Python CLI tests
