@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -125,7 +126,7 @@ def to_rai_date_format(date_format: str) -> str:
     return rai_date_format
 
 
-def call_with_overhead(
+async def call_with_overhead(
         f,
         logger: logging.Logger,
         overhead_rate: float,
@@ -153,7 +154,7 @@ def call_with_overhead(
         duration = min((time.time() - start_time) * overhead_rate, max_delay)
         if tries == 1:
             logger.debug(f"Sleep duration for the first try: {first_delay}s")
-            time.sleep(first_delay)
+            await asyncio.sleep(first_delay)
         else:
             logger.debug(f"Sleep duration for a try: {duration}s")
-            time.sleep(duration)
+            await asyncio.sleep(duration)

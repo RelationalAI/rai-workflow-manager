@@ -15,6 +15,7 @@ from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, F
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
     get_common_model_relative_path
+import asyncio
 
 CONFIGURE_SOURCES = 'ConfigureSources'
 INSTALL_MODELS = 'InstallModels'
@@ -315,6 +316,26 @@ class LoadDataWorkflowStep(WorkflowStep):
         for src in missed_resources:
             self._load_source(logger, env_config, rai_config, src)
 
+        self.await_pending(env_config, logger, missed_resources)
+
+    def await_pending(self, env_config, logger, missed_resources):
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion.')
+        pending = [resource for resource in missed_resources if self._resource_is_async(env_config, resource)]
+        pending_cos = [self._await_async_resource(logger, env_config, resource) for resource in pending]
+        loop.run_until_complete(asyncio.gather(*pending_cos))
+
+    def _resource_is_async(self, env_config: EnvConfig, src):
+        container = env_config.get_container(src["container"])
+        return True if ContainerType.SNOWFLAKE == container.type else False
+
+    async def _await_async_resource(self, logger: logging.Logger, env_config: EnvConfig, src):
+        container = env_config.get_container(src["container"])
+        config = EnvConfig.get_config(container)
+        if ContainerType.SNOWFLAKE == container.type:
+            await snow.await_data_sync(logger, config, src["resources"])
+
     def _load_source(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, src):
         source_name = src["source"]
         if 'is_date_partitioned' in src and src['is_date_partitioned'] == 'Y':
@@ -349,7 +370,7 @@ class LoadDataWorkflowStep(WorkflowStep):
             if ContainerType.LOCAL == container.type or ContainerType.AZURE == container.type:
                 rai.execute_query(logger, rai_config, q.load_resources(logger, config, resources, src), readonly=False)
             elif ContainerType.SNOWFLAKE == container.type:
-                snow.sync_data(logger, config, rai_config, resources, src)
+                snow.begin_data_sync(logger, config, rai_config, resources, src)
         except KeyError as e:
             logger.error(f"Unsupported file type: {src['file_type']}. Skip the source: {src}", e)
         except ValueError as e:

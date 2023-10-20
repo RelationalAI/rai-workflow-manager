@@ -7,7 +7,7 @@ from workflow.utils import call_with_overhead
 from workflow.common import SnowflakeConfig, RaiConfig
 
 
-def sync_data(logger: logging.Logger, snowflake_config: SnowflakeConfig, rai_config: RaiConfig, resources, src):
+def begin_data_sync(logger: logging.Logger, snowflake_config: SnowflakeConfig, rai_config: RaiConfig, resources, src):
     conn = __get_connection(snowflake_config)
     cursor = conn.cursor()
     logger = logger.getChild("snowflake")
@@ -31,10 +31,15 @@ def sync_data(logger: logging.Logger, snowflake_config: SnowflakeConfig, rai_con
         conn.close()
         raise e
 
+async def await_data_sync(logger: logging.Logger, snowflake_config: SnowflakeConfig, resources):
+    source_table = resources[0]['uri']
+    conn = __get_connection(snowflake_config)
+    cursor = conn.cursor()
+    logger = logger.getChild("snowflake")
     # Wait for data sync finish
     try:
         logger.info(f"Wait for Snowflake data sync finish for `{source_table}`...")
-        call_with_overhead(
+        await call_with_overhead(
             f=lambda: sync_finished(logger, cursor, source_table),
             logger=logger,
             overhead_rate=0.5,
