@@ -2,16 +2,12 @@ name: RAI Workflow Manager EA Tests
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight UTC
+    - cron: "0 0 * * *" # Runs every day at midnight UTC
 
 jobs:
   Run-RWM-Tests:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-
       # Install Python
       - run: echo "Installing Python"
       - uses: actions/setup-python@v4
