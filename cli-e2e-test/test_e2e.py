@@ -6,7 +6,8 @@ import uuid
 
 import workflow.manager
 import workflow.rai
-from workflow.constants import RESOURCES_TO_DELETE_REL
+import workflow.query
+from workflow.constants import RESOURCES_TO_DELETE_REL, DATE_FORMAT
 from csv_diff import load_csv, compare, human_text
 from subprocess import call
 
@@ -257,10 +258,40 @@ class CliE2ETest(unittest.TestCase):
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
 
+    def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario9.json"]
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
+        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, query)
+        self.assertEqual(expiration_date_str, "20220104")
+
+    def test_scenario9_model_do_not_inflate_paths_when_snapshot_expired(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario9.json"]
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        # and when
+        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
+        # then
+        self.assertNotEqual(rsp, 1)
+        rai_config = self.resource_manager.get_rai_config()
+        query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
+        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, query)
+        self.assertEqual(expiration_date_str, "20220106")
+
     @classmethod
     def setUpClass(cls) -> None:
         # Make sure output folder is empty since the folder share across repository. Remove README.md, other files left.
-        cleanup_output(cls.output)
+        cls.cleanup_output()
         cls.logger = logging.getLogger("cli-e2e-test")
         cls.resource_manager = workflow.manager.ResourceManager.init(cls.logger, cls.resource_name, cls.resource_name)
         cls.logger.setLevel(logging.INFO)
@@ -268,7 +299,7 @@ class CliE2ETest(unittest.TestCase):
         cls.resource_manager.add_engine()
 
     def tearDown(self):
-        cleanup_output(self.output)
+        self.cleanup_output()
         if os.path.exists(self.temp_folder):
             shutil.rmtree(self.temp_folder)
 
@@ -288,9 +319,9 @@ class CliE2ETest(unittest.TestCase):
                 self.logger.info(f"Assert file `{filename}`")
                 self.assertEqual(human_text(diff), '')
 
-
-def cleanup_output(directory: str):
-    for filename in os.listdir(directory):
-        file_path = os.path.join(directory, filename)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
+    @classmethod
+    def cleanup_output(cls):
+        for filename in os.listdir(cls.output):
+            file_path = os.path.join(cls.output, filename)
+            if os.path.isfile(file_path):
+                os.remove(file_path)

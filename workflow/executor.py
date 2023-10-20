@@ -143,7 +143,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
 
         rai.install_models(logger, rai_config, build_models(self.config_files, self.rel_config_dir))
 
-        self._inflate_sources(logger)
+        self._inflate_sources(logger, rai_config)
         # calculate expired sources
         declared_sources = {src["source"]: src for src in
                             rai.execute_relation_json(logger, rai_config,
@@ -158,10 +158,20 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         # populate declared sources
         rai.execute_query(logger, rai_config, q.populate_source_configs(self.sources), readonly=False)
 
-    def _inflate_sources(self, logger: logging.Logger):
+    def _inflate_sources(self, logger: logging.Logger, rai_config: RaiConfig):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
             days = self._get_date_range(logger, src)
+            if src.snapshot_validity_days and src.snapshot_validity_days > 0:
+                query = q.get_snapshot_expiration_date(src.relation, constants.DATE_FORMAT)
+                expiration_date_str = rai.execute_query_take_single(logger, rai_config, query)
+                if expiration_date_str:
+                    current_date = datetime.strptime(self.end_date, constants.DATE_FORMAT)
+                    expiration_date = datetime.strptime(expiration_date_str, constants.DATE_FORMAT)
+                    if expiration_date >= current_date:
+                        logger.info(f"Snapshot source '{src.relation}' within validity days. Skipping inflate paths..")
+                        continue
+
             inflated_paths = self.paths_builders[src.container.name].build(logger, days, src.relative_path,
                                                                            src.extensions,
                                                                            src.is_date_partitioned)
