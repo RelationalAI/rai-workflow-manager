@@ -1,5 +1,4 @@
 rai_sdk_http_retries=0
-#rai_profile="kse-ea"
 
 [[container]]
 name="input"
