@@ -56,7 +56,7 @@ def populate_source_configs(sources: List[Source]) -> str:
     data_formats_csv = "\n".join([source.to_formats_csv() for source in sources])
     container_types_csv = "\n".join([source.to_container_type_csv() for source in sources])
 
-    multipart_sources = list(filter(lambda source: source.is_chunk_partitioned or source.is_date_partitioned, sources))
+    chunk_partitioned_sources = list(filter(lambda source: source.is_chunk_partitioned, sources))
     simple_sources = list(
         filter(lambda source: not source.is_chunk_partitioned and not source.is_date_partitioned, sources))
     date_partitioned_sources = list(filter(lambda source: source.is_date_partitioned, sources))
@@ -99,9 +99,9 @@ def populate_source_configs(sources: List[Source]) -> str:
         def insert:source_has_container_type(r, t) =
             exists(i : container_type_config_csv(:Relation, i, r) and container_type_config_csv(:ContainerType, i, t))
 
-        {f"def insert:simple_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
-        {f"def insert:multi_part_relation = {_to_rel_literal_relation([source.relation for source in multipart_sources])}" if len(multipart_sources) > 0 else ""}
-        {f"def insert:date_partitioned_source = {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
+        {f"def insert:simple_source_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
+        {f"def insert:chunk_partitioned_source_relation = {_to_rel_literal_relation([source.relation for source in chunk_partitioned_sources])}" if len(chunk_partitioned_sources) > 0 else ""}
+        {f"def insert:date_partitioned_source_relation = {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
     """
 
 

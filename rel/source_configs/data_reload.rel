@@ -1,6 +1,7 @@
 bound force_reimport
 bound force_reimport_not_chunk_partitioned
-bound resources_data_to_delete
+bound resources_data_to_delete = RelName
+bound resources_data_to_delete = RelName, Int
 bound declared_sources_to_delete = String, String
 bound new_source_config_csv = RelName, FilePos, String
 bound expired_source_config_csv = RelName, FilePos, String
@@ -53,7 +54,7 @@ def potentially_affected_sources(rel, path, p_idx) {
     s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
     not source:date_partitioned(s) and
     source:declares(s, res) and
-    part_resource:hashes_to_part_index(res, p_idx) and
+    part_resource:part_index(res, p_idx) and
     resource:id(res, ^URI[path])
     from s, res
 }
@@ -63,8 +64,8 @@ def potentially_affected_sources(rel, path, p_idx) {
 def potentially_affected_sources(rel, o_path, p_idx) {
     chunk_partitioned_sources(rel, n_path, _) and
     res = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] . source:declares and
-    part_resource:hashes_to_date[res] = parse_date[ uri:parse_value[n_path, "date"], "yyyymmdd"] and
-    part_resource:hashes_to_part_index(res, p_idx) and
+    part_resource:date[res] = parse_date[ uri:parse_value[n_path, "date"], "yyyymmdd"] and
+    part_resource:part_index(res, p_idx) and
     resource:id(res, ^URI[o_path])
     from n_path, res
 }
