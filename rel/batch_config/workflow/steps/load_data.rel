@@ -1,3 +1,1 @@
 def BatchWorkflowLoadDataStep(s) { batch_workflow_step:type(s, LoadDataType) }
-
-// TODO: declare step specific properties and ICs
