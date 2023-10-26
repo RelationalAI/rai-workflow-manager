@@ -627,15 +627,15 @@ class WorkflowExecutor:
         logger = logger.getChild("workflow")
         rai_config = resource_manager.get_rai_config()
 
+        # Load batch config
+        batch_config_relation = build_relation_path(constants.CONFIG_BASE_RELATION, config.batch_config.name)
+        rai.execute_query(logger, rai_config, q.delete_relation(batch_config_relation), readonly=False)
+        rai.load_json(logger, rai_config, batch_config_relation, config.batch_config.content)
         if not config.recover and not config.recover_step:
             # Install common model for workflow manager
             core_models = build_models(constants.COMMON_MODEL, get_common_model_relative_path(__file__))
             extended_models = {**core_models, **models}
             rai.install_models(logger, rai_config, extended_models)
-            # Load batch config
-            rai.load_json(logger, rai_config,
-                          build_relation_path(constants.CONFIG_BASE_RELATION, config.batch_config.name),
-                          config.batch_config.content)
             # Init workflow steps
             rai.execute_query(logger, rai_config, q.init_workflow_steps(config.batch_config.name), readonly=False)
 
