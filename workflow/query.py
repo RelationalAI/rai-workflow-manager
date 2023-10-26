@@ -224,6 +224,10 @@ def init_workflow_steps(batch_config_name: str) -> str:
     """
 
 
+def delete_relation(relation: str) -> str:
+    return f"def delete:{relation} = {relation}"
+
+
 def update_step_state(idt: str, state: str) -> str:
     return f"""
     def insert:batch_workflow_step:state_value(s in BatchWorkflowStep, v) {{
