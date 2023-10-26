@@ -2,13 +2,14 @@ import logging
 import re
 import json
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List
 from urllib.error import HTTPError
 from railib import api, config
 
 from workflow import query as q
 from workflow.constants import RAI_PROFILE, RAI_PROFILE_PATH, RAI_SDK_HTTP_RETRIES
 from workflow.common import RaiConfig
+from workflow.exception import ConcurrentWriteAttemptException
 
 
 def get_config(engine: str, database: str, env_vars: dict[str, Any]) -> RaiConfig:
@@ -154,6 +155,8 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, query: str, inp
     :return: SDK response
     """
     try:
+        if not readonly:
+            _check_running_write_txn(rai_config)
         logger.info(f"Execute query: database={rai_config.database} engine={rai_config.engine} readonly={readonly}")
         start_time = int(time.time())
         txn = api.exec_async(rai_config.ctx, rai_config.database, rai_config.engine, query, readonly, inputs)
@@ -228,6 +231,14 @@ def execute_query_take_single(logger: logging.Logger, rai_config: RaiConfig, que
     return rsp.results[0]['table'].to_pydict()["v1"][0]
 
 
+def list_transactions(logger: logging.Logger, rai_config: RaiConfig) -> List:
+    """
+    List all transactions for the engine
+    """
+    logger.debug(f"List transactions for {rai_config.engine}")
+    return api.list_transactions(rai_config.ctx, engine_name=rai_config.engine)
+
+
 def _assert_problems(logger: logging.Logger, rsp: api.TransactionAsyncResponse, ignore_problems: bool):
     problems_has_error = _handle_problems(logger, rsp.problems)
     txn_state = rsp.transaction.get('state')
@@ -275,3 +286,10 @@ def _parse_csv_string(rsp: api.TransactionAsyncResponse) -> Dict:
             data = result['table'].to_pydict()["v1"][0]
             resp[relation_id] = data
     return resp
+
+
+def _check_running_write_txn(rai_config: RaiConfig) -> None:
+    txns = api.list_transactions(rai_config.ctx, engine_name=rai_config.engine)
+    for txn in txns:
+        if txn["state"] == "RUNNING":
+            raise ConcurrentWriteAttemptException(rai_config.engine)
