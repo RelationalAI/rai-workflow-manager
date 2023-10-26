@@ -291,5 +291,5 @@ def _parse_csv_string(rsp: api.TransactionAsyncResponse) -> Dict:
 def _check_running_write_txn(rai_config: RaiConfig) -> None:
     txns = api.list_transactions(rai_config.ctx, engine_name=rai_config.engine)
     for txn in txns:
-        if txn["state"] == "RUNNING":
+        if txn["state"] == "RUNNING" and txn["read_only"] is False:
             raise ConcurrentWriteAttemptException(rai_config.engine)
