@@ -9,7 +9,8 @@ from railib import api, config
 from workflow import query as q
 from workflow.constants import RAI_PROFILE, RAI_PROFILE_PATH, RAI_SDK_HTTP_RETRIES
 from workflow.common import RaiConfig
-from workflow.exception import ConcurrentWriteAttemptException
+from workflow.utils import call_with_overhead
+from workflow.exception import ConcurrentWriteAttemptException, RetryException
 
 
 def get_config(engine: str, database: str, env_vars: dict[str, Any]) -> RaiConfig:
@@ -156,7 +157,7 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, query: str, inp
     """
     try:
         if not readonly:
-            _check_running_write_txn(rai_config)
+            _check_running_write_txn(logger, rai_config)
         logger.info(f"Execute query: database={rai_config.database} engine={rai_config.engine} readonly={readonly}")
         start_time = int(time.time())
         txn = api.exec_async(rai_config.ctx, rai_config.database, rai_config.engine, query, readonly, inputs)
@@ -288,8 +289,21 @@ def _parse_csv_string(rsp: api.TransactionAsyncResponse) -> Dict:
     return resp
 
 
-def _check_running_write_txn(rai_config: RaiConfig) -> None:
+def _check_running_write_txn(logger: logging.Logger, rai_config: RaiConfig) -> None:
+    try:
+        call_with_overhead(
+            f=lambda: not _is_running_write_txn(rai_config),
+            logger=logger,
+            overhead_rate=0.5,
+            timeout=30  # 30 sec
+        )
+    except RetryException:
+        raise ConcurrentWriteAttemptException(rai_config.engine)
+
+
+def _is_running_write_txn(rai_config: RaiConfig) -> bool:
     txns = api.list_transactions(rai_config.ctx, engine_name=rai_config.engine)
     for txn in txns:
         if txn["state"] == "RUNNING" and txn["read_only"] is False:
-            raise ConcurrentWriteAttemptException(rai_config.engine)
+            return True
+    return False

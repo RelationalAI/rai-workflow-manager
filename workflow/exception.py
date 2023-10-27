@@ -11,3 +11,9 @@ class ConcurrentWriteAttemptException(RAIException):
     def __init__(self, engine_name):
         super().__init__(f"'{engine_name}' has already running write transaction")
 
+
+class RetryException(Exception):
+    """Exception raised when retry limits are reached (timeout, max retries, etc.)"""
+
+    def __init__(self, msg):
+        super().__init__(msg)

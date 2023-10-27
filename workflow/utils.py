@@ -8,6 +8,7 @@ from typing import List, Dict
 
 from workflow import constants
 from workflow.common import LocalConfig
+from workflow.exception import RetryException
 
 
 def range_days(start: datetime, end: datetime) -> List[datetime]:
@@ -126,7 +127,7 @@ def to_rai_date_format(date_format: str) -> str:
     return rai_date_format
 
 
-async def call_with_overhead(
+async def call_with_overhead_async(
         f,
         logger: logging.Logger,
         overhead_rate: float,
@@ -135,7 +136,7 @@ async def call_with_overhead(
         max_tries: int = None,
         first_delay: float = 0.5,
         max_delay: int = 120,  # 2 minutes
-):
+) -> None:
     tries = 0
     max_time = time.time() + timeout if timeout else None
 
@@ -145,10 +146,10 @@ async def call_with_overhead(
             break
 
         if max_tries is not None and tries >= max_tries:
-            raise Exception(f'max tries {max_tries} exhausted')
+            raise RetryException(f'max tries {max_tries} exhausted')
 
         if max_time is not None and time.time() >= max_time:
-            raise Exception(f'timed out after {timeout} seconds')
+            raise RetryException(f'timed out after {timeout} seconds')
 
         tries += 1
         duration = min((time.time() - start_time) * overhead_rate, max_delay)
@@ -158,3 +159,18 @@ async def call_with_overhead(
         else:
             logger.debug(f"Sleep duration for a try: {duration}s")
             await asyncio.sleep(duration)
+
+
+def call_with_overhead(
+        f,
+        logger: logging.Logger,
+        overhead_rate: float,
+        start_time: int = time.time(),
+        timeout: int = None,
+        max_tries: int = None,
+        first_delay: float = 0.5,
+        max_delay: int = 120,  # 2 minutes
+):
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(
+        call_with_overhead_async(f, logger, overhead_rate, start_time, timeout, max_tries, first_delay, max_delay))
