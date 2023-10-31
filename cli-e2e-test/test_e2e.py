@@ -3,10 +3,12 @@ import os
 import logging
 import shutil
 import uuid
+import tomli
 
 import workflow.manager
 import workflow.rai
 import workflow.query
+import workflow.common
 from workflow.constants import RESOURCES_TO_DELETE_REL, DATE_FORMAT
 from csv_diff import load_csv, compare, human_text
 from subprocess import call
@@ -15,14 +17,15 @@ from subprocess import call
 class CliE2ETest(unittest.TestCase):
     logger: logging.Logger
     resource_manager: workflow.manager.ResourceManager
+    env_config: workflow.common.EnvConfig
     output = "./output"
     dev_data_dir = "./data"
     temp_folder = f"{dev_data_dir}/temp"
-    env_config = "./config/loader.toml"
+    env_config_path = "./config/loader.toml"
     expected = "./expected_results"
     resource_name = "wm-cli-e2e-test-" + str(uuid.uuid4())
     cmd_with_common_arguments = ["python", "main.py",
-                                 "--env-config", env_config,
+                                 "--env-config", env_config_path,
                                  "--engine", resource_name,
                                  "--database", resource_name,
                                  "--rel-config-dir", "./rel"]
@@ -50,7 +53,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, {})
 
     def test_scenario2_model_force_reimport(self):
@@ -66,7 +69,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'},
                                     {'partition': 2023090900001, 'relation': 'city_data'},
@@ -87,7 +90,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'zip_city_state_master_data'}])
 
     def test_scenario3_model_single_partition_change_for_date_partitioned(self):
@@ -109,7 +112,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
 
     def test_scenario3_model_two_partitions_overriden_by_one_for_date_partitioned(self):
@@ -132,7 +135,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
                                     {'partition': 2023090800002, 'relation': 'city_data'}])
 
@@ -176,7 +179,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'}])
 
     def test_scenario6_model_two_partitions_overriden_by_one(self):
@@ -197,7 +200,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'},
                                     {'partition': 2, 'relation': 'product_data'}])
 
@@ -212,7 +215,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2022010200001, 'relation': 'device_seen_snapshot'}])
 
     def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
@@ -227,7 +230,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, {})
 
     def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
@@ -241,7 +244,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, {})
 
     def test_scenario8_model_2_day_snapshot_1_day_declared_1_days_out_of_range(self):
@@ -255,7 +258,7 @@ class CliE2ETest(unittest.TestCase):
         # then
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, RESOURCES_TO_DELETE_REL)
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
 
     def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
@@ -270,7 +273,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
-        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, query)
+        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
         self.assertEqual(expiration_date_str, "20220104")
 
     def test_scenario9_model_do_not_inflate_paths_when_snapshot_expired(self):
@@ -285,7 +288,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
-        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, query)
+        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
         self.assertEqual(expiration_date_str, "20220106")
 
     @classmethod
@@ -293,7 +296,11 @@ class CliE2ETest(unittest.TestCase):
         # Make sure output folder is empty since the folder share across repository. Remove README.md, other files left.
         cls.cleanup_output()
         cls.logger = logging.getLogger("cli-e2e-test")
-        cls.resource_manager = workflow.manager.ResourceManager.init(cls.logger, cls.resource_name, cls.resource_name)
+        with open(cls.env_config_path, "rb") as fp:
+            loader_config = tomli.load(fp)
+        cls.env_config = workflow.common.EnvConfig.from_env_vars(loader_config)
+        cls.resource_manager = workflow.manager.ResourceManager.init(cls.logger, cls.resource_name, cls.resource_name,
+                                                                     cls.env_config)
         cls.logger.setLevel(logging.INFO)
         cls.logger.addHandler(logging.StreamHandler())
         cls.resource_manager.add_engine()

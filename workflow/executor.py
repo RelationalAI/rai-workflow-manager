@@ -102,7 +102,7 @@ class InstallModelsStep(WorkflowStep):
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing InstallModel step..")
 
-        rai.install_models(logger, rai_config, build_models(self.model_files, self.rel_config_dir))
+        rai.install_models(logger, rai_config, env_config, build_models(self.model_files, self.rel_config_dir))
 
 
 class InstallModelWorkflowStepFactory(WorkflowStepFactory):
@@ -141,30 +141,30 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing ConfigureSources step..")
 
-        rai.install_models(logger, rai_config, build_models(self.config_files, self.rel_config_dir))
+        rai.install_models(logger, rai_config, env_config, build_models(self.config_files, self.rel_config_dir))
 
-        self._inflate_sources(logger, rai_config)
+        self._inflate_sources(logger, rai_config, env_config)
         # calculate expired sources
         declared_sources = {src["source"]: src for src in
-                            rai.execute_relation_json(logger, rai_config,
+                            rai.execute_relation_json(logger, rai_config, env_config,
                                                       constants.DECLARED_DATE_PARTITIONED_SOURCE_REL)}
         expired_sources = self._calculate_expired_sources(logger, declared_sources)
 
         # mark declared sources for reimport
-        rai.execute_query(logger, rai_config,
+        rai.execute_query(logger, rai_config, env_config,
                           q.discover_reimport_sources(self.sources, expired_sources, self.force_reimport,
                                                       self.force_reimport_not_chunk_partitioned),
                           readonly=False)
         # populate declared sources
-        rai.execute_query(logger, rai_config, q.populate_source_configs(self.sources), readonly=False)
+        rai.execute_query(logger, rai_config, env_config, q.populate_source_configs(self.sources), readonly=False)
 
-    def _inflate_sources(self, logger: logging.Logger, rai_config: RaiConfig):
+    def _inflate_sources(self, logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig):
         for src in self.sources:
             logger.info(f"Inflating source: '{src.relation}'")
             days = self._get_date_range(logger, src)
             if src.snapshot_validity_days and src.snapshot_validity_days > 0:
                 query = q.get_snapshot_expiration_date(src.relation, constants.DATE_FORMAT)
-                expiration_date_str = rai.execute_query_take_single(logger, rai_config, query)
+                expiration_date_str = rai.execute_query_take_single(logger, rai_config, env_config, query)
                 if expiration_date_str:
                     current_date = datetime.strptime(self.end_date, constants.DATE_FORMAT)
                     expiration_date = datetime.strptime(expiration_date_str, constants.DATE_FORMAT)
@@ -316,9 +316,9 @@ class LoadDataWorkflowStep(WorkflowStep):
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing LoadData step..")
 
-        rai.execute_query(logger, rai_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
+        rai.execute_query(logger, rai_config, env_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
 
-        missed_resources = rai.execute_relation_json(logger, rai_config, constants.MISSED_RESOURCES_REL)
+        missed_resources = rai.execute_relation_json(logger, rai_config, env_config, constants.MISSED_RESOURCES_REL)
 
         if not missed_resources:
             logger.info("Missed resources list is empty")
@@ -390,7 +390,8 @@ class LoadDataWorkflowStep(WorkflowStep):
             container = env_config.get_container(src["container"])
             config = EnvConfig.get_config(container)
             if ContainerType.LOCAL == container.type or ContainerType.AZURE == container.type:
-                rai.execute_query(logger, rai_config, q.load_resources(logger, config, resources, src), readonly=False)
+                rai.execute_query(logger, rai_config, env_config, q.load_resources(logger, config, resources, src),
+                                  readonly=False)
             elif ContainerType.SNOWFLAKE == container.type:
                 snow.begin_data_sync(logger, config, rai_config, resources, src)
         except KeyError as e:
@@ -423,10 +424,10 @@ class MaterializeWorkflowStep(WorkflowStep):
         logger.info("Executing Materialize step..")
 
         if self.materialize_jointly:
-            rai.execute_query(logger, rai_config, q.materialize(self.relations), readonly=False)
+            rai.execute_query(logger, rai_config, env_config, q.materialize(self.relations), readonly=False)
         else:
             for relation in self.relations:
-                rai.execute_query(logger, rai_config, q.materialize([relation]), readonly=False)
+                rai.execute_query(logger, rai_config, env_config, q.materialize([relation]), readonly=False)
 
 
 class MaterializeWorkflowStepFactory(WorkflowStepFactory):
@@ -445,12 +446,12 @@ class ExportWorkflowStep(WorkflowStep):
 
     EXPORT_FUNCTION = {
         ContainerType.LOCAL:
-            lambda logger, rai_config, exports, end_date, date_format, container: save_csv_output(
-                rai.execute_query_csv(logger, rai_config, q.export_relations_local(logger, exports)),
+            lambda logger, rai_config, env_config, exports, end_date, date_format, container: save_csv_output(
+                rai.execute_query_csv(logger, rai_config, env_config, q.export_relations_local(logger, exports)),
                 EnvConfig.get_config(container)),
         ContainerType.AZURE:
-            lambda logger, rai_config, exports, end_date, date_format, container: rai.execute_query(
-                logger, rai_config,
+            lambda logger, rai_config, env_config, exports, end_date, date_format, container: rai.execute_query(
+                logger, rai_config, env_config,
                 q.export_relations_to_azure(logger, EnvConfig.get_config(container), exports, end_date, date_format))
     }
 
@@ -464,20 +465,20 @@ class ExportWorkflowStep(WorkflowStep):
     def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         logger.info("Executing Export step..")
 
-        exports = list(filter(lambda e: self._should_export(logger, rai_config, e), self.exports))
+        exports = list(filter(lambda e: self._should_export(logger, rai_config, env_config, e), self.exports))
         if self.export_jointly:
             exports.sort(key=lambda e: e.container.name)
             container_groups = {container_name: list(group) for container_name, group in
                                 groupby(exports, key=lambda e: e.container.name)}
             for container_name, grouped_exports in container_groups.items():
                 container = env_config.get_container(container_name)
-                ExportWorkflowStep.get_export_function(container)(logger, rai_config, grouped_exports, self.end_date,
-                                                                  self.date_format, container)
+                ExportWorkflowStep.get_export_function(container)(logger, rai_config, env_config, grouped_exports,
+                                                                  self.end_date, self.date_format, container)
         else:
             for export in exports:
                 container = export.container
-                ExportWorkflowStep.get_export_function(container)(logger, rai_config, [export], self.end_date,
-                                                                  self.date_format, container)
+                ExportWorkflowStep.get_export_function(container)(logger, rai_config, env_config, [export],
+                                                                  self.end_date, self.date_format, container)
 
     @staticmethod
     def get_export_function(container: Container):
@@ -486,13 +487,14 @@ class ExportWorkflowStep(WorkflowStep):
         except KeyError as ex:
             raise ValueError(f"Container type is not supported: {ex}")
 
-    def _should_export(self, logger: logging.Logger, rai_config: RaiConfig, export: Export) -> bool:
+    def _should_export(self, logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig,
+                       export: Export) -> bool:
         if export.snapshot_binding is None:
             return True
         logger.info(f"Checking validity of snapshot: {export.snapshot_binding}")
         current_date = datetime.strptime(self.end_date, self.date_format)
         query = q.get_snapshot_expiration_date(export.snapshot_binding, self.date_format)
-        expiration_date_str = rai.execute_query_take_single(logger, rai_config, query)
+        expiration_date_str = rai.execute_query_take_single(logger, rai_config, env_config, query)
         # if nothing returned we opt for exporting the snapshot
         if expiration_date_str is None:
             return True
@@ -582,7 +584,7 @@ class WorkflowExecutor:
                     continue
 
             start_time = time.time()
-            rai.execute_query(self.logger, rai_config,
+            rai.execute_query(self.logger, rai_config, self.config.env,
                               q.update_step_state(step.idt, WorkflowStepState.IN_PROGRESS.name), readonly=False,
                               ignore_problems=True)
             try:
@@ -599,9 +601,9 @@ class WorkflowExecutor:
                 execution_time = end_time - start_time
                 query = "\n".join([q.update_step_state(step.idt, WorkflowStepState.SUCCESS.name),
                                    q.update_execution_time(step.idt, execution_time)])
-                rai.execute_query(self.logger, rai_config, query, readonly=False)
+                rai.execute_query(self.logger, rai_config, self.config.env, query, readonly=False)
             except Exception as e:
-                rai.execute_query(self.logger, rai_config,
+                rai.execute_query(self.logger, rai_config, self.config.env,
                                   q.update_step_state(step.idt, WorkflowStepState.FAILED.name), readonly=False,
                                   ignore_problems=True)
                 if step.engine_size:
@@ -612,8 +614,9 @@ class WorkflowExecutor:
 
     def print_timings(self) -> None:
         rai_config = self.resource_manager.get_rai_config()
+        env_config = self.config.env
         relation = build_relation_path(constants.WORKFLOW_JSON_REL, self.config.batch_config.name)
-        workflow_info = rai.execute_relation_json(self.logger, rai_config, relation, ignore_problems=True)
+        workflow_info = rai.execute_relation_json(self.logger, rai_config, env_config, relation, ignore_problems=True)
         steps = workflow_info["steps"]
         for step in steps:
             execution_time = step["executionTime"]
@@ -631,19 +634,20 @@ class WorkflowExecutor:
             # Install common model for workflow manager
             core_models = build_models(constants.COMMON_MODEL, get_common_model_relative_path(__file__))
             extended_models = {**core_models, **models}
-            rai.install_models(logger, rai_config, extended_models)
+            rai.install_models(logger, rai_config, config.env, extended_models)
 
         # Load batch config
         batch_config_relation = build_relation_path(constants.CONFIG_BASE_RELATION, config.batch_config.name)
-        rai.execute_query(logger, rai_config, q.delete_relation(batch_config_relation), readonly=False)
-        rai.load_json(logger, rai_config, batch_config_relation, config.batch_config.content)
+        rai.execute_query(logger, rai_config, config.env, q.delete_relation(batch_config_relation), readonly=False)
+        rai.load_json(logger, rai_config, config.env, batch_config_relation, config.batch_config.content)
 
         if not config.recover and not config.recover_step:
             # Init workflow steps
-            rai.execute_query(logger, rai_config, q.init_workflow_steps(config.batch_config.name), readonly=False)
+            rai.execute_query(logger, rai_config, config.env, q.init_workflow_steps(config.batch_config.name),
+                              readonly=False)
 
         extended_factories = {**DEFAULT_FACTORIES, **factories}
-        workflow_info = rai.execute_relation_json(logger, rai_config,
+        workflow_info = rai.execute_relation_json(logger, rai_config, config.env,
                                                   build_relation_path(constants.WORKFLOW_JSON_REL,
                                                                       config.batch_config.name), ignore_problems=True)
         steps_json = workflow_info["steps"]

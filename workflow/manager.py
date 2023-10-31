@@ -2,10 +2,8 @@ import dataclasses
 import copy
 import uuid
 import logging
-from typing import Any
-from types import MappingProxyType
 
-from workflow.common import RaiConfig
+from workflow.common import RaiConfig, EnvConfig
 from workflow import query as q, rai
 
 
@@ -19,12 +17,14 @@ class EngineMetaInfo:
 class ResourceManager:
     __logger: logging.Logger
     __rai_config: RaiConfig
+    __env_config: EnvConfig
     __engines: dict[str, EngineMetaInfo]
 
-    def __init__(self, logger: logging.Logger, rai_config: RaiConfig):
+    def __init__(self, logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig):
         self.__logger = logger
         self.__rai_config = rai_config
         self.__engines = {}
+        self.__env_config = env_config
 
     def get_rai_config(self, size: str = None) -> RaiConfig:
         config = copy.copy(self.__rai_config)
@@ -69,7 +69,7 @@ class ResourceManager:
             rai.create_database(self.__logger, config, source_db)
         if disable_ivm:
             self.__logger.info(f"Disabling IVM for `{config.database}`")
-            rai.execute_query(self.__logger, config, q.DISABLE_IVM, readonly=False)
+            rai.execute_query(self.__logger, config, self.__env_config, q.DISABLE_IVM, readonly=False)
 
     def delete_database(self) -> None:
         """
@@ -175,7 +175,7 @@ class ResourceManager:
         return f"wf-manager-{size}-{uuid.uuid4()}"
 
     @staticmethod
-    def init(logger: logging.Logger, engine, database, env_vars: dict[str, Any] = MappingProxyType({})):
+    def init(logger: logging.Logger, engine, database, env_config: EnvConfig):
         logger = logger.getChild("workflow_resource_manager")
-        rai_config = rai.get_config(engine, database, env_vars)
-        return ResourceManager(logger, rai_config)
+        rai_config = rai.get_config(engine, database, env_config)
+        return ResourceManager(logger, rai_config, env_config)

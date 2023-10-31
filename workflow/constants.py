@@ -43,6 +43,7 @@ CONTAINER_NAME = "name"
 RAI_PROFILE = "rai_profile"
 RAI_PROFILE_PATH = "rai_profile_path"
 RAI_SDK_HTTP_RETRIES = "rai_sdk_http_retries"
+FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT = "fail_on_multiple_write_txn_in_flight"
 # Generic container params
 ACCOUNT_PARAM = "account"
 USER_PARAM = "user"

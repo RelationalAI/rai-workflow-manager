@@ -5,12 +5,14 @@ from datetime import datetime
 from typing import List
 from unittest.mock import Mock, patch
 
-from workflow.common import Export, RaiConfig, FileType
+from workflow.common import Export, RaiConfig, FileType, EnvConfig
 from workflow.executor import WorkflowStepState, ExportWorkflowStep
 
 
 class TestConfigureSourcesWorkflowStep(unittest.TestCase):
     logger: logging.Logger = Mock()
+    rai_config: RaiConfig = Mock()
+    env_config: EnvConfig = Mock()
 
     @patch('workflow.rai.execute_query_take_single')
     def test_should_export_should_not_export_valid_snapshot(self,  mock_execute_query):
@@ -18,11 +20,10 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding", "default")
         end_date = "20220105"
         step = _create_export_step([export], end_date)
-        rai_config = RaiConfig(Mock(), "engine", "database")
 
         mock_execute_query.return_value = "20220106"  # valid until end_date + 1
         # when
-        should_export = step._should_export(self.logger, rai_config, export)
+        should_export = step._should_export(self.logger, self.rai_config, self.env_config, export)
         # then
         self.assertFalse(should_export)
 
@@ -32,11 +33,10 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding", "default")
         end_date = "20220105"
         step = _create_export_step([export], end_date)
-        rai_config = RaiConfig(Mock(), "engine", "database")
 
         mock_execute_query.return_value = "20220105"  # valid until end_date
         # when
-        should_export = step._should_export(self.logger, rai_config, export)
+        should_export = step._should_export(self.logger, self.rai_config, self.env_config, export)
         # then
         self.assertTrue(should_export)
 
@@ -46,11 +46,10 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         export = Export([], "relation", "relative_path", FileType.CSV, "snapshot_binding", "default")
         end_date = "20220105"
         step = _create_export_step([export], end_date)
-        rai_config = RaiConfig(Mock(), "engine", "database")
 
         mock_execute_query.return_value = "20220101"  # valid until end_date
         # when
-        should_export = step._should_export(self.logger, rai_config, export)
+        should_export = step._should_export(self.logger, self.rai_config, self.env_config, export)
         # then
         self.assertTrue(should_export)
 
