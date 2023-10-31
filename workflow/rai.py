@@ -157,7 +157,7 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, env_config: Env
     :return: SDK response
     """
     try:
-        if env_config.check_running_write_queries and not readonly:
+        if env_config.fail_on_multiple_write_txn_in_flight and not readonly:
             _check_running_write_txn(logger, rai_config)
         logger.info(f"Execute query: database={rai_config.database} engine={rai_config.engine} readonly={readonly}")
         start_time = int(time.time())

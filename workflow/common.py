@@ -6,7 +6,7 @@ from railib import api
 
 from workflow.constants import ACCOUNT_PARAM, CONTAINER_PARAM, DATA_PATH_PARAM, AZURE_SAS, CONTAINER, CONTAINER_TYPE, \
     CONTAINER_NAME, USER_PARAM, PASSWORD_PARAM, SNOWFLAKE_ROLE, SNOWFLAKE_WAREHOUSE, DATABASE_PARAM, SCHEMA_PARAM, \
-    CHECK_RUNNING_WRITE_QUERIES, RAI_SDK_HTTP_RETRIES, RAI_PROFILE, RAI_PROFILE_PATH
+    FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, RAI_SDK_HTTP_RETRIES, RAI_PROFILE, RAI_PROFILE_PATH
 
 
 class MetaEnum(EnumMeta):
@@ -161,7 +161,7 @@ class RaiConfig:
 @dataclasses.dataclass
 class EnvConfig:
     containers: dict[str, Container]
-    check_running_write_queries: bool = False
+    fail_on_multiple_write_txn_in_flight: bool = False
     rai_sdk_http_retries: int = 3
     rai_profile: str = "default"
     rai_profile_path: str = "~/.rai/config"
@@ -190,7 +190,7 @@ class EnvConfig:
             containers[name] = Container(name=container[CONTAINER_NAME],
                                          type=ContainerType[container[CONTAINER_TYPE].upper()],
                                          params=container)
-        return EnvConfig(containers, env_vars.get(CHECK_RUNNING_WRITE_QUERIES, False),
+        return EnvConfig(containers, env_vars.get(FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, False),
                          env_vars.get(RAI_SDK_HTTP_RETRIES, 3), env_vars.get(RAI_PROFILE, "default"),
                          env_vars.get(RAI_PROFILE_PATH, "~/.rai/config"))
 
