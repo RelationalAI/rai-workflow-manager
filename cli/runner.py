@@ -51,7 +51,8 @@ def start():
         }
         config = workflow.executor.WorkflowConfig(env_config, workflow.common.BatchConfig(args.batch_config_name,
                                                                                           batch_config_json),
-                                                  args.recover, args.recover_step, args.selected_steps, parameters)
+                                                  args.recover, args.recover_step, args.selected_steps, parameters,
+                                                  args.step_timeout_dict)
         executor = workflow.executor.WorkflowExecutor.init(logger, config, resource_manager)
         end_time = time.time()
         executor.run()

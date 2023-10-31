@@ -147,10 +147,33 @@ def parse() -> Namespace:
         default=3,
         type=int
     )
+    parser.add_argument(
+        "--step-timeout",
+        help="Parameter to set timeouts for steps",
+        required=False,
+        type=str
+    )
     args = parser.parse_args()
     # Validation
     if 'selected_steps' in vars(args) and args.selected_steps and 'recover_step' in vars(args) and args.recover_step:
         parser.error("`--recover-step` can't be used when selected-steps are specified.")
     if 'recover' in vars(args) and args.recover and 'recover_step' in vars(args) and args.recover_step:
         parser.error("`--recover` and `--recover-step` options are mutually exclusive. You must choose only 1 option.")
+    if 'step_timeout' in vars(args):
+        try:
+            args.step_timeout_dict = parse_string_int_key_value_argument(args.step_timeout)
+        except ValueError:
+            parser.error("`--step-timeout` should be key value pairs separated by comma. Value must have `int` type. "
+                         "Example: `--step-timeout \"step1=10,step2=20`\"")
     return args
+
+
+def parse_string_int_key_value_argument(argument: str) -> dict[str, int]:
+    result = {}
+    if argument:
+        for pair in argument.split(','):
+            pair.strip()
+            if pair != '':
+                key, value = pair.split('=')
+                result[key.strip()] = int(value.strip())
+    return result

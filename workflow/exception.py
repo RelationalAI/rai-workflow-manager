@@ -17,3 +17,10 @@ class RetryException(Exception):
 
     def __init__(self, msg):
         super().__init__(msg)
+
+
+class StepTimeOutException(Exception):
+    """Exception raised when step execution time exceeds timeout"""
+
+    def __init__(self, msg):
+        super().__init__(msg)

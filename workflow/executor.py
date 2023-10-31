@@ -1,6 +1,8 @@
 import dataclasses
 import logging
 import time
+import asyncio
+import concurrent.futures
 from workflow import snow
 from datetime import datetime
 from enum import Enum
@@ -11,11 +13,11 @@ from typing import List
 from more_itertools import peekable
 
 from workflow import query as q, paths, rai, constants
+from workflow.exception import StepTimeOutException
 from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType, Container
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
     get_common_model_relative_path
-import asyncio
 
 CONFIGURE_SOURCES = 'ConfigureSources'
 INSTALL_MODELS = 'InstallModels'
@@ -41,6 +43,7 @@ class WorkflowConfig:
     recover_step: str
     selected_steps: List[str]
     step_params: dict
+    step_timeout: dict[str, int] = None
 
 
 class WorkflowStep:
@@ -590,18 +593,23 @@ class WorkflowExecutor:
             try:
                 if step.engine_size:
                     self.resource_manager.add_engine(step.engine_size)
-                    step.execute(self.logger, self.config.env, self.resource_manager.get_rai_config(step.engine_size))
+                    self.execute_step(step, self.resource_manager.get_rai_config(step.engine_size))
                     next_step = steps_iter.peek(None)
                     if next_step and next_step.engine_size != step.engine_size:
                         self.resource_manager.remove_engine(step.engine_size)
                 else:
-                    step.execute(self.logger, self.config.env, rai_config)
+                    self.execute_step(step, rai_config)
 
                 end_time = time.time()
                 execution_time = end_time - start_time
                 query = "\n".join([q.update_step_state(step.idt, WorkflowStepState.SUCCESS.name),
                                    q.update_execution_time(step.idt, execution_time)])
                 rai.execute_query(self.logger, rai_config, self.config.env, query, readonly=False)
+            except StepTimeOutException as e:
+                # Skip step state update since write txn can be stuck and RWM will raise ConcurrentWriteAttemptException
+                if step.engine_size:
+                    self.resource_manager.remove_engine(step.engine_size)
+                raise e
             except Exception as e:
                 rai.execute_query(self.logger, rai_config, self.config.env,
                                   q.update_step_state(step.idt, WorkflowStepState.FAILED.name), readonly=False,
@@ -622,6 +630,20 @@ class WorkflowExecutor:
             execution_time = step["executionTime"]
             self.logger.info(f"{step['name']} (id={step['idt']}) finished in {format_duration(execution_time)}")
         self.logger.info(f"Total workflow execution time is {format_duration(workflow_info['totalTime'])}")
+
+    def execute_step(self, step, rai_config: RaiConfig) -> None:
+        if self.config.step_timeout and self.config.step_timeout.get(step.name, 0) > 0:
+            timeout = self.config.step_timeout.get(step.name)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                # Submit the function to the executor
+                future = executor.submit(step.execute, self.logger, self.config.env, rai_config)
+                try:
+                    # Wait for the function to complete, with a maximum timeout in WorkflowConfig for the step
+                    future.result(timeout=timeout)
+                except concurrent.futures.TimeoutError:
+                    raise StepTimeOutException(f"Step '{step.name}' exceeded step's timeout: {timeout} sec")
+        else:
+            step.execute(self.logger, self.config.env, rai_config)
 
     @staticmethod
     def init(logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager,
