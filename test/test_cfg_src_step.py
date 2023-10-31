@@ -6,13 +6,14 @@ from typing import List
 from unittest.mock import Mock, patch
 
 from workflow import paths
-from workflow.common import Source, Container, ContainerType, RaiConfig
+from workflow.common import Source, Container, ContainerType, RaiConfig, EnvConfig
 from workflow.executor import ConfigureSourcesWorkflowStep, WorkflowStepState
 
 
 class TestConfigureSourcesWorkflowStep(unittest.TestCase):
     logger: logging.Logger = Mock()
     rai_config: RaiConfig = Mock()
+    env_config: EnvConfig = Mock()
 
     #
     # Not partitioned file tests
@@ -44,7 +45,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         ])
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, None)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [
             "test/test_non_part.csv",
@@ -88,7 +89,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [
             "test/test_20220105_1.csv",
@@ -125,7 +126,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220115"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [f"test/test_{day}_1.csv" for day in range(20220106, 20220116)]
         self.assertEqual(expected_paths, test_src.paths)
@@ -159,7 +160,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220112"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         # 20220101, 20220102, ..., 20220110
         expected_paths = [f"test/test_{day}_{i}.csv" for day in range(20220101, 20220111) for i in range(2)]
@@ -201,7 +202,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [
             "test/snapshot_20220105.csv",
@@ -243,7 +244,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [
             "test/snapshot_20220105.csv",
@@ -284,7 +285,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [
             "test/snapshot_20220104.csv",
@@ -321,7 +322,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = []
         self.assertEqual(expected_paths, test_src.paths)
@@ -341,7 +342,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = ["test/snapshot_20220101.csv"]
         self.assertEqual(expected_paths, test_src.paths)
@@ -361,7 +362,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = ["test/snapshot_20220115.csv"]
         self.assertEqual(expected_paths, test_src.paths)
@@ -381,7 +382,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = ["test/snapshot_20220130.csv"]
         self.assertEqual(expected_paths, test_src.paths)
@@ -401,7 +402,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220131"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = []
         self.assertEqual(expected_paths, test_src.paths)
@@ -424,7 +425,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = [
             "test/test_20220105_1.csv",
@@ -450,7 +451,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
         # When calling _inflate_sources
-        workflow_step._inflate_sources(self.logger, self.rai_config)
+        workflow_step._inflate_sources(self.logger, self.rai_config, self.env_config)
         # Then
         expected_paths = []
         self.assertEqual(expected_paths, test_src.paths)

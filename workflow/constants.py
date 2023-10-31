@@ -43,6 +43,7 @@ CONTAINER_NAME = "name"
 RAI_PROFILE = "rai_profile"
 RAI_PROFILE_PATH = "rai_profile_path"
 RAI_SDK_HTTP_RETRIES = "rai_sdk_http_retries"
+CHECK_RUNNING_WRITE_QUERIES = "check_running_write_queries"
 # Generic container params
 ACCOUNT_PARAM = "account"
 USER_PARAM = "user"

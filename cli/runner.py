@@ -23,11 +23,11 @@ def start():
     except OSError as e:
         logger.exception("Failed to load 'loader.toml' config.", e)
         sys.exit(1)
+    loader_config[workflow.constants.RAI_SDK_HTTP_RETRIES] = args.rai_sdk_http_retries
     # init env config
     env_config = workflow.common.EnvConfig.from_env_vars(loader_config)
     # init Workflow resource manager
-    loader_config[workflow.constants.RAI_SDK_HTTP_RETRIES] = args.rai_sdk_http_retries
-    resource_manager = workflow.manager.ResourceManager.init(logger, args.engine, args.database, loader_config)
+    resource_manager = workflow.manager.ResourceManager.init(logger, args.engine, args.database, env_config)
     logger.info("Using: " + ",".join(f"{k}={v}" for k, v in vars(args).items()))
     try:
         logger.info(f"Activating batch with config from '{args.batch_config}'")
