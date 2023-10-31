@@ -3,7 +3,7 @@ import unittest
 from cli import args
 
 
-class UtilsTest(unittest.TestCase):
+class ArgsTest(unittest.TestCase):
 
     def test_parse_key_value_1_parameter(self):
         # when
