@@ -79,7 +79,7 @@ def engine_exist(logger: logging.Logger, rai_config: RaiConfig) -> bool:
     :param rai_config:  RAI config
     :return: `True` if the engine does exist otherwise `False`
     """
-    logger.info(f"Check if engine `{rai_config.engine}` exist")
+    logger.info(f"Check if engine `{rai_config.engine}` exists")
     return bool(api.get_engine(rai_config.ctx, rai_config.engine))
 
 
@@ -124,7 +124,7 @@ def database_exist(logger: logging.Logger, rai_config: RaiConfig) -> bool:
     :param rai_config:  RAI config
     :return: `True` if DB exists otherwise `False`
     """
-    logger.info(f"Check if db `{rai_config.database}` exist")
+    logger.info(f"Check if db `{rai_config.database}` exists")
     return bool(api.get_database(rai_config.ctx, rai_config.database))
 
 
@@ -232,7 +232,7 @@ def execute_query_take_single(logger: logging.Logger, rai_config: RaiConfig, env
     """
     rsp = execute_query(logger, rai_config, env_config, query, readonly=readonly, ignore_problems=ignore_problems)
     if not rsp.results:
-        logger.info(f"Query returned no results: {query}")
+        logger.debug(f"Query returned no results: {query}")
         return None
     return rsp.results[0]['table'].to_pydict()["v1"][0]
 
