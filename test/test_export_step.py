@@ -57,10 +57,11 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
 def _create_export_step(exports: List[Export], end_date: str, export_jointly: bool = True,
                         date_format: str = "%Y%m%d") -> ExportWorkflowStep:
     return ExportWorkflowStep(
-        idt=uuid.uuid4(),
+        idt=str(uuid.uuid4()),
         name="test",
+        type_value="Export",
         state=WorkflowStepState.INIT,
-        timing=datetime.now(),
+        timing=datetime.now().second,
         engine_size="xs",
         exports=exports,
         export_jointly=export_jointly,
