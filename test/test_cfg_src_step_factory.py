@@ -25,7 +25,8 @@ class TestConfigureSourcesWorkflowStepFactory(unittest.TestCase):
         factory._parse_sources = spy
 
         # When
-        step = factory._get_step(self.logger, config, "1", "name", WorkflowStepState.INIT, 0, None, {"configFiles": []})
+        step = factory._get_step(self.logger, config, "1", "name", "ConfigureSources", WorkflowStepState.INIT, 0, None,
+                                 {"configFiles": []})
         # Then
         self.assertEqual("1", step.idt)
         self.assertEqual("name", step.name)
