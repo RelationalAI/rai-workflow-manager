@@ -151,10 +151,10 @@ def load_resources(logger: logging.Logger, config: AzureConfig, resources, src) 
             logger.error(f"Unknown file type {file_stype_str}")
     else:
         if src_type == ContainerType.LOCAL:
-            logger.info("Loading from local file.")
+            logger.info("Loading from local file")
             return _local_load_simple_query(rel_name, resources[0]["uri"], file_type)
         elif src_type == ContainerType.AZURE:
-            logger.info("Loading from Azure file.")
+            logger.info("Loading from Azure file")
             return _azure_load_simple_query(rel_name, resources[0]["uri"], file_type, config)
 
 
