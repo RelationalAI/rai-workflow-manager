@@ -365,30 +365,33 @@ class LoadDataWorkflowStep(WorkflowStep):
     def _load_source(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, src):
         source_name = src["source"]
         if 'is_date_partitioned' in src and src['is_date_partitioned'] == 'Y':
+            logger.info(f"Loading source '{source_name}' partitioned by date")
             if self.collapse_partitions_on_load:
                 srcs = src["dates"]
                 first_date = srcs[0]["date"]
                 last_date = srcs[-1]["date"]
 
                 logger.info(
-                    f"Loading '{source_name}' from all partitions simultaneously, range {first_date} to {last_date}")
+                    f"Loading '{source_name}' all date partitions simultaneously, range {first_date} to {last_date}")
 
                 resources = []
                 for d in srcs:
                     resources += d["resources"]
                 self._load_resource(logger, env_config, rai_config, resources, src)
             else:
-                logger.info(f"Loading '{source_name}' one partition at a time")
+                logger.info(f"Loading '{source_name}' one date partition at a time")
                 for d in src["dates"]:
                     logger.info(f"Loading partition for date {d['date']}")
 
                     for res in d["resources"]:
                         self._load_resource(logger, env_config, rai_config, [res], src)
         else:
-            logger.info(f"Loading source '{source_name}' not partitioned by date ")
+            logger.info(f"Loading source '{source_name}' not partitioned by date")
             if self.collapse_partitions_on_load:
+                logger.info(f"Loading '{source_name}' all chunk partitions simultaneously")
                 self._load_resource(logger, env_config, rai_config, src["resources"], src)
             else:
+                logger.info(f"Loading '{source_name}' one chunk partition at a time")
                 for res in src["resources"]:
                     self._load_resource(logger, env_config, rai_config, [res], src)
 
