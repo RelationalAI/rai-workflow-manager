@@ -351,7 +351,7 @@ class LoadDataWorkflowStep(WorkflowStep):
     def await_pending(self, env_config, logger, missed_resources):
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion.')
+            raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion')
         pending = [src for src in missed_resources if self._resource_is_async(src)]
         pending_cos = [self._await_async_resource(logger, env_config, resource) for resource in pending]
         loop.run_until_complete(asyncio.gather(*pending_cos))
@@ -382,11 +382,15 @@ class LoadDataWorkflowStep(WorkflowStep):
                 for d in src["dates"]:
                     logger.info(f"Loading partition for date {d['date']}")
 
-                    resources = d["resources"]
-                    self._load_resource(logger, env_config, rai_config, resources, src)
+                    for res in d["resources"]:
+                        self._load_resource(logger, env_config, rai_config, [res], src)
         else:
             logger.info(f"Loading source '{source_name}' not partitioned by date ")
-            self._load_resource(logger, env_config, rai_config, src["resources"], src)
+            if self.collapse_partitions_on_load:
+                self._load_resource(logger, env_config, rai_config, src["resources"], src)
+            else:
+                for res in src["resources"]:
+                    self._load_resource(logger, env_config, rai_config, [res], src)
 
     @staticmethod
     def _resource_is_async(src):
@@ -539,7 +543,7 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
                                           container=env_config.get_container(e.get("container", default_container)),
                                           offset_by_number_of_days=e.get("offsetByNumberOfDays", 0)))
                 except KeyError as ex:
-                    logger.warning(f"Unsupported FileType: {ex}. Skipping export: {e}.")
+                    logger.warning(f"Unsupported FileType: {ex}. Skipping export: {e}")
         return exports
 
 
