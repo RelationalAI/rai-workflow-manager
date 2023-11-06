@@ -330,7 +330,7 @@ def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|j
 ```
 #### Chunk Partitioned Source
 Chunk partitioned sources should have a chunk index in the file name or path. Chunk index should be `int` value.
-Regexp for chunk partitioned source must have `<shard>` group and must be defined in `part_resource_index_pattern` relation. Example:
+Regexp for chunk partitioned source must have `<shard>` or `<rai_shard>` group and must be defined in `part_resource_index_pattern` relation. Example:
 ```rel
 def part_resource_index_pattern = "^(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
 ```
