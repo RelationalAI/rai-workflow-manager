@@ -48,6 +48,9 @@ setup(
     long_description_content_type="text/markdown",
     name="rai-workflow-manager",
     packages=find_packages(exclude=['test', 'cli-e2e-test']),
+    entry_points={
+        "console_scripts": ['rwm = cli.runner:start']
+    },
     include_package_data=True,
     url="https://github.com/RelationalAI/rai-workflow-manager",
     version=workflow.__version__)
