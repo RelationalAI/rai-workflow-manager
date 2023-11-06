@@ -14,6 +14,9 @@ This framework is designed to simplify the process of managing and executing com
     - [Materialize](#materialize)
     - [Export](#export)
   - [Snowflake integration](#snowflake-integration)
+  - [Source partitioning](#source-partitioning)
+    - [Partition Source Naming](#partition-source-naming)
+    - [Part Index](#part-index)
 - [Framework extension](#framework-extension)
   - [Custom workflow steps](#custom-workflow-steps)
   
@@ -112,6 +115,10 @@ Steps of this type are used to load data into the RAI database.
   "name": "LoadData"
 }
 ```
+In this step, data from all configured sources is loaded into two relations:
+* `simple_source_catalog` - no date partitioning, no chunking. Typically populated by a single, static file.
+* `source_catalog` - date partitioned and chunked. Populated by daily incremental batches.
+For both relations, you access the data using the value of the `relation` field of the source in the [Configure Sources](#configure-sources) step.
 
 ### Materialize
 
@@ -310,6 +317,53 @@ To use Snowflake as a data source container, you need to configure Snowflake usi
 * [RAI Integration for Snowflake: Quick Start for Users](https://docs.relational.ai/preview/snowflake/quickstart-user)
 ### Configure Snowflake Container
 Snowflake container configuration is defined in this section: [Snowflake container example](../cli/README.md#snowflake-container-example). 
+## Source Partitioning
+Workflow manager supports 2 types of source partitioning: date partitioning and chunk partitioning. Sources can be date partitioned and chunk partitioned at the same time.
+All chunk partitioned source have `isChunkPartitioned: true` and all date partitioned source have `isDatePartitioned: true` in the [Configure Sources](#configure-sources) step.
+### Partition Source Naming
+Partitions should meet the criteria described below otherwise RAI Workflow Manager will not be able to load data from the source.
+#### Date Partitioned Source
+Sources partitioned by date should have a date in the file path or name. Date should be in the format `yyyymmdd`.
+Regexp for date partitioned source must have `<date>` group and must be defined in `part_resource_date_pattern` relation. Example:
+```rel
+def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"
+```
+#### Chunk Partitioned Source
+Chunk partitioned sources should have a chunk index in the file name or path. Chunk index should be `int` value.
+Regexp for chunk partitioned source must have `<shard>` group and must be defined in `part_resource_index_pattern` relation. Example:
+```rel
+def part_resource_index_pattern = "^(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
+```
+### Part Index
+Part index is `int` value that is used to identify a particular part of the source. Data for each part is stored in `source_catalog` relation. 
+The second element of this relation is Part Index value. If a user wants to load data from a date partitioned source, he needs to set multiplier value to `part_resource_index_multiplier` relation. 
+Example: 
+```rel
+def part_resource_index_multiplier = 1000000
+```
+#### Part Index Calculation 
+* For date partitioned source: `part_index = "date int value" * part_resource_index_multiplier`.
+  
+  **Example**: 
+  ```text
+  Input:
+  date = "20220105"
+  part_resource_index_multiplier = 100000
+  Result:
+  part_index = 2022010500000
+  ```
+* For chunk partitioned source: `part_index = chunk_index`
+* For date and chunk partitioned source: `part_index = "date int value" * part_resource_index_multiplier + chunk_index`.
+  
+  **Example**:
+  ```text
+  Input: 
+  date = "20220105"
+  part_resource_index_multiplier = 100000
+  chunk_index = 1
+  Result:
+  part_index=2022010500001
+  ```
 # Framework extension
 
 ## Custom workflow steps
