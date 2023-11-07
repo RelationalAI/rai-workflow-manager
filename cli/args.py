@@ -1,4 +1,5 @@
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction
+from cli.logger import LogRotationOption
 
 
 def parse() -> Namespace:
@@ -83,6 +84,21 @@ def parse() -> Namespace:
         required=False,
         default="INFO",
         type=str
+    )
+    parser.add_argument(
+        "--log-rotation",
+        help="Log rotation option",
+        choices=[LogRotationOption.DATE, LogRotationOption.SIZE],
+        required=False,
+        type=LogRotationOption,
+        default=LogRotationOption.DATE
+    )
+    parser.add_argument(
+        "--log-file-size",
+        help="Rotation log file size in Mb. RWM rotates log file when it reaches this size",
+        required=False,
+        type=int,
+        default=5  # 5 Mb
     )
     parser.add_argument(
         "--drop-db",

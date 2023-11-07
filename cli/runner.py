@@ -16,7 +16,7 @@ def start():
     # parse arguments
     args = cli.args.parse()
     # configure logger
-    logger = cli.logger.configure(logging.getLevelName(args.log_level))
+    logger = cli.logger.configure(logging.getLevelName(args.log_level), args.log_rotation, args.log_file_size)
     try:
         with open(args.env_config, "rb") as fp:
             loader_config = tomli.load(fp)
