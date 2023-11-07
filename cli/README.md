@@ -4,28 +4,12 @@ This Command-Line Interface (CLI) is designed to provide an easy and interactive
 
 ## Quick Start
 1. Create a batch configuration (ex. `poc.json`) file using the syntax and structure outlined in the [RAI Workflow Framework README](../workflow/README.md).
-2. Add `rai-workflow-manager` as dependency to your `requirements.txt` file:
-```txt
-rai-workflow-manager==0.0.29
-```
-3. Build the project:
+2. Install Python 3.9+ ([Install Python using pyenv](#install-python-using-pyenv)).
+3. Install RWM:
 ```bash
-pyenv install 3.9
-pyenv local 3.9
-pip install --upgrade pip
-pip install virtualenv
-python -m virtualenv venv
-source ./venv/bin/activate
-pip install -r requirements.txt
+pip install rai-workflow-manager
 ```
-4. Create main.py file with the following content:
-```python
-import cli.runner
-
-if __name__ == "__main__":
-    cli.runner.start()
-```
-5. Create `loader.toml` file with the following content:
+4. Create `loader.toml` file with the following content:
 ```toml
 [[container]]
 name="input"
@@ -37,11 +21,10 @@ name="export"
 type="local"
 data_path="./output"
 ```
-6. Run the following command to execute the batch configuration:
+5. Run the following command to execute the batch configuration:
 ```bash
-python main.py \
+rwm --batch-config poc.json \
   --rel-config-dir <path>/rel \
-  --batch-config poc.json \
   --env-config loader.toml \
   --engine <engine> \
   --database <database>
@@ -128,3 +111,14 @@ data_path="./data"
 | Parameter to set timeouts for steps                                                                                                                                                     | `--step-timeout`                         | `False`     |                         | `String`                | The value should be key value pairs separated by comma. Value must have `int` type. Example: `--step-timeout "step1=10,step2=20"`     |
 | Force reimport of sources which are date-partitioned (both chunk and NOT chunk-partitioned) with in `--start-date` & `--end-date` range and all sources which are NOT date-partitioned. | `--force-reimport`                       | `False`     | `False`                 | `BooleanOptionalAction` | `True` - `--force-reimport`, `False` - `--no-force-reimport`, no argument - default value                                             |
 | Force reimport of sources which are NOT chunk-partitioned. If it's a date-partitioned source, it will be re-imported with in `--start-date` & `--end-date` range.                       | `--force-reimport-not-chunk-partitioned` | `False`     | `False`                 | `BooleanOptionalAction` | `True` - `--force-reimport-not-chunk-partitioned`, `False` - `--no-force-reimport-not-chunk-partitioned`, no argument - default value |
+
+## Install Python using pyenv
+
+```bash
+pyenv install 3.9
+pyenv local 3.9
+pip install --upgrade pip
+pip install virtualenv
+python -m virtualenv venv
+source ./venv/bin/activate
+```
