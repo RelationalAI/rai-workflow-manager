@@ -132,7 +132,7 @@ def discover_reimport_sources(sources: List[Source], expired_sources: List[tuple
     """
 
 
-def load_resources(logger: logging.Logger, config: AzureConfig, resources, src) -> str:
+def load_resources(logger: logging.Logger, config: AzureConfig, resources, src) -> QueryWithInputs:
     rel_name = src["source"]
 
     file_stype_str = src["file_type"]
@@ -146,7 +146,7 @@ def load_resources(logger: logging.Logger, config: AzureConfig, resources, src) 
                 return _local_load_multipart_query(rel_name, file_type, resources)
             elif src_type == ContainerType.AZURE:
                 logger.info(f"Loading {len(resources)} shards from Azure files")
-                return _azure_load_multipart_query(rel_name, file_type, resources, config)
+                return QueryWithInputs(_azure_load_multipart_query(rel_name, file_type, resources, config), {})
         else:
             logger.error(f"Unknown file type {file_stype_str}")
     else:
@@ -155,7 +155,7 @@ def load_resources(logger: logging.Logger, config: AzureConfig, resources, src) 
             return _local_load_simple_query(rel_name, resources[0]["uri"], file_type)
         elif src_type == ContainerType.AZURE:
             logger.info("Loading from Azure file")
-            return _azure_load_simple_query(rel_name, resources[0]["uri"], file_type, config)
+            return QueryWithInputs(_azure_load_simple_query(rel_name, resources[0]["uri"], file_type, config), {})
 
 
 def get_snapshot_expiration_date(snapshot_binding: str, date_format: str) -> str:
@@ -257,13 +257,13 @@ def output_json(relation: str) -> str:
     return f"def output = json_string[{relation}]"
 
 
-def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType) -> str:
+def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType) -> QueryWithInputs:
     try:
         raw_data_rel_name = f"{rel_name}_data"
         data = utils.read(uri)
-        return f"{_load_from_literal(data, raw_data_rel_name)}\n" \
-               f"def {IMPORT_CONFIG_REL}:{rel_name}:data = {raw_data_rel_name}\n" \
-               f"{_simple_insert_query(rel_name, file_type)}\n"
+        query = f"def {IMPORT_CONFIG_REL}:{rel_name}:data = {raw_data_rel_name}\n" \
+                f"{_simple_insert_query(rel_name, file_type)}\n"
+        return QueryWithInputs(query, {raw_data_rel_name: data})
     except OSError as e:
         raise e
 
@@ -275,16 +275,18 @@ def _azure_load_simple_query(rel_name: str, uri: str, file_type: FileType, confi
            f"{_simple_insert_query(rel_name, file_type)}"
 
 
-def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> str:
+def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> QueryWithInputs:
     raw_data_rel_name = f"{rel_name}_data"
 
     raw_text = ""
     part_indexes = ""
+    inputs = {}
     for part in parts:
         try:
             part_idx = part["part_index"]
             data = utils.read(part["uri"])
-            raw_text += _load_from_indexed_literal(data, raw_data_rel_name, part_idx)
+            inputs[_indexed_literal(raw_data_rel_name, part_idx)] = data
+            raw_text += _load_from_indexed_literal(raw_data_rel_name, part_idx)
             part_indexes += f"{part_idx}\n"
         except OSError as e:
             raise e
@@ -293,10 +295,12 @@ def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> st
     load_config = _multi_part_load_config_query(rel_name, file_type,
                                                 _local_multipart_config_integration(raw_data_rel_name))
 
-    return f"{_part_index_relation(part_indexes)}\n" \
-           f"{raw_text}\n" \
-           f"{load_config}\n" \
-           f"{insert_text}"
+    query = f"{_part_index_relation(part_indexes)}\n" \
+            f"{raw_text}\n" \
+            f"{load_config}\n" \
+            f"{insert_text}"
+
+    return QueryWithInputs(query, inputs)
 
 
 def _azure_load_multipart_query(rel_name: str, file_type: FileType, parts, config: AzureConfig) -> str:
@@ -356,16 +360,12 @@ def _simple_insert_query(rel_name: str, file_type: FileType) -> str:
     return f"def insert:simple_source_catalog:{rel_name} = {FILE_LOAD_RELATION[file_type]}[{IMPORT_CONFIG_REL}:{rel_name}]"
 
 
-def _load_from_indexed_literal(data: str, raw_data_rel_name: str, index: int) -> str:
-    return f"def {raw_data_rel_name}[{index}] =\n" \
-           f"raw\"\"\"{data}" \
-           f"\"\"\""
+def _load_from_indexed_literal(raw_data_rel_name: str, index: int) -> str:
+    return f"def {raw_data_rel_name}[{index}] = {_indexed_literal(raw_data_rel_name, index)}\n"
 
 
-def _load_from_literal(data: str, raw_data_rel_name: str) -> str:
-    return f"def {raw_data_rel_name} =\n" \
-           f"raw\"\"\"{data}" \
-           f"\"\"\""
+def _indexed_literal(raw_data_rel_name: str, index: int) -> str:
+    return f"{raw_data_rel_name}_{index}"
 
 
 def _config_rel_name(rel: str) -> str: return f"load_{rel}_config"
