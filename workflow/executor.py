@@ -405,7 +405,8 @@ class LoadDataWorkflowStep(WorkflowStep):
             container = env_config.get_container(src["container"])
             config = EnvConfig.get_config(container)
             if ContainerType.LOCAL == container.type or ContainerType.AZURE == container.type:
-                rai.execute_query(logger, rai_config, env_config, q.load_resources(logger, config, resources, src),
+                query_with_input = q.load_resources(logger, config, resources, src)
+                rai.execute_query(logger, rai_config, env_config, query_with_input.query, query_with_input.inputs,
                                   readonly=False)
             elif ContainerType.SNOWFLAKE == container.type:
                 snow.begin_data_sync(logger, config, rai_config, resources, src)
