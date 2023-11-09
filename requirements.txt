@@ -1,11 +1,6 @@
 tomli==2.0.1
-ed25519==1.5
-protobuf==3.20.3
 pyarrow==10.0.1
 rai-sdk==0.6.18
-requests==2.31.0
-requests-toolbelt==1.0.0
-urllib3==1.26.6
 more-itertools==10.1.0
 azure-storage-blob==12.17.0
 snowflake-connector-python==3.2.0
