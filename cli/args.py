@@ -1,5 +1,8 @@
+import re
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 from cli.logger import LogRotationOption
+
+prohibited_symbols_in_file_name = re.compile(r'[\\/:*?"<>|]')
 
 
 def parse() -> Namespace:
@@ -101,6 +104,13 @@ def parse() -> Namespace:
         default=5  # 5 Mb
     )
     parser.add_argument(
+        "--log-file-name",
+        help="Log file name",
+        required=False,
+        type=str,
+        default="rwm"
+    )
+    parser.add_argument(
         "--drop-db",
         help="Drop RAI database before run, or not",
         action=BooleanOptionalAction,
@@ -181,6 +191,9 @@ def parse() -> Namespace:
         except ValueError:
             parser.error("`--step-timeout` should be key value pairs separated by comma. Value must have `int` type. "
                          "Example: `--step-timeout \"step1=10,step2=20`\"")
+    if 'log_file_name' in vars(args):
+        if prohibited_symbols_in_file_name.search(args.log_file_name):
+            parser.error(f"`--log-file-name` contains prohibited symbols: {prohibited_symbols_in_file_name.pattern}")
     return args
 
 
