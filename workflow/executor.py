@@ -186,7 +186,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             inflated_paths = self.paths_builders[src.container.name].build(logger, days, src.relative_path,
                                                                            src.extensions,
                                                                            src.is_date_partitioned)
-            if src.is_support_data_size_print():
+            if src.is_size_supported():
                 self.__print_total_size(logger, inflated_paths)
             if src.is_date_partitioned:
                 # after inflating we take the last `src.loads_number_of_days` days and reduce into an array of paths
