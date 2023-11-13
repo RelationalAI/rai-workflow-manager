@@ -14,7 +14,8 @@ from more_itertools import peekable
 
 from workflow import query as q, paths, rai, constants
 from workflow.exception import StepTimeOutException
-from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType, Container
+from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType, Container, \
+    FileMetadata
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
     get_common_model_relative_path
@@ -185,7 +186,8 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             inflated_paths = self.paths_builders[src.container.name].build(logger, days, src.relative_path,
                                                                            src.extensions,
                                                                            src.is_date_partitioned)
-            self._lookup_total_size(logger, inflated_paths)
+            if src.is_support_data_size_print():
+                self.__print_total_size(logger, inflated_paths)
             if src.is_date_partitioned:
                 # after inflating we take the last `src.loads_number_of_days` days and reduce into an array of paths
                 grouped_inflated_paths = ConfigureSourcesWorkflowStep.__group_paths_by_date(inflated_paths)
@@ -238,16 +240,23 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         return expired_resources
 
     @staticmethod
-    def __group_paths_by_date(src_paths) -> dict[str, List[paths.FilePath]]:
+    def __group_paths_by_date(src_paths) -> dict[str, List[FileMetadata]]:
         src_paths.sort(key=lambda v: v.as_of_date)
         return {date: list(group) for date, group in
                 groupby(src_paths, key=lambda v: v.as_of_date)}
 
     @staticmethod
-    def _lookup_total_size(logger, inflated_paths):
-        mb_size = 1024 * 1024
-        total_size = sum([(path.size / mb_size) if path.size else 0 for path in inflated_paths])
-        logger.info(f"Total size: ~{total_size}MB")
+    def __print_total_size(logger, inflated_paths):
+        total_size = sum([path.size if path.size else 0 for path in inflated_paths])
+
+        # Determine the appropriate unit (bytes, KB, MB, GB, TB)
+        size_units = ['bytes', 'KB', 'MB', 'GB', 'TB']
+        size_unit_index = 0
+        while total_size > 1024 and size_unit_index < len(size_units) - 1:
+            total_size /= 1024.0
+            size_unit_index += 1
+
+        logger.info(f"Total size: {total_size:.2f} {size_units[size_unit_index]}")
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):

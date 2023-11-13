@@ -5,15 +5,7 @@ import pathlib
 from typing import List
 
 from workflow import blob, constants
-from workflow.blob import FileMetadata
-from workflow.common import EnvConfig, AzureConfig, LocalConfig, SnowflakeConfig, Container, ContainerType
-import dataclasses
-
-
-@dataclasses.dataclass
-class FilePath:
-    path: str
-    as_of_date: str = ""
+from workflow.common import EnvConfig, AzureConfig, LocalConfig, SnowflakeConfig, Container, ContainerType, FileMetadata
 
 
 class PathsBuilder:
@@ -45,11 +37,11 @@ class LocalPathsBuilder(PathsBuilder):
         if is_date_partitioned:
             for day in days:
                 folder_path = f"{files_path}/{constants.DATE_PREFIX}{day}"
-                day_paths = [FileMetadata(path=os.path.abspath(path), as_of_date=day) for path in
+                day_paths = [FileMetadata(os.path.abspath(path), os.path.getsize(path), day) for path in
                              self._get_folder_paths(folder_path, extensions)]
                 paths.extend(day_paths)
         else:
-            paths = [FileMetadata(path=os.path.abspath(path)) for path in
+            paths = [FileMetadata(os.path.abspath(path), os.path.getsize(path)) for path in
                      self._get_folder_paths(files_path, extensions)]
         return paths
 

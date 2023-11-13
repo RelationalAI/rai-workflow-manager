@@ -6,7 +6,7 @@ from typing import List
 from unittest.mock import Mock, patch
 
 from workflow import paths
-from workflow.common import Source, Container, ContainerType, RaiConfig, EnvConfig
+from workflow.common import Source, Container, ContainerType, RaiConfig, EnvConfig, FileMetadata
 from workflow.executor import ConfigureSourcesWorkflowStep, WorkflowStepState
 
 
@@ -41,7 +41,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             is_chunk_partitioned=False,
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/test_non_part.csv"),
+            FileMetadata(path="test/test_non_part.csv"),
         ])
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, None)
         # When calling _inflate_sources
@@ -79,12 +79,12 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             offset_by_number_of_days=0,
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/test_20220103_1.csv", as_of_date="20220103"),
-            paths.FilePath(path="test/test_20220104_1.csv", as_of_date="20220104"),
-            paths.FilePath(path="test/test_20220104_2.csv", as_of_date="20220104"),
-            paths.FilePath(path="test/test_20220105_1.csv", as_of_date="20220105"),
-            paths.FilePath(path="test/test_20220105_2.csv", as_of_date="20220105"),
-            paths.FilePath(path="test/test_20220105_3.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220103_1.csv", as_of_date="20220103"),
+            FileMetadata(path="test/test_20220104_1.csv", as_of_date="20220104"),
+            FileMetadata(path="test/test_20220104_2.csv", as_of_date="20220104"),
+            FileMetadata(path="test/test_20220105_1.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220105_2.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220105_3.csv", as_of_date="20220105"),
         ])
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
@@ -121,7 +121,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             offset_by_number_of_days=0,
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path=f"test/test_{day}_1.csv", as_of_date=f"{day}") for day in range(20220101, 20220116)
+            FileMetadata(path=f"test/test_{day}_1.csv", as_of_date=f"{day}") for day in range(20220101, 20220116)
         ])  # 20220101, 20220102, ..., 20220115
         end_date = "20220115"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
@@ -154,7 +154,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             offset_by_number_of_days=2,
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path=f"test/test_{day}_{i}.csv", as_of_date=f"{day}") for day in range(20220101, 20220111)
+            FileMetadata(path=f"test/test_{day}_{i}.csv", as_of_date=f"{day}") for day in range(20220101, 20220111)
             for i in range(2)
         ])  # 20220101, 20220102, ..., 20220110
         end_date = "20220112"
@@ -195,9 +195,9 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=0
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220103.csv", as_of_date="20220103"),
-            paths.FilePath(path="test/snapshot_20220104.csv", as_of_date="20220104"),
-            paths.FilePath(path="test/snapshot_20220105.csv", as_of_date="20220105"),
+            FileMetadata(path="test/snapshot_20220103.csv", as_of_date="20220103"),
+            FileMetadata(path="test/snapshot_20220104.csv", as_of_date="20220104"),
+            FileMetadata(path="test/snapshot_20220105.csv", as_of_date="20220105"),
         ])
         end_date = "20220105"
         workflow_step = _create_cfg_sources_step([test_src], {"default": paths_builder}, None, end_date)
@@ -235,10 +235,10 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=1
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220102.csv", as_of_date="20220102"),
-            paths.FilePath(path="test/snapshot_20220103.csv", as_of_date="20220103"),
-            paths.FilePath(path="test/snapshot_20220104.csv", as_of_date="20220104"),
-            paths.FilePath(path="test/snapshot_20220105.csv", as_of_date="20220105"),
+            FileMetadata(path="test/snapshot_20220102.csv", as_of_date="20220102"),
+            FileMetadata(path="test/snapshot_20220103.csv", as_of_date="20220103"),
+            FileMetadata(path="test/snapshot_20220104.csv", as_of_date="20220104"),
+            FileMetadata(path="test/snapshot_20220105.csv", as_of_date="20220105"),
         ])
         mock_execute_query_take_single.return_value = "20220101"
         end_date = "20220105"
@@ -277,9 +277,9 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=1
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220102.csv", as_of_date="20220102"),
-            paths.FilePath(path="test/snapshot_20220103.csv", as_of_date="20220103"),
-            paths.FilePath(path="test/snapshot_20220104.csv", as_of_date="20220104"),
+            FileMetadata(path="test/snapshot_20220102.csv", as_of_date="20220102"),
+            FileMetadata(path="test/snapshot_20220103.csv", as_of_date="20220103"),
+            FileMetadata(path="test/snapshot_20220104.csv", as_of_date="20220104"),
         ])
         mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220105"
@@ -336,7 +336,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=30
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220101.csv", as_of_date="20220101"),
+            FileMetadata(path="test/snapshot_20220101.csv", as_of_date="20220101"),
         ])
         mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
@@ -356,7 +356,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=30
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220115.csv", as_of_date="20220115"),
+            FileMetadata(path="test/snapshot_20220115.csv", as_of_date="20220115"),
         ])
         mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
@@ -376,7 +376,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=30
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220130.csv", as_of_date="20220130"),
+            FileMetadata(path="test/snapshot_20220130.csv", as_of_date="20220130"),
         ])
         mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220131"
@@ -396,7 +396,7 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=30
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/snapshot_20220130.csv", as_of_date="20220130"),
+            FileMetadata(path="test/snapshot_20220130.csv", as_of_date="20220130"),
         ])
         mock_execute_query_take_single.return_value = "20220201"
         end_date = "20220131"
@@ -416,10 +416,10 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=3
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/test_20220103_1.csv", as_of_date="20220103"),
-            paths.FilePath(path="test/test_20220104_1.csv", as_of_date="20220104"),
-            paths.FilePath(path="test/test_20220105_1.csv", as_of_date="20220105"),
-            paths.FilePath(path="test/test_20220105_2.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220103_1.csv", as_of_date="20220103"),
+            FileMetadata(path="test/test_20220104_1.csv", as_of_date="20220104"),
+            FileMetadata(path="test/test_20220105_1.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220105_2.csv", as_of_date="20220105"),
         ])
         mock_execute_query_take_single.return_value = "20211231"
         end_date = "20220105"
@@ -442,10 +442,10 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
             snapshot_validity_days=3
         )
         paths_builder = _create_path_builder_mock([
-            paths.FilePath(path="test/test_20220103_1.csv", as_of_date="20220103"),
-            paths.FilePath(path="test/test_20220104_1.csv", as_of_date="20220104"),
-            paths.FilePath(path="test/test_20220105_1.csv", as_of_date="20220105"),
-            paths.FilePath(path="test/test_20220105_2.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220103_1.csv", as_of_date="20220103"),
+            FileMetadata(path="test/test_20220104_1.csv", as_of_date="20220104"),
+            FileMetadata(path="test/test_20220105_1.csv", as_of_date="20220105"),
+            FileMetadata(path="test/test_20220105_2.csv", as_of_date="20220105"),
         ])
         mock_execute_query_take_single.return_value = "20220106"
         end_date = "20220105"
@@ -585,7 +585,7 @@ def _create_cfg_sources_step(sources: List[Source], paths_builders: dict[str, pa
     )
 
 
-def _create_path_builder_mock(file_paths: List[paths.FilePath]) -> paths.PathsBuilder:
+def _create_path_builder_mock(file_paths: List[FileMetadata]) -> paths.PathsBuilder:
     # Create a PathsBuilder mock object with test data
     paths_builder = Mock()
     paths_builder.build = Mock(return_value=file_paths)

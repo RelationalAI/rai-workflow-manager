@@ -66,6 +66,13 @@ class ContainerType(str, BaseEnum):
 
 
 @dataclasses.dataclass
+class FileMetadata:
+    path: str
+    size: int = None
+    as_of_date: str = ""
+
+
+@dataclasses.dataclass
 class Container:
     name: str
     type: ContainerType
@@ -149,6 +156,9 @@ class Source:
 
     def to_container_type_csv(self) -> str:
         return f"{self.relation},{self.container.type.name}"
+
+    def is_support_data_size_print(self) -> bool:
+        return self.container.type == ContainerType.LOCAL or self.container.type == ContainerType.AZURE
 
 
 @dataclasses.dataclass
