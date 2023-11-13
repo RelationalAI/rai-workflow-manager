@@ -1,4 +1,3 @@
-import dataclasses
 import glob
 import logging
 import os.path
@@ -6,19 +5,13 @@ import pathlib
 from typing import List
 
 from workflow import blob, constants
-from workflow.common import EnvConfig, AzureConfig, LocalConfig, SnowflakeConfig, Container, ContainerType
-
-
-@dataclasses.dataclass
-class FilePath:
-    path: str
-    as_of_date: str = ""
+from workflow.common import EnvConfig, AzureConfig, LocalConfig, SnowflakeConfig, Container, ContainerType, FileMetadata
 
 
 class PathsBuilder:
 
     def build(self, logger: logging.Logger, days: List[str], relative_path: str, input_format,
-              is_date_partitioned: bool) -> List[FilePath]:
+              is_date_partitioned: bool) -> List[FileMetadata]:
         paths = self._build(logger, days, relative_path, input_format, is_date_partitioned)
         if not paths:
             logger.warning(f"""PathsBuilder didn't find any file for specified parameters:
@@ -27,7 +20,7 @@ class PathsBuilder:
         return paths
 
     def _build(self, logger: logging.Logger, days: List[str], relative_path: str, input_format,
-               is_date_partitioned: bool) -> List[FilePath]:
+               is_date_partitioned: bool) -> List[FileMetadata]:
         raise NotImplementedError("This class is abstract")
 
 
@@ -38,17 +31,18 @@ class LocalPathsBuilder(PathsBuilder):
         self.config = config
 
     def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
-               is_date_partitioned: bool) -> List[FilePath]:
+               is_date_partitioned: bool) -> List[FileMetadata]:
         paths = []
         files_path = f"{self.config.data_path}/{relative_path}"
         if is_date_partitioned:
             for day in days:
                 folder_path = f"{files_path}/{constants.DATE_PREFIX}{day}"
-                day_paths = [FilePath(path=os.path.abspath(path), as_of_date=day) for path in
+                day_paths = [FileMetadata(os.path.abspath(path), os.path.getsize(path), day) for path in
                              self._get_folder_paths(folder_path, extensions)]
                 paths.extend(day_paths)
         else:
-            paths = [FilePath(path=os.path.abspath(path)) for path in self._get_folder_paths(files_path, extensions)]
+            paths = [FileMetadata(os.path.abspath(path), os.path.getsize(path)) for path in
+                     self._get_folder_paths(files_path, extensions)]
         return paths
 
     @staticmethod
@@ -67,7 +61,7 @@ class AzurePathsBuilder(PathsBuilder):
         self.config = config
 
     def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
-               is_date_partitioned: bool) -> List[FilePath]:
+               is_date_partitioned: bool) -> List[FileMetadata]:
         import_data_path = self.config.data_path
         files_path = f"{import_data_path}/{relative_path}"
 
@@ -77,12 +71,13 @@ class AzurePathsBuilder(PathsBuilder):
         if is_date_partitioned:
             for day in days:
                 logger.debug(f"Day from range: {day}")
-                day_paths = [FilePath(path=path, as_of_date=day) for path in
-                             blob.list_files_in_containers(logger, self.config,
-                                                           f"{files_path}/{constants.DATE_PREFIX}{day}")]
+                day_paths = blob.list_files_in_containers(logger, self.config,
+                                                          f"{files_path}/{constants.DATE_PREFIX}{day}")
+                for path in day_paths:
+                    path.as_of_date = day
                 paths += day_paths
         else:
-            paths = [FilePath(path=path) for path in blob.list_files_in_containers(logger, self.config, files_path)]
+            paths = blob.list_files_in_containers(logger, self.config, files_path)
         return paths
 
 
@@ -93,8 +88,8 @@ class SnowflakePathsBuilder(PathsBuilder):
         self.config = config
 
     def _build(self, logger: logging.Logger, days: List[str], relative_path, extensions: List[str],
-               is_date_partitioned: bool) -> List[FilePath]:
-        return [FilePath(path=f"{self.config.database}.{self.config.schema}.{relative_path}")]
+               is_date_partitioned: bool) -> List[FileMetadata]:
+        return [FileMetadata(path=f"{self.config.database}.{self.config.schema}.{relative_path}")]
 
 
 class PathsBuilderFactory:
