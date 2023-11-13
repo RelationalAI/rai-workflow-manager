@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from typing import List
 from azure.storage.blob import BlobServiceClient
@@ -7,7 +8,14 @@ from workflow.common import AzureConfig
 from workflow.constants import BLOB_PAGE_SIZE
 
 
-def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_prefix) -> List[str]:
+@dataclasses.dataclass
+class FileMetadata:
+    path: str
+    size: int = None
+    as_of_date: str = ""
+
+
+def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_prefix) -> List[FileMetadata]:
     blob_service_client = BlobServiceClient(account_url=f"https://{config.account}.blob.core.windows.net",
                                             credential=config.sas)
     container_client = blob_service_client.get_container_client(config.container)
@@ -20,7 +28,9 @@ def list_files_in_containers(logger: logging.Logger, config: AzureConfig, path_p
         for blob in page:
             blob_name = blob.name
             if FileFormat.is_supported(blob_name):
-                paths.append(f"azure://{config.account}.blob.core.windows.net/{config.container}/{blob_name}")
+                blob_file = FileMetadata(f"azure://{config.account}.blob.core.windows.net/{config.container}/{blob_name}",
+                                         blob.size)
+                paths.append(blob_file)
             else:
                 logger.debug(f"Skip unsupported file from blob: {blob_name}")
     return paths

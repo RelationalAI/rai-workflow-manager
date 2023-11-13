@@ -185,6 +185,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             inflated_paths = self.paths_builders[src.container.name].build(logger, days, src.relative_path,
                                                                            src.extensions,
                                                                            src.is_date_partitioned)
+            self._lookup_total_size(logger, inflated_paths)
             if src.is_date_partitioned:
                 # after inflating we take the last `src.loads_number_of_days` days and reduce into an array of paths
                 grouped_inflated_paths = ConfigureSourcesWorkflowStep.__group_paths_by_date(inflated_paths)
@@ -241,6 +242,12 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         src_paths.sort(key=lambda v: v.as_of_date)
         return {date: list(group) for date, group in
                 groupby(src_paths, key=lambda v: v.as_of_date)}
+
+    @staticmethod
+    def _lookup_total_size(logger, inflated_paths):
+        mb_size = 1024 * 1024
+        total_size = sum([(path.size / mb_size) if path.size else 0 for path in inflated_paths])
+        logger.info(f"Total size: ~{total_size}MB")
 
 
 class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
