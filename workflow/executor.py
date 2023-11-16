@@ -657,6 +657,12 @@ class WorkflowExecutor:
         for step in steps:
             execution_time = step["executionTime"]
             self.logger.info(f"{step['name']}({step['type']}) finished in {format_duration(execution_time)}")
+        type_groups = {step_type: list(group) for step_type, group in
+                       groupby(steps, key=lambda e: e['type'])}
+        for step_type, group_steps in type_groups.items():
+            if len(group_steps) > 1:
+                execution_time = sum([step["executionTime"] for step in group_steps])
+                self.logger.info(f"{step_type} steps execution time is {format_duration(execution_time)}")
         self.logger.info(f"Total workflow execution time is {format_duration(workflow_info['totalTime'])}")
 
     def execute_step(self, step, rai_config: RaiConfig) -> None:
