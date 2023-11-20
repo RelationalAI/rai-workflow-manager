@@ -2,6 +2,8 @@ import time
 import logging
 import sys
 import tomli
+from argparse import Namespace
+from typing import Optional
 
 import cli.args
 import cli.logger
@@ -12,9 +14,10 @@ import workflow.utils
 import workflow.executor
 
 
-def start():
+def start(args: Optional[Namespace] = None):
     # parse arguments
-    args = cli.args.parse()
+    if args is None:
+        args = cli.args.parse()
     # configure logger
     log_config = cli.logger.LogConfiguration(logging.getLevelName(args.log_level), args.log_rotation,
                                              args.log_file_size, args.log_file_name)
