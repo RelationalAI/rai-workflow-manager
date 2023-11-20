@@ -30,6 +30,8 @@ setup(
     description="The RelationalAI Workflow Manager for batch runs",
     install_requires=[
         "tomli==2.0.1",
+        "pyyaml==6.0.1",
+        "schema==0.7.5",
         "rai-sdk==0.6.18",
         "more-itertools==10.1.0",
         "azure-storage-blob==12.17.0",

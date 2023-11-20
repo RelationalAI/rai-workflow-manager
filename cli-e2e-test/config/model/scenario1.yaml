@@ -1,0 +1,95 @@
+workflow:
+
+- name: ConfigureSources
+  type: ConfigureSources
+  configFiles:
+  - config/config1.rel
+  defaultContainer: input
+  sources:
+  - relation: zip_city_state_master_data
+    relativePath: master_source/zip_city_state
+    inputFormat: csv
+  - relation: device_data
+    isChunkPartitioned: true
+    isDatePartitioned: true
+    relativePath: device
+    inputFormat: csv
+    loadsNumberOfDays: 60
+  - relation: store_data
+    isChunkPartitioned: true
+    isDatePartitioned: true
+    relativePath: store
+    inputFormat: jsonl
+    extensions:
+    - json
+    - jsonl
+    loadsNumberOfDays: 60
+  - relation: product_data
+    isChunkPartitioned: true
+    isDatePartitioned: false
+    relativePath: product
+    inputFormat: csv
+  - relation: user_data
+    isChunkPartitioned: false
+    isDatePartitioned: true
+    relativePath: user
+    inputFormat: csv
+    loadsNumberOfDays: 10
+  - relation: device_seen_snapshot
+    isChunkPartitioned: true
+    isDatePartitioned: true
+    relativePath: device_seen_snapshot
+    inputFormat: csv
+    loadsNumberOfDays: 1
+    offsetByNumberOfDays: 1
+    snapshotValidityDays: 3
+
+- name: InstallModels1
+  type: InstallModels
+  modelFiles:
+  - device.rel
+  - zip.rel
+  - store.rel
+  - user.rel
+  - product.rel
+  - json_schema_mapping.rel
+  - device_seen.rel
+
+- name: LoadData
+  type: LoadData
+
+- name: Materialize
+  type: Materialize
+  relations:
+  - city:name
+  - device:name
+  - store:name
+  - product:name
+  - user:name
+  materializeJointly: true
+
+- name: Export
+  type: Export
+  exportJointly: true
+  dateFormat: "%Y%m%d"
+  defaultContainer: export
+  exports:
+  - type: csv
+    configRelName: cities_csv
+    relativePath: cities
+  - type: csv
+    configRelName: devices_csv
+    relativePath: devices
+  - type: csv
+    configRelName: products_csv
+    relativePath: products
+  - type: csv
+    configRelName: stores_csv
+    relativePath: stores
+  - type: csv
+    configRelName: users_csv
+    relativePath: users
+  - type: csv
+    configRelName: device_seen_snapshot_csv
+    relativePath: device_seen_snapshot
+    snapshotBinding: device_seen_snapshot

@@ -20,14 +20,6 @@ from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
     get_common_model_relative_path
 
-CONFIGURE_SOURCES = 'ConfigureSources'
-INSTALL_MODELS = 'InstallModels'
-LOAD_DATA = 'LoadData'
-# not supported
-INVOKE_SOLVER = 'InvokeSolver'
-MATERIALIZE = 'Materialize'
-EXPORT = 'Export'
-
 
 class WorkflowStepState(str, Enum):
     INIT = 'INIT'
@@ -569,11 +561,11 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
 
 DEFAULT_FACTORIES = MappingProxyType(
     {
-        CONFIGURE_SOURCES: ConfigureSourcesWorkflowStepFactory(),
-        INSTALL_MODELS: InstallModelWorkflowStepFactory(),
-        LOAD_DATA: LoadDataWorkflowStepFactory(),
-        MATERIALIZE: MaterializeWorkflowStepFactory(),
-        EXPORT: ExportWorkflowStepFactory()
+        constants.CONFIGURE_SOURCES: ConfigureSourcesWorkflowStepFactory(),
+        constants.INSTALL_MODELS: InstallModelWorkflowStepFactory(),
+        constants.LOAD_DATA: LoadDataWorkflowStepFactory(),
+        constants.MATERIALIZE: MaterializeWorkflowStepFactory(),
+        constants.EXPORT: ExportWorkflowStepFactory()
     }
 )
 

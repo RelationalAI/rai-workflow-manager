@@ -40,6 +40,16 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
+    def test_scenario1_model_yaml(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario1.yaml",
+                     "--end-date", "20220105",
+                     "--drop-db"]
+        rsp = call(self.cmd_with_common_arguments + test_args)
+        # then
+        self.assertNotEqual(rsp, 1)
+        self.assert_output_dir_files(self.test_scenario1_model.__name__)
+
     def test_scenario2_model_no_data_changes(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario2.json",

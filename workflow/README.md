@@ -33,7 +33,7 @@ pip install -r requirements.txt
 
 # Batch Configuration
 
-The RAI Workflow Manager uses batch configurations to define the steps of your workflow. A batch configuration is a JSON file that outlines the sequence of steps.
+The RAI Workflow Manager uses batch configurations to define the steps of your workflow. A batch configuration is a JSON or YAML file that outlines the sequence of steps.
 The order of the steps in the batch configuration is important, as the RAI Workflow Manager executes the steps in the order they are defined in the batch configuration.
 
 ## Common step properties
@@ -148,6 +148,7 @@ Steps of this type are used to export data from RAI database.
   * `relativePath`(required) is used to specify the relative path of the export on Blob storage or in data on file system.
   * `container`(optional) is used to specify the container for particular export. If not specified, the `defaultContainer` will be used.
   * `snapshotBinding`(optional) is used to specify the name of the source which is bound to the export. If specified, the export will be skipped if the snapshot is still valid.
+  * `offsetByNumberOfDays`(optional) is used to specify the number of days to offset the current (end) date by.
   * `metaKey`(optional) is used to specify the meta-key for the export. If specified, the export will be specialized by the meta-key.
 
 ```json
