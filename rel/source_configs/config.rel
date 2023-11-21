@@ -264,6 +264,8 @@ module source
         typ = container_type_code:identifies[^ContainerTypeCode[raw_container_type]]
         from raw_container_type, rel
     }
+
+    def resource_part_index = declares . part_resource:part_index
 end
 
 /**
@@ -274,6 +276,7 @@ end
 def relation_to_string = transpose[^RelationName]
 def uri_to_string = transpose[^URI]
 def part_index_to_int = transpose[^PartIndex]
+def source_relation_string_to_part_index_int[rel] = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] . source:resource_part_index . part_index_to_int
 
 def source:index(s, i) = sort[Source](i, s)
 def source:date_index(s in Source, d, i) {
