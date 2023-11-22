@@ -97,6 +97,14 @@ def resource_to_invalidate(rel, o_path) {
     force_reimport and
     simple_sources(rel, o_path)
 }
+// In case all partitions are marked for invalidation, we invalidate the whole resource
+def resource_to_invalidate(r, o_path) {
+    part_resource_to_invalidate(r, _, o_path) and
+    not exists(p_i:
+        source_relation_string_to_part_index(r, p_i) and
+        not part_resource_to_invalidate(r, p_i, _)
+    )
+}
 
 /*
  * Save resources that we are marked for data reimport.
@@ -105,6 +113,7 @@ def resource_to_invalidate(rel, o_path) {
 def reverse_part_resource_to_invalidate(path, p_idx, rel) = part_resource_to_invalidate(rel, p_idx, path)
 // resource partitions to delete
 def resources_to_delete(rel, val) {
+    not resources_to_delete(rel) and
     rel = #(reverse_part_resource_to_invalidate[_, p_idx]) and
     p_idx = ^PartIndex[val]
     from p_idx

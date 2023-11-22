@@ -80,11 +80,8 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
-                                    {'partition': 2023090800002, 'relation': 'city_data'},
-                                    {'partition': 2023090900001, 'relation': 'city_data'},
-                                    {'partition': 1, 'relation': 'product_data'},
-                                    {'partition': 2, 'relation': 'product_data'},
+        self.assertEqual(rsp_json, [{'relation': 'city_data'},
+                                    {'relation': 'product_data'},
                                     {'relation': 'zip_city_state_master_data'}])
 
     def test_scenario2_model_force_reimport_chunk_partitioned(self):
@@ -211,8 +208,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'},
-                                    {'partition': 2, 'relation': 'product_data'}])
+        self.assertEqual(rsp_json, [{'relation': 'product_data'}])
 
     def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
         # when
