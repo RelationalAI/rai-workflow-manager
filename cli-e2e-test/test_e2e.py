@@ -265,7 +265,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
+        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
 
     def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
         # when
