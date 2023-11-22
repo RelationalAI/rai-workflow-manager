@@ -309,7 +309,7 @@ class CliE2ETest(unittest.TestCase):
                                                                      cls.env_config)
         cls.logger.setLevel(logging.INFO)
         cls.logger.addHandler(logging.StreamHandler())
-        cls.resource_manager.add_engine()
+        cls.resource_manager.add_engine(size="S")
 
     def tearDown(self):
         self.cleanup_output()
