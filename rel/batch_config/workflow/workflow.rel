@@ -68,9 +68,6 @@ module batch_workflow_step
 
 end
 
-def batch_workflow_step(part, s, v) { batch_workflow_step:json_data(s, part, :[], _, v) }
-def batch_workflow_step(part, s, v) { batch_workflow_step:json_data(s, part, v) }
-
 module batch_workflow_step_order
     def step_order_to_workflow(o, s, w) {
         batch_workflow:name(w, w_name) and
@@ -97,12 +94,13 @@ end
 def ConfigureSourcesType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["ConfigureSources"]]
 def InstallModelsType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["InstallModels"]]
 def LoadDataType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["LoadData"]]
+def ExecuteCommandType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["ExecuteCommand"]]
 def InvokeSolverType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["InvokeSolver"]]
 def MaterializeType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["Materialize"]]
 def ExportType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["Export"]]
 
 module batch_workflow_step_type_code
-    def value = { "ConfigureSources" ; "InstallModels" ; "LoadData" ; "InvokeSolver" ; "Materialize" ; "Export" }
+    def value = { "ConfigureSources" ; "InstallModels" ; "LoadData" ; "InvokeSolver" ; "Materialize" ; "Export"; "ExecuteCommand" }
 
     def identifies(c, f) {
         value(v) and

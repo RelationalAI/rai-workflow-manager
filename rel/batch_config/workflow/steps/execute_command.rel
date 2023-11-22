@@ -1,0 +1,7 @@
+def BatchWorkflowExecuteCommandStep(s) { batch_workflow_step:type(s, ExecuteCommandType) }
+
+module batch_workflow_step
+    module execute_command
+        def command(s in BatchWorkflowExecuteCommandStep, c) { json_data(s, :command, c) }
+    end
+end

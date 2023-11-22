@@ -2,9 +2,9 @@ def BatchWorkflowConfigureSourcesStep(s) { batch_workflow_step:type(s, Configure
 
 module batch_workflow_step
     module configure_sources
-        def config_files(st in BatchWorkflowConfigureSourcesStep, f) { batch_workflow_step:configFiles(st, f) }
+        def config_files(s in BatchWorkflowConfigureSourcesStep, f) { json_data(s, :configFiles, :[], _, f) }
 
-        def default_container(st in BatchWorkflowConfigureSourcesStep, c) { batch_workflow_step:defaultContainer(st, c) }
+        def default_container(s in BatchWorkflowConfigureSourcesStep, c) { json_data(s, :defaultContainer, c) }
 
         def sources = transpose[batch_source:step]
     end

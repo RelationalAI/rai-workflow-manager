@@ -1,6 +1,11 @@
 {
   "workflow": [
     {
+      "type": "ExecuteCommand",
+      "name": "TestExecuteCommand",
+      "command": "echo 'Running ExecuteCommand!' \n mkdir test \n ls test \n python scripts/test_script.py \n ./scripts/test_script.sh"
+    },
+    {
       "type": "ConfigureSources",
       "name": "ConfigureSources",
       "configFiles": [

@@ -1,6 +1,6 @@
 from schema import Schema, Optional, And, Use
 from types import MappingProxyType
-from workflow.constants import CONFIGURE_SOURCES, INSTALL_MODELS, LOAD_DATA, MATERIALIZE, EXPORT
+from workflow.constants import CONFIGURE_SOURCES, INSTALL_MODELS, LOAD_DATA, MATERIALIZE, EXPORT, EXECUTE_COMMAND
 from workflow.common import FileType
 
 
@@ -45,6 +45,11 @@ install_model_step_schema = Schema({
     "modelFiles": [str]
 })
 
+execute_command_step_schema = Schema({
+    **step_schema,
+    "command": str
+})
+
 export_step_schema = Schema({
     **step_schema,
     "exportJointly": bool,
@@ -86,6 +91,7 @@ STEP_SCHEMAS = MappingProxyType(
         INSTALL_MODELS: install_model_step_schema,
         LOAD_DATA: load_data_step_schema,
         MATERIALIZE: materialize_step_schema,
-        EXPORT: export_step_schema
+        EXPORT: export_step_schema,
+        EXECUTE_COMMAND: execute_command_step_schema
     }
 )

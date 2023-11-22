@@ -1,5 +1,13 @@
 workflow:
 
+  - name: TestExecuteCommand
+    type: ExecuteCommand
+    command: |
+      echo 'Running ExecuteCommand!'
+      mkdir test
+      ls test
+      python scripts/test_script.py
+      ./scripts/test_script.sh
   - name: ConfigureSources
     type: ConfigureSources
     configFiles:
