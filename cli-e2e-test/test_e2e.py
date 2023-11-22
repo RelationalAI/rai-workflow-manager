@@ -23,7 +23,7 @@ class CliE2ETest(unittest.TestCase):
     temp_folder = f"{dev_data_dir}/temp"
     env_config_path = "./config/loader.toml"
     expected = "./expected_results"
-    resource_name = "wm-cli-e2e-test-" + str(uuid.uuid4())
+    resource_name = "an-dev"#"wm-cli-e2e-test-" + str(uuid.uuid4())
     cmd_with_common_arguments = ["python", "main.py",
                                  "--env-config", env_config_path,
                                  "--engine", resource_name,
@@ -80,11 +80,8 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
-                                    {'partition': 2023090800002, 'relation': 'city_data'},
-                                    {'partition': 2023090900001, 'relation': 'city_data'},
-                                    {'partition': 1, 'relation': 'product_data'},
-                                    {'partition': 2, 'relation': 'product_data'},
+        self.assertEqual(rsp_json, [{'relation': 'city_data'},
+                                    {'relation': 'product_data'},
                                     {'relation': 'zip_city_state_master_data'}])
 
     def test_scenario2_model_force_reimport_chunk_partitioned(self):
@@ -211,8 +208,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'},
-                                    {'partition': 2, 'relation': 'product_data'}])
+        self.assertEqual(rsp_json, [{'relation': 'product_data'}])
 
     def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
         # when
@@ -226,7 +222,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2022010200001, 'relation': 'device_seen_snapshot'}])
+        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
 
     def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
         # when
@@ -269,7 +265,7 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'partition': 2022010300001, 'relation': 'device_seen_snapshot'}])
+        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
 
     def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
         # when
@@ -322,7 +318,8 @@ class CliE2ETest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.resource_manager.cleanup_resources()
+        # cls.resource_manager.cleanup_resources()
+        pass
 
     def assert_output_dir_files(self, scenario: str):
         for filename in os.listdir(f"{self.output}"):

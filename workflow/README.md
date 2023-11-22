@@ -12,6 +12,7 @@ This framework is designed to simplify the process of managing and executing com
     - [Install Model](#install-model)
     - [Load Data](#load-data)
     - [Materialize](#materialize)
+    - [ExecuteCommand](#execute-command)
     - [Export](#export)
   - [Snowflake integration](#snowflake-integration)
   - [Source partitioning](#source-partitioning)
@@ -204,6 +205,34 @@ workflow:
       - account:device
       - account:fraud_detected_on
     materializeJointly: true
+```
+### Execute Command
+
+Steps of this type are used to execute bash commands.
+* `command`(required) command content.
+
+#### JSON:
+```json
+{
+  "workflow": [
+    {
+      "type": "ExecuteCommand",
+      "name": "ExecuteCommand",
+      "command": "echo 'Running ExecuteCommand!' \n mkdir test \n ls test \n python scripts/test_script.py"
+    }
+  ]
+}
+```
+#### YAML:
+```yaml
+workflow:
+  - name: ExecuteCommand
+    type: ExecuteCommand
+    command: |
+      echo 'Running ExecuteCommand!'
+      mkdir test
+      ls test
+      python scripts/test_script.py
 ```
 ### Export
 Steps of this type are used to export data from RAI database.

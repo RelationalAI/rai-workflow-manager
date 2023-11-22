@@ -12,25 +12,11 @@ from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION
 DISABLE_IVM = "def insert:relconfig:disable_ivm = true"
 
 DELETE_REFRESHED_SOURCES_DATA = """
-    def partitioned_resource_to_delete_fully(r) {
-        resources_data_to_delete(r, _) and
-        not exists(p_i:
-            source_relation_string_to_part_index_int(r, p_i) and
-            not resources_data_to_delete(r, p_i)
-        ) 
-    }
-    def partitioned_resource_to_delete_partially(r) { 
-        resources_data_to_delete(r, _) and
-        not partitioned_resource_to_delete_fully(r) 
-    }
-
     def delete:source_catalog(r, p_i, data...) {
-        partitioned_resource_to_delete_partially(r) and
         resources_data_to_delete(r, p_i) and
         source_catalog(r, p_i, data...)
     }
-    def delete:source_catalog[r] = source_catalog[r], partitioned_resource_to_delete_fully(r)
-    
+    def delete:source_catalog[r] = source_catalog[r], resources_data_to_delete(r)
     def delete:simple_source_catalog[r] = simple_source_catalog[r], resources_data_to_delete(r)
     
     def delete:declared_sources_to_delete = declared_sources_to_delete
