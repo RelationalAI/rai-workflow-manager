@@ -9,7 +9,8 @@ COMMON_MODEL = [
     "batch_config/workflow/steps/install_models.rel",
     "batch_config/workflow/steps/invoke_solver.rel",
     "batch_config/workflow/steps/load_data.rel",
-    "batch_config/workflow/steps/materialize.rel"
+    "batch_config/workflow/steps/materialize.rel",
+    "batch_config/workflow/steps/execute_command.rel",
 ]
 
 COMMON_MODEL_RELATIVE_PATH = "/../rel"
@@ -30,6 +31,7 @@ LOAD_DATA = 'LoadData'
 INVOKE_SOLVER = 'InvokeSolver'
 MATERIALIZE = 'Materialize'
 EXPORT = 'Export'
+EXECUTE_COMMAND = 'ExecuteCommand'
 
 # RAI constants
 IMPORT_CONFIG_REL = "import_config"

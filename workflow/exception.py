@@ -24,3 +24,10 @@ class StepTimeOutException(Exception):
 
     def __init__(self, msg):
         super().__init__(msg)
+
+
+class CommandExecutionException(Exception):
+    """Exception raised when ExecuteCommand step failed"""
+
+    def __init__(self, command, status):
+        super().__init__(f"Cli command:\n{command}\nfailed with exit status '{status}'")

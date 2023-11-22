@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import subprocess
 import time
 import asyncio
 import concurrent.futures
@@ -13,7 +14,7 @@ from typing import List
 from more_itertools import peekable
 
 from workflow import query as q, paths, rai, constants
-from workflow.exception import StepTimeOutException
+from workflow.exception import StepTimeOutException, CommandExecutionException
 from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType, Container, \
     FileMetadata
 from workflow.manager import ResourceManager
@@ -559,13 +560,35 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
         return exports
 
 
+class ExecuteCommandWorkflowStep(WorkflowStep):
+    command: str
+
+    def __init__(self, idt, name, type_value, state, timing, engine_size, command):
+        super().__init__(idt, name, type_value, state, timing, engine_size)
+        self.command = command
+
+    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
+        process = subprocess.Popen(self.command, shell=True, text=True)
+        exit_code = process.wait()
+        if exit_code != 0:
+            raise CommandExecutionException(self.command, process.returncode)
+
+
+class ExecuteCommandWorkflowStepFactory(WorkflowStepFactory):
+
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
+                  engine_size, step: dict) -> WorkflowStep:
+        return ExecuteCommandWorkflowStep(idt, name, type_value, state, timing, engine_size, step["command"])
+
+
 DEFAULT_FACTORIES = MappingProxyType(
     {
         constants.CONFIGURE_SOURCES: ConfigureSourcesWorkflowStepFactory(),
         constants.INSTALL_MODELS: InstallModelWorkflowStepFactory(),
         constants.LOAD_DATA: LoadDataWorkflowStepFactory(),
         constants.MATERIALIZE: MaterializeWorkflowStepFactory(),
-        constants.EXPORT: ExportWorkflowStepFactory()
+        constants.EXPORT: ExportWorkflowStepFactory(),
+        constants.EXECUTE_COMMAND: ExecuteCommandWorkflowStepFactory()
     }
 )
 
