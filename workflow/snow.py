@@ -24,7 +24,7 @@ def begin_data_sync(logger: logging.Logger, snowflake_config: SnowflakeConfig, r
     )
     try:
         for command in commands:
-            logger.info(f"Executing command Snowflake command: `{command.strip()}`")
+            logger.info(f"Executing Snowflake command: `{command.strip()}`")
             cursor.execute(command)
     except Exception as e:
         cursor.close()

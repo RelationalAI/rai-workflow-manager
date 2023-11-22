@@ -33,7 +33,7 @@ pip install -r requirements.txt
 
 # Batch Configuration
 
-The RAI Workflow Manager uses batch configurations to define the steps of your workflow. A batch configuration is a JSON file that outlines the sequence of steps.
+The RAI Workflow Manager uses batch configurations to define the steps of your workflow. A batch configuration is a JSON or YAML file that outlines the sequence of steps.
 The order of the steps in the batch configuration is important, as the RAI Workflow Manager executes the steps in the order they are defined in the batch configuration.
 
 ## Common step properties
@@ -60,60 +60,113 @@ Steps of this type are used to configure sources which workflow manager will use
   * `loadsNumberOfDays`(optional) is used to specify the number of days to load.
   * `offsetByNumberOfDays`(optional) is used to specify the number of days to offset the current (end) date by.
   * `snapshotValidityDays`(optional) is used to specify the number of days a snapshot is valid for. Currently only supported for `csv` sources.
+
+#### JSON:
 ```json
 {
-  "type": "ConfigureSources",
-  "name": "ConfigureSources",
-  "configFiles": [
-    "source_configs/my_config.rel"
-  ],
-  "defaultContainer": "input",
-  "sources": [
+  "workflow": [
     {
-      "relation": "master_data",
-      "container": "azure_input",
-      "relativePath": "master_source/data",
-      "inputFormat": "csv"
-    },
-    {
-      "relation": "devices",
-      "isChunkPartitioned": true,
-      "isDatePartitioned": true,
-      "relativePath": "source/devices_info",
-      "inputFormat": "jsonl",
-      "extensions": [
-        "json",
-        "jsonl"
+      "type": "ConfigureSources",
+      "name": "ConfigureSources",
+      "configFiles": [
+        "source_configs/my_config.rel"
       ],
-      "loadsNumberOfDays": 60
+      "defaultContainer": "input",
+      "sources": [
+        {
+          "relation": "master_data",
+          "container": "azure_input",
+          "relativePath": "master_source/data",
+          "inputFormat": "csv"
+        },
+        {
+          "relation": "devices",
+          "isChunkPartitioned": true,
+          "isDatePartitioned": true,
+          "relativePath": "source/devices_info",
+          "inputFormat": "jsonl",
+          "extensions": [
+            "json",
+            "jsonl"
+          ],
+          "loadsNumberOfDays": 60
+        }
+      ]
     }
   ]
 }
 ```
-
+#### YAML:
+```yaml
+workflow:
+  - name: ConfigureSources
+    type: ConfigureSources
+    configFiles:
+      - source_configs/my_config.rel
+    defaultContainer: input
+    sources:
+      - relation: master_data
+        container: azure_input
+        relativePath: master_source/data
+        inputFormat: csv
+      - relation: devices
+        isChunkPartitioned: true
+        isDatePartitioned: true
+        relativePath: source/devices_info
+        inputFormat: jsonl
+        extensions:
+          - json
+          - jsonl
+        loadsNumberOfDays: 60
+```
 ### Install Model
 
 Steps of this type are used to install models into the RAI database. 
 * `modelFiles`(required) is used to specify the model files to install.
+
+#### JSON:
 ```json
 {
-  "type": "InstallModels",
-  "name": "InstallModels1",
-  "modelFiles": [
-    "data/devices.rel",
-    "model/store.rel"
+  "workflow": [
+    {
+      "type": "InstallModels",
+      "name": "InstallModels1",
+      "modelFiles": [
+        "data/devices.rel",
+        "model/store.rel"
+      ]
+    }
   ]
 }
 ```
-
+#### YAML:
+```yaml
+workflow:
+  - name: InstallModels1
+    type: InstallModels
+    modelFiles:
+      - data/devices.rel
+      - model/store.rel
+```
 ### Load Data
 
 Steps of this type are used to load data into the RAI database.
+#### JSON:
 ```json
 {
-  "type": "LoadData",
-  "name": "LoadData"
+  "workflow": [
+    {
+      "type": "LoadData",
+      "name": "LoadData"
+    }
+  ]
 }
+```
+#### YAML:
+```yaml
+workflow:
+  - name: LoadData
+    type: LoadData
 ```
 In this step, data from all configured sources is loaded into two relations:
 * `simple_source_catalog` - no date partitioning, no chunking. Typically populated by a single, static file.
@@ -125,18 +178,33 @@ For both relations, you access the data using the value of the `relation` field 
 Steps of this type are used to materialize relations in the RAI database.
 * `relations`(required) is used to specify the relations to materialize.
 * `materializeJointly`(required) is used to specify whether the relations should be materialized jointly or separately.
+
+#### JSON:
 ```json
 {
-  "type": "Materialize",
-  "name": "Materialize",
-  "relations": [
-    "account:device",
-    "account:fraud_detected_on"
-  ],
-  "materializeJointly": true
+  "workflow": [
+    {
+      "type": "Materialize",
+      "name": "Materialize",
+      "relations": [
+        "account:device",
+        "account:fraud_detected_on"
+      ],
+      "materializeJointly": true
+    }
+  ]
 }
 ```
-
+#### YAML:
+```yaml
+workflow:
+  - name: Materialize
+    type: Materialize
+    relations:
+      - account:device
+      - account:fraud_detected_on
+    materializeJointly: true
+```
 ### Export
 Steps of this type are used to export data from RAI database.
 * `exportJointly`(required) is used to specify whether the relations should be exported jointly or separately.
@@ -148,38 +216,67 @@ Steps of this type are used to export data from RAI database.
   * `relativePath`(required) is used to specify the relative path of the export on Blob storage or in data on file system.
   * `container`(optional) is used to specify the container for particular export. If not specified, the `defaultContainer` will be used.
   * `snapshotBinding`(optional) is used to specify the name of the source which is bound to the export. If specified, the export will be skipped if the snapshot is still valid.
+  * `offsetByNumberOfDays`(optional) is used to specify the number of days to offset the current (end) date by.
   * `metaKey`(optional) is used to specify the meta-key for the export. If specified, the export will be specialized by the meta-key.
 
+#### JSON:
 ```json
 {
-  "type": "Export",
-  "name": "Export",
-  "exportJointly": false,
-  "dateFormat": "%Y%m%d",
-  "defaultContainer": "export",
-  "exports": [
+  "workflow": [
     {
-      "type": "csv",
-      "configRelName": "account_journey_csv",
-      "relativePath": "account_journey"
-    },
-    {
-      "type": "csv",
-      "container": "azure_output",
-      "configRelName": "device_seen_snapshot_csv",
-      "relativePath": "device_seen_snapshot",
-      "snapshotBinding": "device_seen_snapshot"
-    },
-    {
-      "type": "csv",
-      "configRelName": "meta_exports",
-      "relativePath": "meta_exports",
-      "metaKey": [
-        "Symbol"
+      "type": "Export",
+      "name": "Export",
+      "exportJointly": false,
+      "dateFormat": "%Y%m%d",
+      "defaultContainer": "export",
+      "exports": [
+        {
+          "type": "csv",
+          "configRelName": "account_journey_csv",
+          "relativePath": "account_journey"
+        },
+        {
+          "type": "csv",
+          "container": "azure_output",
+          "configRelName": "device_seen_snapshot_csv",
+          "relativePath": "device_seen_snapshot",
+          "snapshotBinding": "device_seen_snapshot"
+        },
+        {
+          "type": "csv",
+          "configRelName": "meta_exports",
+          "relativePath": "meta_exports",
+          "metaKey": [
+            "Symbol"
+          ]
+        }
       ]
     }
   ]
 }
+```
+#### YAML:
+```yaml
+workflow:
+  - name: Export
+    type: Export
+    exportJointly: false
+    dateFormat: "%Y%m%d"
+    defaultContainer: export
+    exports:
+      - type: csv
+        configRelName: account_journey_csv
+        relativePath: account_journey
+      - type: csv
+        container: azure_output
+        configRelName: device_seen_snapshot_csv
+        relativePath: device_seen_snapshot
+        snapshotBinding: device_seen_snapshot
+      - type: csv
+        configRelName: meta_exports
+        relativePath: meta_exports
+        metaKey:
+          - Symbol
 ```
 #### Common config options:
 

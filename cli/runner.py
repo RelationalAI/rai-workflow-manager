@@ -35,7 +35,7 @@ def start():
         logger.info(f"Activating batch with config from '{args.batch_config}'")
         start_time = time.time()
         # load batch config as json string
-        batch_config_json = workflow.utils.read(args.batch_config)
+        batch_config_json = workflow.utils.read_config(args.batch_config)
         # create engine if it doesn't exist
         resource_manager.add_engine(args.engine_size)
         # Skip infrastructure setup during recovery

@@ -2,6 +2,11 @@ import asyncio
 import logging
 import os
 import time
+import yaml
+import json
+from schema import Schema
+from types import MappingProxyType
+from workflow.schema import Validator
 
 from datetime import datetime, timedelta
 from typing import List, Dict
@@ -28,6 +33,21 @@ def get_date_path(end_date: str, date_format: str, day_offset: int):
 def read(fname: str) -> str:
     with open(fname) as fp:
         return fp.read()
+
+
+def read_config(fname: str, schemas: dict[str, Schema] = MappingProxyType({})) -> str:
+    _, file_extension = os.path.splitext(fname)
+    if file_extension == ".json":
+        json_string = read(fname)
+        config_data = json.loads(json_string)
+    elif file_extension == ".yaml" or file_extension == ".yml":
+        with open(fname, 'r') as yaml_file:
+            config_data = yaml.safe_load(yaml_file)
+        json_string = json.dumps(config_data, indent=2)
+    else:
+        raise Exception(f"Unsupported batch config file extension: {file_extension}")
+    Validator(schemas).validate(config_data)
+    return json_string
 
 
 def sansext(fname: str) -> str:

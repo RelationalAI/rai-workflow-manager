@@ -22,6 +22,15 @@ DATE_PREFIX = "data_dt="  # TODO use pattern?
 
 BLOB_PAGE_SIZE = 500
 
+# Step types
+CONFIGURE_SOURCES = 'ConfigureSources'
+INSTALL_MODELS = 'InstallModels'
+LOAD_DATA = 'LoadData'
+# not supported
+INVOKE_SOLVER = 'InvokeSolver'
+MATERIALIZE = 'Materialize'
+EXPORT = 'Export'
+
 # RAI constants
 IMPORT_CONFIG_REL = "import_config"
 
