@@ -4,7 +4,7 @@ import json
 import time
 from typing import Dict, List
 from urllib.error import HTTPError
-from railib import api, config
+from railib import api, config, rest
 
 from workflow import query as q
 from workflow.common import RaiConfig, EnvConfig
@@ -23,6 +23,17 @@ def get_config(engine: str, database: str, env_config: EnvConfig) -> RaiConfig:
     ctx = api.Context(**config.read(fname=env_config.rai_profile_path, profile=env_config.rai_profile),
                       retries=env_config.rai_sdk_http_retries)
     return RaiConfig(ctx=ctx, engine=engine, database=database)
+
+
+def get_access_token(logger: logging.Logger, rai_config: RaiConfig) -> str:
+    """
+    Get access token for RAI Cloud
+    :param logger:      logger
+    :param rai_config:  RAI config
+    :return: RAI Cloud access token
+    """
+    logger.debug("Requesting access token")
+    return rest._get_access_token(rai_config.ctx, api._mkurl(rai_config.ctx, "/"))
 
 
 def load_json(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
