@@ -2,6 +2,7 @@ import time
 import logging
 import sys
 import tomli
+from types import MappingProxyType
 
 import cli.args
 import cli.logger
@@ -12,7 +13,8 @@ import workflow.utils
 import workflow.executor
 
 
-def start():
+def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingProxyType({}),
+          models: dict[str, str] = MappingProxyType({})):
     # parse arguments
     args = cli.args.parse()
     # configure logger
@@ -55,7 +57,7 @@ def start():
                                                                                           batch_config_json),
                                                   args.recover, args.recover_step, args.selected_steps, parameters,
                                                   args.step_timeout_dict)
-        executor = workflow.executor.WorkflowExecutor.init(logger, config, resource_manager)
+        executor = workflow.executor.WorkflowExecutor.init(logger, config, resource_manager, factories, models)
         end_time = time.time()
         executor.run()
         # Print execution time information
