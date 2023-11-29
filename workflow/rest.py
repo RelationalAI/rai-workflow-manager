@@ -9,10 +9,10 @@ class RestClient:
         self.logger = logger
         self.base_url = base_url
 
-    def _make_request(self, method, endpoint, data=None, headers=None):
+    def _make_request(self, method, endpoint, data=None, headers=None, files=None):
         url = f"{self.base_url}/{endpoint}"
         try:
-            response = requests.request(method, url, data=data, headers=headers)
+            response = requests.request(method, url, data=data, headers=headers, files=files)
             response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
             return response.json()
         except requests.exceptions.HTTPError as http_err:
@@ -25,12 +25,12 @@ class RestClient:
     def get(self, endpoint, headers=None):
         return self._make_request("GET", endpoint, headers=headers)
 
-    def post(self, endpoint, data=None, headers=None):
-        return self._make_request("POST", endpoint, data=data, headers=headers)
+    def post(self, endpoint, data=None, headers=None, files=None):
+        return self._make_request("POST", endpoint, data=data, headers=headers, files=files)
 
     def delete(self, endpoint, headers=None):
         return self._make_request("DELETE", endpoint, headers=headers)
 
-    def put(self, endpoint, data=None, headers=None):
-        return self._make_request("PUT", endpoint, data=data, headers=headers)
+    def put(self, endpoint, data=None, headers=None, files=None):
+        return self._make_request("PUT", endpoint, data=data, headers=headers, files=files)
 
