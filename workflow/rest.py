@@ -1,7 +1,7 @@
 import logging
 
 import requests
-from exception import RestClientException
+from workflow.exception import RestClientException
 
 
 class RestClient:
