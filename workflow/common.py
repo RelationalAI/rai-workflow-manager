@@ -6,7 +6,8 @@ from railib import api
 
 from workflow.constants import ACCOUNT_PARAM, CONTAINER_PARAM, DATA_PATH_PARAM, AZURE_SAS, CONTAINER, CONTAINER_TYPE, \
     CONTAINER_NAME, USER_PARAM, PASSWORD_PARAM, SNOWFLAKE_ROLE, SNOWFLAKE_WAREHOUSE, DATABASE_PARAM, SCHEMA_PARAM, \
-    FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, RAI_SDK_HTTP_RETRIES, RAI_PROFILE, RAI_PROFILE_PATH
+    FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, RAI_SDK_HTTP_RETRIES, RAI_PROFILE, RAI_PROFILE_PATH, \
+    SEMANTIC_SEARCH_BASE_URL, RAI_CLOUD_ACCOUNT
 
 
 class MetaEnum(EnumMeta):
@@ -175,6 +176,8 @@ class EnvConfig:
     rai_sdk_http_retries: int = 3
     rai_profile: str = "default"
     rai_profile_path: str = "~/.rai/config"
+    semantic_search_base_url: str = ""
+    rai_cloud_account: str = ""
 
     __EXTRACTORS = {
         ContainerType.AZURE: lambda env_vars: ConfigExtractor.azure_from_env_vars(env_vars),
@@ -202,7 +205,8 @@ class EnvConfig:
                                          params=container)
         return EnvConfig(containers, env_vars.get(FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, False),
                          env_vars.get(RAI_SDK_HTTP_RETRIES, 3), env_vars.get(RAI_PROFILE, "default"),
-                         env_vars.get(RAI_PROFILE_PATH, "~/.rai/config"))
+                         env_vars.get(RAI_PROFILE_PATH, "~/.rai/config"), env_vars.get(SEMANTIC_SEARCH_BASE_URL, ""),
+                         env_vars.get(RAI_CLOUD_ACCOUNT, ""))
 
 
 @dataclasses.dataclass
