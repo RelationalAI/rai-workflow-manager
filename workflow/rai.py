@@ -230,6 +230,22 @@ def execute_query_csv(logger: logging.Logger, rai_config: RaiConfig, env_config:
     return _parse_csv_string(rsp)
 
 
+def execute_relation_string(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
+                            ignore_problems: bool = False) -> str:
+    """
+    Execute Rel query with output relation as a json string and parse the output.
+    :param logger:          logger
+    :param rai_config:      RAI config
+    :param env_config:      Env config
+    :param relation:        Rel relations
+    :param ignore_problems: Ignore SDK problems if any
+    :return: parsed json string
+    """
+
+    rsp = execute_query(logger, rai_config, env_config, q.output_relation(relation), ignore_problems=ignore_problems)
+    return _parse_string(rsp)
+
+
 def execute_query_take_single(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
                               readonly: bool = True, ignore_problems: bool = False) -> any:
     """
@@ -287,6 +303,18 @@ def _parse_json_string(rsp: api.TransactionAsyncResponse) -> Dict:
     pa_table = rsp.results[0]['table']
     data = pa_table.to_pydict()
     return json.loads(data["v1"][0])
+
+
+def _parse_string(rsp: api.TransactionAsyncResponse) -> str:
+    """
+    Parse the output for a string output query ie
+        def output = {relation_name}
+    """
+    if not rsp.results:
+        return ""
+    pa_table = rsp.results[0]['table']
+    data = pa_table.to_pydict()
+    return str(data["v1"][0])
 
 
 def _parse_csv_string(rsp: api.TransactionAsyncResponse) -> Dict:
