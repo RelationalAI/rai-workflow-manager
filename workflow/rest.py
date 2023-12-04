@@ -31,7 +31,7 @@ class RestClient:
     def get(self, endpoint, headers=None):
         return self._make_json_request("GET", endpoint, headers=headers)
 
-    def get_file(self, endpoint, headers=None):
+    def get_file_content(self, endpoint, headers=None):
         return self._make_file_request("GET", endpoint, headers=headers)
 
     def post(self, endpoint, data=None, headers=None, files=None):
