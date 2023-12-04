@@ -14,7 +14,7 @@ class RestClient:
         try:
             response = requests.request(method, url, data=data, headers=headers, files=files)
             response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
-            return response.json()
+            return response
         except requests.exceptions.HTTPError as http_err:
             self.logger.error(f"HTTP error occurred: {http_err}")
             raise RestClientException(method, url, http_err)
@@ -22,15 +22,24 @@ class RestClient:
             self.logger.error(f"An error occurred: {err}")
             raise RestClientException(method, url, err)
 
+    def _make_json_request(self, method, endpoint, data=None, headers=None, files=None):
+        return self._make_request(method, endpoint, data=data, headers=headers, files=files).json()
+
+    def _make_file_request(self, method, endpoint, data=None, headers=None, files=None):
+        return self._make_request(method, endpoint, data=data, headers=headers, files=files).content
+
     def get(self, endpoint, headers=None):
-        return self._make_request("GET", endpoint, headers=headers)
+        return self._make_json_request("GET", endpoint, headers=headers)
+
+    def get_file(self, endpoint, headers=None):
+        return self._make_file_request("GET", endpoint, headers=headers)
 
     def post(self, endpoint, data=None, headers=None, files=None):
-        return self._make_request("POST", endpoint, data=data, headers=headers, files=files)
+        return self._make_json_request("POST", endpoint, data=data, headers=headers, files=files)
 
     def delete(self, endpoint, headers=None):
-        return self._make_request("DELETE", endpoint, headers=headers)
+        return self._make_json_request("DELETE", endpoint, headers=headers).json()
 
     def put(self, endpoint, data=None, headers=None, files=None):
-        return self._make_request("PUT", endpoint, data=data, headers=headers, files=files)
+        return self._make_json_request("PUT", endpoint, data=data, headers=headers, files=files)
 
