@@ -33,6 +33,7 @@ setup(
         "pyyaml==6.0.1",
         "schema==0.7.5",
         "rai-sdk==0.6.18",
+        "requests==2.31.0",
         "more-itertools==10.1.0",
         "azure-storage-blob==12.17.0",
         "snowflake-connector-python==3.2.0"],
