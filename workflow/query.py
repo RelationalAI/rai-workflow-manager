@@ -256,6 +256,10 @@ def output_json(relation: str) -> str:
     return f"def output = json_string[{relation}]"
 
 
+def output_relation(relation: str) -> str:
+    return f"def output = {relation}"
+
+
 def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType) -> QueryWithInputs:
     try:
         raw_data_rel_name = f"{rel_name}_data"

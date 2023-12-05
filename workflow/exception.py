@@ -31,3 +31,10 @@ class CommandExecutionException(Exception):
 
     def __init__(self, command, status):
         super().__init__(f"Cli command:\n{command}\nfailed with exit status '{status}'")
+
+
+class RestClientException(Exception):
+    """Exception raised in case of errors in RestClient"""
+
+    def __init__(self, method, url, error):
+        super().__init__(f"Rest request '{method}: {url}' failed. Exception: {error}")
