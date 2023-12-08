@@ -38,7 +38,7 @@ class RestClient:
         return self._make_json_request("POST", endpoint, data=data, headers=headers, files=files)
 
     def delete(self, endpoint, headers=None):
-        return self._make_json_request("DELETE", endpoint, headers=headers)
+        return self._make_request("DELETE", endpoint, headers=headers)
 
     def put(self, endpoint, data=None, headers=None, files=None):
         return self._make_json_request("PUT", endpoint, data=data, headers=headers, files=files)
