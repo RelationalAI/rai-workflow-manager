@@ -482,8 +482,8 @@ end
 /**
  */
 
-entity type BatchArtifact:import = RelName, Int
-entity type BatchArtifact:export = RelName, Int
+entity type BatchArtifact:to_import = RelName, Int
+entity type BatchArtifact:to_export = RelName, Int
 bound import_object
 bound export_object
 
@@ -525,18 +525,18 @@ module batch_artifact
         export_object(wf, row[wf, a], :relativePath, l)
     }
 
-    def is_import(wf, a) { ^BatchArtifact:import(wf, row[wf, a], a) }
-    def is_export(wf, a) { ^BatchArtifact:export(wf, row[wf, a], a) }
+    def is_import(wf, a) { ^BatchArtifact:to_import(wf, row[wf, a], a) }
+    def is_export(wf, a) { ^BatchArtifact:to_export(wf, row[wf, a], a) }
 
     def row(wf, a, r) {
         import_object(wf, r, x...) and
-        ^BatchArtifact:import(wf, r, a)
+        ^BatchArtifact:to_import(wf, r, a)
         from x...
     }
 
     def row(wf, a, r) {
         export_object(wf, r, x...) and
-        ^BatchArtifact:export(wf, r, a)
+        ^BatchArtifact:to_export(wf, r, a)
         from x...
     }
 
