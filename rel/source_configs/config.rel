@@ -35,6 +35,7 @@ module input_format_code
     }
 end
 
+@inline
 def input_format_code_to_string = transpose[^InputFormatCode]
 
 /**
@@ -61,6 +62,7 @@ module container_type_code
     }
 end
 
+@inline
 def container_type_code_to_string = transpose[^ContainerTypeCode]
 /**
  * Resources
@@ -273,8 +275,11 @@ end
  * by source.
  */
 
+@inline
 def relation_to_string = transpose[^RelationName]
+@inline
 def uri_to_string = transpose[^URI]
+@inline
 def part_index_to_int = transpose[^PartIndex]
 def source_relation_string_to_part_index[rel] = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] . source:resource_part_index
 
