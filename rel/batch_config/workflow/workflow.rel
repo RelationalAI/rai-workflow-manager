@@ -110,6 +110,7 @@ module batch_workflow_step_type_code
     }
 end
 
+@inline
 def batch_workflow_step_type_code_to_string = transpose[^BatchWorkflowStepTypeCode]
 
 /**
@@ -137,6 +138,7 @@ module batch_workflow_step_state_value
     }
 end
 
+@inline
 def batch_workflow_state_value_to_string = transpose[^BatchWorkflowStepStateValue]
 
 def workflow_json(cfg_n, :steps, :[], idx, data...) {
