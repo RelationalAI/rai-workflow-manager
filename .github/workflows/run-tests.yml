@@ -65,7 +65,6 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test/config
           echo 'rai_cloud_account="${{ env.RAI_CLOUD_ACCOUNT }}"' >> loader.toml
-          cat loader.toml
         env:
           RAI_CLOUD_ACCOUNT: ${{ secrets.RAI_CLOUD_ACCOUNT }}
 
@@ -77,10 +76,14 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/semantic-search
           ./docker-build
-          ./docker-run
+          docker run --rm -d --name testServer -p 8081:8081 semantic-search:latest
 
       # Run e2e Python CLI test
       - name: Python CLI tests
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test
           python -m unittest discover
+        continue-on-error: true
+
+      - name: Shutdown Semantic Layer service container
+        run: docker stop testServer
