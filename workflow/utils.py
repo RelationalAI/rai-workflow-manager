@@ -95,18 +95,22 @@ def build_models(filenames: List[str], files_root: str) -> dict:
     return models
 
 
-def format_duration(seconds: float) -> str:
+def format_duration(duration: float) -> str:
+    seconds, milliseconds = divmod(duration, 1000)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     hours_int = int(hours)
     minutes_int = int(minutes)
     seconds_int = int(seconds)
+    milliseconds_int = int(milliseconds)
     if hours_int != 0:
-        return f"[{hours_int:d}h {minutes_int:d}m {seconds_int:d}s]"
+        return f"[{hours_int:d}h {minutes_int:d}m {seconds_int:d}s {milliseconds_int:d}ms]"
     elif minutes_int != 0:
-        return f"[{minutes_int:d}m {seconds_int:d}s]"
+        return f"[{minutes_int:d}m {seconds_int:d}s {milliseconds_int:d}ms]"
+    elif seconds_int != 0:
+        return f"[{seconds_int:d}s {milliseconds_int:d}ms]"
     else:
-        return f"[{seconds_int:d}s]"
+        return f"[{milliseconds_int:d}ms]"
 
 
 def get_common_model_relative_path(file) -> str:

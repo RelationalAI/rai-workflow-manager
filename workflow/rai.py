@@ -36,6 +36,19 @@ def get_access_token(logger: logging.Logger, rai_config: RaiConfig) -> str:
     return rest._get_access_token(rai_config.ctx, api._mkurl(rai_config.ctx, "/"))
 
 
+def cancel_transaction(logger: logging.Logger, rai_config: RaiConfig, txn: str) -> dict:
+    """
+    Cancel RAI transaction
+    :param logger:      logger
+    :param rai_config:  RAI config
+    :param txn:         transaction id
+    :return:
+    """
+    logger.debug(f"Canceling transaction '{txn}'")
+    rsp = api.cancel_transaction(rai_config.ctx, txn)
+    return rsp
+
+
 def load_json(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
               json_data: str) -> None:
     """
