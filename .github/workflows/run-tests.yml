@@ -56,7 +56,7 @@ jobs:
       - name: Update loader
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test/config
-          echo "rai_cloud_account=${{ env.RAI_CLOUD_ACCOUNT }}" >> loader.toml
+          echo 'rai_cloud_account="${{ env.RAI_CLOUD_ACCOUNT }}"' >> loader.toml
           cat loader.toml
         env:
           RAI_CLOUD_ACCOUNT: ${{ secrets.RAI_CLOUD_ACCOUNT }}
