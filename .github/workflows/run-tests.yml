@@ -90,5 +90,5 @@ jobs:
 
       - name: Shutdown Semantic Layer service container
         run: docker stop ${{ env.SEMANTIC_LAYER_SERVICE_NAME }}
-        if: SEMANTIC_LAYER_SERVICE_STARTED == 'true'
+        if: env.SEMANTIC_LAYER_SERVICE_STARTED == 'true'
 
