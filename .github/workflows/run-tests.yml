@@ -76,9 +76,10 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/semantic-search
           ./docker-build
-          docker run --rm -d --name testServer -p 8081:8081 semantic-search:latest
+          docker run --rm -d --name ${{ env.SEMANTIC_LAYER_SERVICE_NAME }} -p 8081:8081 semantic-search:latest
         env:
           SEMANTIC_LAYER_SERVICE_STARTED: true
+          SEMANTIC_LAYER_SERVICE_NAME: testServer
 
       # Run e2e Python CLI test
       - name: Python CLI tests
@@ -88,6 +89,6 @@ jobs:
         continue-on-error: true
 
       - name: Shutdown Semantic Layer service container
-        run: docker stop testServer
+        run: docker stop ${{ env.SEMANTIC_LAYER_SERVICE_NAME }}
         if: SEMANTIC_LAYER_SERVICE_STARTED == 'true'
 
