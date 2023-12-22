@@ -52,6 +52,13 @@ jobs:
           RAI_CLIENT_ID: ${{ secrets.CLIENT_ID }}
           RAI_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
 
+      # Update loader with rai cloud account
+      - name: Update loader
+        run: |
+          cd $GITHUB_WORKSPACE/cli-e2e-test/config
+          echo "rai_cloud_account=${{ secrets.RAI_CLOUD_ACCOUNT }}" >> loader.toml
+          cat loader.toml
+
       # Run e2e Python CLI test
       - name: Python CLI tests
         run: |
