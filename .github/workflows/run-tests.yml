@@ -86,7 +86,6 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test
           python -m unittest discover
-        continue-on-error: true
 
       - name: Shutdown Semantic Layer service container
         run: docker stop ${{ env.SEMANTIC_LAYER_SERVICE_NAME }}
