@@ -28,7 +28,7 @@ jobs:
 
       # Checkout semantic layer service
       - name: Checkout semantic layer service
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: RelationalAI/semantic-search
           path: semantic-search
@@ -89,5 +89,5 @@ jobs:
 
       - name: Shutdown Semantic Layer service container
         run: docker stop ${{ env.SEMANTIC_LAYER_SERVICE_NAME }}
-        if: env.SEMANTIC_LAYER_SERVICE_STARTED == 'true'
+        if: always()
 
