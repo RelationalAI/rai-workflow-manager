@@ -28,9 +28,10 @@ jobs:
 
       # Checkout semantic layer service
       - name: Checkout semantic layer service
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
         with:
-          repository: git@github.com:RelationalAI/semantic-search.git
+          repository: RelationalAI/semantic-search
+          path: semantic-search
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Install Python dependencies
