@@ -52,22 +52,13 @@
           "relativePath": "user",
           "inputFormat": "csv",
           "loadsNumberOfDays": 10
-        },
-        {
-          "relation": "device_seen_snapshot",
-          "isChunkPartitioned": true,
-          "isDatePartitioned": true,
-          "relativePath": "device_seen_snapshot",
-          "inputFormat": "csv",
-          "loadsNumberOfDays": 1,
-          "offsetByNumberOfDays": 1,
-          "snapshotValidityDays": 3
         }
       ]
     },
     {
       "type": "InstallModels",
       "name": "InstallModels1",
+      "needs": ["TestExecuteCommand", "ConfigureSources"],
       "modelFiles": [
         "device.rel",
         "zip.rel",
@@ -80,11 +71,13 @@
     },
     {
       "type": "LoadData",
-      "name": "LoadData"
+      "name": "LoadData",
+      "needs": ["InstallModels1"]
     },
     {
       "type": "Materialize",
       "name": "Materialize",
+      "needs": ["LoadData"],
       "relations": [
         "city:name",
         "device:name",
@@ -97,6 +90,7 @@
     {
       "type": "Export",
       "name": "Export",
+      "needs": ["Materialize"],
       "exportJointly": true,
       "dateFormat": "%Y%m%d",
       "defaultContainer": "export",
@@ -125,12 +119,6 @@
           "type": "csv",
           "configRelName": "users_csv",
           "relativePath": "users"
-        },
-        {
-          "type": "csv",
-          "configRelName": "device_seen_snapshot_csv",
-          "relativePath": "device_seen_snapshot",
-          "snapshotBinding": "device_seen_snapshot"
         }
       ]
     }

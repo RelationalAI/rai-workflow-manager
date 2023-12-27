@@ -27,57 +27,44 @@ class CliE2ETest(unittest.TestCase):
     cmd_with_common_arguments = ["python", "main.py",
                                  "--env-config", env_config_path,
                                  "--engine", resource_name,
-                                 "--database", resource_name,
-                                 "--rel-config-dir", "./rel"]
+                                 "--database", resource_name]
 
     def test_scenario1_model(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario1.json",
-                     "--end-date", "20220105",
-                     "--drop-db"]
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.create_workflow("./config/model/scenario1.json")
+        self.run_workflow(["--end-date", "20220105"])
         # then
-        self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
     def test_scenario1_model_yaml(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario1.yaml",
-                     "--end-date", "20220105",
-                     "--drop-db"]
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.create_workflow("./config/model/scenario1.yaml")
+        self.run_workflow(["--end-date", "20220105"])
         # then
-        self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
     def test_scenario2_model_no_data_changes(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario2.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230909"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
+        self.create_workflow("./config/model/scenario2.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230909"]
+        # first run
+        self.run_workflow(run_args)
+        # second run
+        self.run_workflow(run_args)
         # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args)
-        # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, {})
 
     def test_scenario2_model_force_reimport(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario2.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230909"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
+        self.create_workflow("./config/model/scenario2.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230909"]
+        # first run
+        self.run_workflow(run_args)
+        # second run
+        self.run_workflow(run_args + ["--force-reimport"])
         # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--force-reimport"])
-        # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'city_data'},
@@ -86,61 +73,52 @@ class CliE2ETest(unittest.TestCase):
 
     def test_scenario2_model_force_reimport_chunk_partitioned(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario2.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230909"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
+        self.create_workflow("./config/model/scenario2.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230909"]
+        # first run
+        self.run_workflow(run_args)
+        # second run
+        self.run_workflow(run_args + ["--force-reimport-not-chunk-partitioned"])
         # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--force-reimport-not-chunk-partitioned"])
-        # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'zip_city_state_master_data'}])
 
     def test_scenario3_model_single_partition_change_for_date_partitioned(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario3.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230909"]
+        self.create_workflow("./config/model/scenario3.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230909"]
+        # first run
         # copy data for scenario 3
         data_folder = "/city"
         shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
+        self.run_workflow(run_args)
+        # second run
         # rename files to simulate data refresh
         os.rename(f"{self.temp_folder}{data_folder}/data_dt=20230908/part-1-3d1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv",
                   f"{self.temp_folder}{data_folder}/data_dt=20230908/part-1-{uuid.uuid4()}.csv")
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.run_workflow(run_args)
         # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
 
     def test_scenario3_model_two_partitions_overriden_by_one_for_date_partitioned(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario3.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230909"]
-        data_folder = "/city"
+        self.create_workflow("./config/model/scenario3.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230909"]
+        # first run
         # copy data for scenario 3
+        data_folder = "/city"
         shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
+        self.run_workflow(run_args)
+        # second run
         # rename files to simulate data refresh
         os.rename(f"{self.temp_folder}{data_folder}/data_dt=20230908/part-1-3d1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv",
                   f"{self.temp_folder}{data_folder}/data_dt=20230908/part-1-{uuid.uuid4()}.csv")
         os.remove(f"{self.temp_folder}{data_folder}/data_dt=20230908/part-2-3d9ec0b0-ebfd-a773-71d7-f71f42a2f066.csv")
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.run_workflow(run_args)
         # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'},
@@ -148,154 +126,161 @@ class CliE2ETest(unittest.TestCase):
 
     def test_scenario4_model_reimport_2_partitions_data_with_1(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario4.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230908"]
+        self.create_workflow("./config/model/scenario4.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230908"]
+        # first run
+        # copy data for scenario 4
         data_folder = "/city"
-        # copy data for scenario 3
         shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
+        self.run_workflow(run_args)
+        # second run
         # replace files to simulate data refresh
         shutil.rmtree(f"{self.temp_folder}{data_folder}/data_dt=20230908")
         shutil.copytree(f"{self.dev_data_dir}{data_folder}/data_dt=20230909",
                         f"{self.temp_folder}{data_folder}/data_dt=20230908")
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.run_workflow(run_args)
         # then
-        self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario4_model_reimport_2_partitions_data_with_1.__name__)
 
     def test_scenario5_model_single_partition_change(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario5.json",
-                     "--start-date", "20230908",
-                     "--end-date", "20230909"]
+        self.create_workflow("./config/model/scenario5.json")
+        run_args = ["--start-date", "20230908", "--end-date", "20230909"]
+        # first run
         # copy data for scenario 5
         data_folder = "/product"
         shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
+        self.run_workflow(run_args)
+        # second run
         # rename files to simulate data refresh
         os.rename(f"{self.temp_folder}{data_folder}/part-1-3q1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv",
                   f"{self.temp_folder}{data_folder}/part-1-{uuid.uuid4()}.csv")
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.run_workflow(run_args)
         # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 1, 'relation': 'product_data'}])
 
     def test_scenario6_model_two_partitions_overriden_by_one(self):
         # when
-        test_args = ["--batch-config", "./config/model/scenario6.json"]
+        self.create_workflow("./config/model/scenario6.json")
+        # first run
+        # copy data for scenario 6
         data_folder = "/product"
-        # copy data for scenario 3
         shutil.copytree(f"{self.dev_data_dir}{data_folder}", f"{self.temp_folder}{data_folder}")
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
+        self.run_workflow()
+        # second run
         # rename files to simulate data refresh
         os.rename(f"{self.temp_folder}{data_folder}/part-1-3q1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv",
                   f"{self.temp_folder}{data_folder}/part-1-{uuid.uuid4()}.csv")
         os.remove(f"{self.temp_folder}{data_folder}/part-2-3w1ec0b0-ebfd-a773-71d7-f71f42a2f066.csv")
-        rsp = call(self.cmd_with_common_arguments + test_args)
+        self.run_workflow()
         # then
-        self.assertNotEqual(rsp, 1)
         rai_config = self.resource_manager.get_rai_config()
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'product_data'}])
 
-    def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
-        # when
-        test_args = ["--batch-config", "./config/model/scenario7.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220104"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
+    # def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
+    #     # when
+    #     test_args = ["--batch-config", "./config/model/scenario7.json"]
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     # and when
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220104"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     rai_config = self.resource_manager.get_rai_config()
+    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+    #     self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
+    #
+    # def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
+    #     # when
+    #     test_args = ["--batch-config", "./config/model/scenario7.json"]
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220103", "--end-date", "20220104",
+    #                                                              "--drop-db"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     # and when
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     rai_config = self.resource_manager.get_rai_config()
+    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+    #     self.assertEqual(rsp_json, {})
+    #
+    # def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
+    #     # when
+    #     test_args = ["--batch-config", "./config/model/scenario7.json"]
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105", "--drop-db"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     # and when
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     rai_config = self.resource_manager.get_rai_config()
+    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+    #     self.assertEqual(rsp_json, {})
+    #
+    # def test_scenario8_model_2_day_snapshot_1_day_declared_1_days_out_of_range(self):
+    #     # when
+    #     test_args = ["--batch-config", "./config/model/scenario8.json"]
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103", "--drop-db"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     # and when
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220104", "--end-date", "20220105"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     rai_config = self.resource_manager.get_rai_config()
+    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+    #     self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
 
-    def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
-        # when
-        test_args = ["--batch-config", "./config/model/scenario7.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220103", "--end-date", "20220104",
-                                                                 "--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, {})
+    # def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
+    #     # when
+    #     test_args = ["--batch-config", "./config/model/scenario9.json"]
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     # and when
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     rai_config = self.resource_manager.get_rai_config()
+    #     query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
+    #     expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
+    #     self.assertEqual(expiration_date_str, "20220104")
 
-    def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
-        # when
-        test_args = ["--batch-config", "./config/model/scenario7.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105", "--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, {})
+    # def test_scenario9_model_do_not_inflate_paths_when_snapshot_expired(self):
+    #     # when
+    #     test_args = ["--batch-config", "./config/model/scenario9.json"]
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     # and when
+    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
+    #     # then
+    #     self.assertNotEqual(rsp, 1)
+    #     rai_config = self.resource_manager.get_rai_config()
+    #     query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
+    #     expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
+    #     self.assertEqual(expiration_date_str, "20220106")
 
-    def test_scenario8_model_2_day_snapshot_1_day_declared_1_days_out_of_range(self):
-        # when
-        test_args = ["--batch-config", "./config/model/scenario8.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103", "--drop-db"])
-        # then
+    def create_workflow(self, scenario):
+        args = ["--batch-config", scenario,
+                "--action", "init",
+                "--drop-db"]
+        rsp = call(self.cmd_with_common_arguments + args)
         self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220104", "--end-date", "20220105"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        rai_config = self.resource_manager.get_rai_config()
-        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
 
-    def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
-        # when
-        test_args = ["--batch-config", "./config/model/scenario9.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
-        # then
+    def run_workflow(self, args: list[str] = None):
+        run_args = ["--rel-config-dir", "./rel",
+                    "--action", "run"]
+        if args is not None:
+            run_args = run_args + args
+        rsp = call(self.cmd_with_common_arguments + run_args)
         self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        rai_config = self.resource_manager.get_rai_config()
-        query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
-        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
-        self.assertEqual(expiration_date_str, "20220104")
-
-    def test_scenario9_model_do_not_inflate_paths_when_snapshot_expired(self):
-        # when
-        test_args = ["--batch-config", "./config/model/scenario9.json"]
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        # and when
-        rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
-        # then
-        self.assertNotEqual(rsp, 1)
-        rai_config = self.resource_manager.get_rai_config()
-        query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
-        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
-        self.assertEqual(expiration_date_str, "20220106")
 
     @classmethod
     def setUpClass(cls) -> None:

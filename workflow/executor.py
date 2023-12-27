@@ -38,17 +38,13 @@ class WorkflowStep:
         self.type = type_value
         self.engine_size = engine_size
 
-    def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        logger.info(f"Executing {self.get_name()} step...")
-        logger = logger.getChild(self.name)
-        try:
-            self._execute(logger, env_config, rai_config)
-        except Exception as e:
-            logger.exception(e)
-            raise e
-
-    def get_name(self) -> str:
+    def __str__(self):
         return f"{self.name}({self.type})"
+
+    def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
+        logger.info(f"Executing {self} step...")
+        logger = logger.getChild(self.name)
+        self._execute(logger, env_config, rai_config)
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         raise NotImplementedError("This class is abstract")
@@ -519,8 +515,9 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
                   step: dict) -> WorkflowStep:
         exports = self._load_exports(logger, config.env, step)
         end_date = config.step_params[constants.END_DATE]
-        return ExportWorkflowStep(name, type_value, engine_size, exports, step["exportJointly"], step["dateFormat"],
-                                  end_date)
+        # todo: change to [] after update on SS side
+        return ExportWorkflowStep(name, type_value, engine_size, exports, step.get("exportJointly", False),
+                                  step["dateFormat"], end_date)
 
     @staticmethod
     def _load_exports(logger: logging.Logger, env_config: EnvConfig, src) -> List[Export]:
@@ -604,6 +601,8 @@ class WorkflowExecutor:
                 self.fire_transitions(transitions_to_retry, workflow_id, rest_client, rai_config),
                 type=TransitionType.START)
         else:
+            self.logger.info(f"Activating batch for workflow '{self.config.workflow}'")
+            rest_client.activate_workflow(rai_config, account_name, workflow_id)
             available_transitions = WorkflowExecutor.filter_transitions(WorkflowExecutor.read_transitions(
                 rest_client.get_enabled_transitions(rai_config, account_name, workflow_id)), type=TransitionType.START)
 
@@ -613,6 +612,8 @@ class WorkflowExecutor:
         # Fire initial transitions
         if available_transitions:
             available_transitions = self.fire_transitions(available_transitions, workflow_id, rest_client, rai_config)
+
+        failed_steps = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # Schedule initial steps execution concurrently
             futures = {
@@ -624,7 +625,9 @@ class WorkflowExecutor:
                 # Check for completion status of steps associated with completed futures
                 next_transitions = []
                 for completed_future in completed_futures:
-                    step, type = completed_future.result()  # Raise exception if one occurred
+                    step, type = completed_future.result()
+                    if type == TransitionType.FAIL:
+                        failed_steps[step.name] = step
                     del futures[completed_future]  # Remove the completed future
                     next_transitions += WorkflowExecutor.filter_transitions(available_transitions, step=step.name,
                                                                             type=type)
@@ -633,7 +636,8 @@ class WorkflowExecutor:
                                                                   rai_config)
                     # Print timings
                     for t in next_transitions:
-                        self.print_step_timings(rest_client, workflow_id, t.step)
+                        if t.step not in failed_steps.keys():
+                            self.print_step_timings(rest_client, workflow_id, t.step)
                     # Schedule new steps execution concurrently
                     transitions_to_start = WorkflowExecutor.filter_transitions(available_transitions,
                                                                                type=TransitionType.START)
@@ -646,6 +650,10 @@ class WorkflowExecutor:
                                                                       rai_config)
                         futures.update(
                             {executor.submit(self.execute_step, step, rai_config): step for step in available_steps})
+                # If any steps failed, exit the loop
+                if failed_steps:
+                    raise Exception(
+                        f"Workflow execution failed. List of failed steps: {', '.join(str(s) for s in failed_steps)}")
                 # If all transitions have been completed, exit the loop
                 if not futures:
                     break
@@ -708,7 +716,7 @@ class WorkflowExecutor:
                 step.execute(self.logger, self.config.env, rai_config)
             return step, TransitionType.CONFIRM
         except Exception as e:
-            self.logger.error(e)
+            self.logger.exception(e)
             return step, TransitionType.FAIL
         finally:
             if step.engine_size:

@@ -37,7 +37,6 @@ def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingP
     resource_manager = workflow.manager.ResourceManager.init(logger, args.engine, args.database, env_config)
     logger.info("Using: " + ",".join(f"{k}={v}" for k, v in vars(args).items()))
     try:
-        logger.info(f"Activating batch for workflow '{args.batch_config_name}'")
         start_time = time.time()
         # create engine if it doesn't exist
         resource_manager.add_engine(args.engine_size)
