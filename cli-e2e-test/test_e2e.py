@@ -9,6 +9,7 @@ import workflow.manager
 import workflow.rai
 import workflow.query
 import workflow.common
+import workflow.semantic_layer_service
 from workflow.constants import RESOURCES_TO_DELETE_REL, DATE_FORMAT
 from csv_diff import load_csv, compare, human_text
 from subprocess import call
@@ -303,6 +304,7 @@ class CliE2ETest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        workflow.semantic_layer_service.shutdown(cls.logger, cls.env_config, cls.resource_manager)
         cls.resource_manager.cleanup_resources()
 
     def assert_output_dir_files(self, scenario: str):

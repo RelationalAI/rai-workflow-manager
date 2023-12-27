@@ -59,6 +59,10 @@ class SemanticSearchRestClient(RestClient):
         endpoint = f"semantic-search/v1alpha1/{account_name}/startup?pods=1&disableWarmup=true"
         return self.post(endpoint, headers=self._common_headers(rai_config)).json()
 
+    def shutdown(self, rai_config: RaiConfig, account_name: str):
+        endpoint = f"semantic-search/v1alpha1/{account_name}/shutdown"
+        self.post(endpoint, headers=self._common_headers(rai_config))
+
     def get_startup_result(self, rai_config: RaiConfig, account_name: str, operation_id: int):
         endpoint = f"semantic-search/v1alpha1/{account_name}/startupResult?id={operation_id}"
         return self.get(endpoint, headers=self._common_headers(rai_config)).json()
@@ -81,7 +85,7 @@ class SemanticSearchRestClient(RestClient):
 
     def activate_workflow(self, rai_config: RaiConfig, account_name: str, workflow_id: str):
         endpoint = f"semantic-search/v1alpha1/{account_name}/workflows/{workflow_id}/activate"
-        return self.put(endpoint, headers=self._common_headers(rai_config))
+        self.put(endpoint, headers=self._common_headers(rai_config))
 
     def get_enabled_transitions(self, rai_config: RaiConfig, account_name: str, workflow_id: str):
         endpoint = f"semantic-search/v1alpha1/{account_name}/workflows/{workflow_id}/transitions/enabled"

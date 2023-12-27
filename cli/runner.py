@@ -13,7 +13,7 @@ import workflow.utils
 import workflow.executor
 import workflow.exception
 import workflow.rai
-from workflow import initializer
+from workflow import semantic_layer_service
 
 
 def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingProxyType({}),
@@ -45,9 +45,9 @@ def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingP
             batch_config_json = workflow.utils.read_config(args.batch_config)
             # Create db and disable IVM in case of enabled flag
             resource_manager.create_database(args.drop_db, args.disable_ivm, args.source_database)
-            initializer.init(logger, env_config,
-                             workflow.common.BatchConfig(args.batch_config_name, batch_config_json), resource_manager,
-                             models)
+            semantic_layer_service.init(logger, env_config,
+                                        workflow.common.BatchConfig(args.batch_config_name, batch_config_json),
+                                        resource_manager, models)
         elif args.action == "run":
             # Init workflow executor
             parameters = {

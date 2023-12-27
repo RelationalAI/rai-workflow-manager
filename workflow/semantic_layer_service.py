@@ -31,6 +31,14 @@ def init(logger: logging.Logger, env_config: EnvConfig, batch_config: BatchConfi
     rai.execute_query(logger, rai_config, env_config, update_query, readonly=False)
 
 
+def shutdown(logger: logging.Logger, env_config: EnvConfig, resource_manager: ResourceManager) -> None:
+    logger = logger.getChild("activator")
+    rai_config = resource_manager.get_rai_config()
+    rest_client = SemanticSearchRestClient(logger, env_config.semantic_search_base_url,
+                                           env_config.semantic_search_pod_prefix)
+    rest_client.shutdown(rai_config, env_config.rai_cloud_account)
+
+
 def _wait_startup_complete(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig,
                            rest_client: SemanticSearchRestClient, startup_id: str) -> None:
     if startup_id == "":
