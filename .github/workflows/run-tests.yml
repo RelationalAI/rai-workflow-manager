@@ -53,7 +53,7 @@ jobs:
       - id: generate-id
         name: Generate prefix
         run: |
-          echo "resource_id=wm-cli-e2e-test-$(GITHUB_SHA::7)" >> $GITHUB_OUTPUT
+          echo "resource_id=wm-cli-e2e-test-$(uuidgen)" >> $GITHUB_OUTPUT
         shell: bash
 
       # Update loader
