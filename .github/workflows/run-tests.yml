@@ -46,19 +46,22 @@ jobs:
           echo "region = us-east" >> config
           echo "host = azure.relationalai.com" >> config
           echo "port = 443" >> config
-          echo "client_id = ${{ env.RAI_CLIENT_ID }}" >> config
-          echo "client_secret = ${{ env.RAI_CLIENT_SECRET }}" >> config
-        env:
-          RAI_CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          RAI_CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          echo "client_id = ${{ secrets.CLIENT_ID }}" >> config
+          echo "client_secret = ${{ secrets.CLIENT_SECRET }}" >> config
+
+      # Generate prefix for semantic layer service
+      - id: generate-prefix
+        name: Generate prefix
+        run: |
+          echo "service_prefix=rwm-test-$(uuidgen)" >> $GITHUB_OUTPUT
+        shell: bash
 
       # Update loader with rai cloud account
       - name: Update loader
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test/config
-          echo 'rai_cloud_account="${{ env.RAI_CLOUD_ACCOUNT }}"' >> loader.toml
-        env:
-          RAI_CLOUD_ACCOUNT: ${{ secrets.RAI_CLOUD_ACCOUNT }}
+          echo 'rai_cloud_account="${{ secrets.RAI_CLOUD_ACCOUNT }}"' >> loader.toml
+          echo 'sematic_search_pod_prefix="${{ steps.generate-prefix.outputs.service_prefix }}"' >> loader.toml
 
       # Checkout semantic layer service
       - name: Checkout semantic layer service
