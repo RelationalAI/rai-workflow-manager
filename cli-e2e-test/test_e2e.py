@@ -304,6 +304,9 @@ class CliE2ETest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        # clean up db which stores workflow metadata
+        workflow.semantic_layer_service.delete_layer(cls.logger, cls.env_config, cls.resource_manager, "workflow")
+        # shut down engine which use semantic layer service
         workflow.semantic_layer_service.shutdown(cls.logger, cls.env_config, cls.resource_manager)
         cls.resource_manager.cleanup_resources()
 

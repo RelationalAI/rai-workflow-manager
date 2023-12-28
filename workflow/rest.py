@@ -63,6 +63,10 @@ class SemanticSearchRestClient(RestClient):
         endpoint = f"semantic-search/v1alpha1/{account_name}/shutdown"
         self.post(endpoint, headers=self._common_headers(rai_config))
 
+    def delete_layer(self, rai_config: RaiConfig, account_name: str, layer_name: str):
+        endpoint = f"semantic-search/v1alpha1/{account_name}/layers/{layer_name}"
+        self.delete(endpoint, headers=self._common_headers(rai_config))
+
     def get_startup_result(self, rai_config: RaiConfig, account_name: str, operation_id: int):
         endpoint = f"semantic-search/v1alpha1/{account_name}/startupResult?id={operation_id}"
         return self.get(endpoint, headers=self._common_headers(rai_config)).json()

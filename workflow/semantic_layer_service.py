@@ -40,6 +40,15 @@ def shutdown(logger: logging.Logger, env_config: EnvConfig, resource_manager: Re
     rest_client.shutdown(rai_config, env_config.rai_cloud_account)
 
 
+def delete_layer(logger: logging.Logger, env_config: EnvConfig, resource_manager: ResourceManager,
+                 layer_name: str) -> None:
+    logger = logger.getChild("activator")
+    rai_config = resource_manager.get_rai_config()
+    rest_client = SemanticSearchRestClient(logger, env_config.semantic_search_base_url,
+                                           env_config.semantic_search_pod_prefix)
+    rest_client.delete_layer(rai_config, env_config.rai_cloud_account, layer_name)
+
+
 def _wait_startup_complete(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig,
                            rest_client: SemanticSearchRestClient, startup_id: str) -> None:
     if startup_id == "":
