@@ -53,7 +53,7 @@ jobs:
       - id: generate-prefix
         name: Generate prefix
         run: |
-          echo "service_prefix=rwm-test-$(uuidgen)" >> $GITHUB_OUTPUT
+          echo "service_prefix=rwm-test-$(uuidgen)-" >> $GITHUB_OUTPUT
         shell: bash
 
       # Update loader with rai cloud account
@@ -85,6 +85,7 @@ jobs:
       - name: Python CLI tests
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test
+          cat config/loader.toml
           python -m unittest discover
 
       # Shutdown Semantic Layer service
