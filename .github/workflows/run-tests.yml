@@ -49,11 +49,11 @@ jobs:
           echo "client_id = ${{ secrets.CLIENT_ID }}" >> config
           echo "client_secret = ${{ secrets.CLIENT_SECRET }}" >> config
 
-      # Generate prefix for semantic layer service
-      - id: generate-prefix
+      # Generate RAI resource name
+      - id: generate-id
         name: Generate prefix
         run: |
-          echo "service_prefix=rwm-test-$(uuidgen)-" >> $GITHUB_OUTPUT
+          echo "resource_id=wm-cli-e2e-test-$(uuidgen)" >> $GITHUB_OUTPUT
         shell: bash
 
       # Update loader
@@ -61,7 +61,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test/config
           sed -i '1irai_cloud_account="${{ secrets.RAI_CLOUD_ACCOUNT }}"' loader.toml
-          sed -i '1isematic_search_pod_prefix="${{ steps.generate-prefix.outputs.service_prefix }}"' loader.toml
+          sed -i '1isematic_search_pod_prefix="${{ steps.generate-id.outputs.resource_id }}-"' loader.toml
 
       # Checkout semantic layer service
       - name: Checkout semantic layer service
@@ -86,6 +86,8 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test
           python -m unittest discover
+        env:
+          RAI_RESOURCE_NAME: ${{ steps.generate-id.outputs.resource_id }}
 
       # Shutdown Semantic Layer service
       - name: Shutdown Semantic Layer service container

@@ -24,7 +24,7 @@ class CliE2ETest(unittest.TestCase):
     temp_folder = f"{dev_data_dir}/temp"
     env_config_path = "./config/loader.toml"
     expected = "./expected_results"
-    resource_name = "wm-cli-e2e-test-" + str(uuid.uuid4())
+    resource_name = os.environ.get("RAI_RESOURCE_NAME", f"wm-cli-e2e-test-{str(uuid.uuid4())}")
     cmd_with_common_arguments = ["python", "main.py",
                                  "--env-config", env_config_path,
                                  "--engine", resource_name,
