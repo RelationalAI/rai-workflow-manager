@@ -85,7 +85,6 @@ jobs:
       - name: Python CLI tests
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test
-          cat config/loader.toml
           python -m unittest discover
 
       # Shutdown Semantic Layer service

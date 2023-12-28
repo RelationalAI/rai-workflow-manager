@@ -515,9 +515,8 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
                   step: dict) -> WorkflowStep:
         exports = self._load_exports(logger, config.env, step)
         end_date = config.step_params[constants.END_DATE]
-        # todo: change to [] after update on SS side
-        return ExportWorkflowStep(name, type_value, engine_size, exports, step.get("exportJointly", False),
-                                  step["dateFormat"], end_date)
+        return ExportWorkflowStep(name, type_value, engine_size, exports, step["exportJointly"], step["dateFormat"],
+                                  end_date)
 
     @staticmethod
     def _load_exports(logger: logging.Logger, env_config: EnvConfig, src) -> List[Export]:
