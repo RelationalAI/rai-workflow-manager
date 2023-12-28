@@ -23,6 +23,7 @@ def init(logger: logging.Logger, env_config: EnvConfig, batch_config: BatchConfi
 
     rest_client = SemanticSearchRestClient(logger, env_config.semantic_search_base_url,
                                            env_config.semantic_search_pod_prefix)
+    logger.info(f"Starting layer service with '{env_config.semantic_search_pod_prefix}' pod prefix")
     startup_rsp = rest_client.startup(rai_config, env_config.rai_cloud_account)
     _wait_startup_complete(logger, rai_config, env_config, rest_client, startup_rsp["startupId"])
 
