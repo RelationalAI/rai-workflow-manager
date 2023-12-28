@@ -56,12 +56,12 @@ jobs:
           echo "service_prefix=rwm-test-$(uuidgen)-" >> $GITHUB_OUTPUT
         shell: bash
 
-      # Update loader with rai cloud account
+      # Update loader
       - name: Update loader
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test/config
-          echo 'rai_cloud_account="${{ secrets.RAI_CLOUD_ACCOUNT }}"' >> loader.toml
-          echo 'sematic_search_pod_prefix="${{ steps.generate-prefix.outputs.service_prefix }}"' >> loader.toml
+          sed -i 'rai_cloud_account="${{ secrets.RAI_CLOUD_ACCOUNT }}"' loader.toml
+          sed -i 'sematic_search_pod_prefix="${{ steps.generate-prefix.outputs.service_prefix }}"' loader.toml
 
       # Checkout semantic layer service
       - name: Checkout semantic layer service
