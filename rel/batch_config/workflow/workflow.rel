@@ -29,8 +29,6 @@ entity type BatchWorkflowStep = BatchWorkflow, BatchWorkflowStepOrder
 def BatchWorkflowStep(s) { batch_workflow_step:workflow(s, _) }
 
 module batch_workflow_step
-    bound state_value
-    bound execution_time_value
 
     def workflow = transpose[batch_workflow:comprises]
 
@@ -45,21 +43,6 @@ module batch_workflow_step
     def name[s] = json_data[s, :name]
 
     def engine_size[s] = uppercase[json_data[s, :engineSize]]
-
-    def state(s in BatchWorkflowStep, st in BatchWorkflowStepState) {
-        state_value(s, str_val) and
-        st_v = ^BatchWorkflowStepStateValue[str_val] and
-        st = ^BatchWorkflowStepState[st_v]
-        from str_val, st_v
-    }
-
-    def execution_time = execution_time_value
-
-    def json_data(s in BatchWorkflowStep, :idt, idt) { idt = uuid_string[s] }
-    def json_data(s in BatchWorkflowStep, :state, st_v) {
-        st_v = batch_workflow_state_value_to_string[ batch_workflow_step_state:id[ state[s] ] ]
-    }
-    def json_data(s in BatchWorkflowStep, :executionTime, t) { execution_time(s, t) }
 
     def json_data(s, rest...) {
         order(s, o) and
@@ -115,34 +98,6 @@ end
 @inline
 def batch_workflow_step_type_code_to_string = transpose[^BatchWorkflowStepTypeCode]
 
-/**
- *
- */
-value type BatchWorkflowStepStateValue = String
-entity type BatchWorkflowStepState = BatchWorkflowStepStateValue
-
-def BatchWorkflowStepState(s) { batch_workflow_step_state:id(s, _) }
-
-module batch_workflow_step_state
-    def id = transpose[batch_workflow_step_state_value:identifies]
-end
-
-def InitState = batch_workflow_step_state_value:identifies[^BatchWorkflowStepStateValue["INIT"]]
-
-module batch_workflow_step_state_value
-    def value = { "INIT" ; "IN_PROGRESS" ; "SUCCESS" ; "FAILED" }
-
-    def identifies(st_v, st) {
-        value(v) and
-        ^BatchWorkflowStepStateValue(v, st_v) and
-        ^BatchWorkflowStepState(st_v, st)
-        from v
-    }
-end
-
-@inline
-def batch_workflow_state_value_to_string = transpose[^BatchWorkflowStepStateValue]
-
 def workflow_json(cfg_n, :steps, :[], idx, data...) {
     batch_workflow_step:workflow[s] . batch_workflow:name[cfg_n] and
     o = batch_workflow_step:order[s] and
@@ -150,10 +105,11 @@ def workflow_json(cfg_n, :steps, :[], idx, data...) {
     batch_workflow_step:json_data(s, data...)
     from s, o
 }
-def workflow_json[cfg_n, :totalTime] = sum[s, t:
-        batch_workflow_step:execution_time(s, t) and
-        batch_workflow_step:workflow[s] . batch_workflow:name[cfg_n]
-    ]
+def workflow_json(cfg_n, :remoteId, idt) {
+    batch_workflow:remote_id(w, idt) and
+    batch_workflow:name(w, cfg_n)
+    from w
+}
 
 ic batch_workflow_step_name_is_mandatory(s) {
     BatchWorkflowStep(s)
