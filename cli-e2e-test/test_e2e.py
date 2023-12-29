@@ -181,92 +181,79 @@ class CliE2ETest(unittest.TestCase):
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'relation': 'product_data'}])
 
-    # def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
-    #     # when
-    #     test_args = ["--batch-config", "./config/model/scenario7.json"]
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     # and when
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220104"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     rai_config = self.resource_manager.get_rai_config()
-    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-    #     self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
-    #
-    # def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
-    #     # when
-    #     test_args = ["--batch-config", "./config/model/scenario7.json"]
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220103", "--end-date", "20220104",
-    #                                                              "--drop-db"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     # and when
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     rai_config = self.resource_manager.get_rai_config()
-    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-    #     self.assertEqual(rsp_json, {})
-    #
-    # def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
-    #     # when
-    #     test_args = ["--batch-config", "./config/model/scenario7.json"]
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105", "--drop-db"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     # and when
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     rai_config = self.resource_manager.get_rai_config()
-    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-    #     self.assertEqual(rsp_json, {})
-    #
-    # def test_scenario8_model_2_day_snapshot_1_day_declared_1_days_out_of_range(self):
-    #     # when
-    #     test_args = ["--batch-config", "./config/model/scenario8.json"]
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103", "--drop-db"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     # and when
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--start-date", "20220104", "--end-date", "20220105"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     rai_config = self.resource_manager.get_rai_config()
-    #     rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
-    #     self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
+    def test_scenario7_model_1_day_snapshot_2_day_declared_1_day_out_of_range(self):
+        # when
+        self.create_workflow("./config/model/scenario7.json")
+        # first run
+        self.run_workflow(["--end-date", "20220102"])
+        # second run
+        self.run_workflow(["--end-date", "20220104"])
+        # then
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
 
-    # def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
-    #     # when
-    #     test_args = ["--batch-config", "./config/model/scenario9.json"]
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     # and when
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220103"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     rai_config = self.resource_manager.get_rai_config()
-    #     query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
-    #     expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
-    #     self.assertEqual(expiration_date_str, "20220104")
+    def test_scenario7_model_1_day_snapshot_1_day_declared_1_day_out_of_range(self):
+        # when
+        self.create_workflow("./config/model/scenario7.json")
+        # first run
+        self.run_workflow(["--start-date", "20220103", "--end-date", "20220104"])
+        # second run
+        self.run_workflow(["--end-date", "20220105"])
+        # then
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, {})
 
-    # def test_scenario9_model_do_not_inflate_paths_when_snapshot_expired(self):
-    #     # when
-    #     test_args = ["--batch-config", "./config/model/scenario9.json"]
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220102", "--drop-db"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     # and when
-    #     rsp = call(self.cmd_with_common_arguments + test_args + ["--end-date", "20220105"])
-    #     # then
-    #     self.assertNotEqual(rsp, 1)
-    #     rai_config = self.resource_manager.get_rai_config()
-    #     query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
-    #     expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
-    #     self.assertEqual(expiration_date_str, "20220106")
+    def test_scenario7_model_1_day_snapshot_1_day_declared_0_days_out_of_range(self):
+        # when
+        self.create_workflow("./config/model/scenario7.json")
+        # first run
+        self.run_workflow(["--end-date", "20220105"])
+        # second run
+        self.run_workflow(["--end-date", "20220105"])
+        # then
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, {})
+
+    def test_scenario8_model_2_day_snapshot_1_day_declared_1_days_out_of_range(self):
+        # when
+        self.create_workflow("./config/model/scenario8.json")
+        # first run
+        self.run_workflow(["--end-date", "20220103"])
+        # second run
+        self.run_workflow(["--start-date", "20220104", "--end-date", "20220105"])
+        # then
+        rai_config = self.resource_manager.get_rai_config()
+        rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
+        self.assertEqual(rsp_json, [{'relation': 'device_seen_snapshot'}])
+
+    def test_scenario9_model_do_not_inflate_paths_when_snapshot_is_valid(self):
+        # when
+        self.create_workflow("./config/model/scenario9.json")
+        # first run
+        self.run_workflow(["--end-date", "20220102"])
+        # second run
+        self.run_workflow(["--end-date", "20220103"])
+        # then
+        rai_config = self.resource_manager.get_rai_config()
+        query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
+        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
+        self.assertEqual(expiration_date_str, "20220104")
+
+    def test_scenario9_model_do_not_inflate_paths_when_snapshot_expired(self):
+        # when
+        self.create_workflow("./config/model/scenario9.json")
+        # first run
+        self.run_workflow(["--end-date", "20220102"])
+        # second run
+        self.run_workflow(["--end-date", "20220105"])
+        # then
+        rai_config = self.resource_manager.get_rai_config()
+        query = workflow.query.get_snapshot_expiration_date("device_seen_snapshot", DATE_FORMAT)
+        expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
+        self.assertEqual(expiration_date_str, "20220106")
 
     def create_workflow(self, scenario):
         args = ["--batch-config", scenario,

@@ -588,8 +588,8 @@ class WorkflowExecutor:
         account_name = self.config.env.rai_cloud_account
         rest_client = SemanticSearchRestClient(self.logger, self.config.env.semantic_search_base_url,
                                                self.config.env.semantic_search_pod_prefix)
-        relation = build_relation_path(constants.WORKFLOW_BASE_RELATION, self.config.workflow)
-        workflow_id = rai.execute_relation_string(self.logger, rai_config, self.config.env, relation)
+        workflow_id = rai.execute_query_string(self.logger, rai_config, self.config.env,
+                                               q.get_workflow_idt(self.config.workflow))
 
         if self.config.recover:
             # Load Retry transitions

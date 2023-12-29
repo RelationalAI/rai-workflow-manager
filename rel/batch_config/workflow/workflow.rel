@@ -6,6 +6,8 @@ entity type BatchWorkflow = BatchConfig
 def BatchWorkflow(config) { batch_workflow:id(config, _) }
 
 module batch_workflow
+    bound remote_id
+
     def id = transpose[batch_config:identifies]
 
     def comprises(w, s) { batch_workflow_step_order:step_order_to_workflow(_, s, w) }
@@ -160,7 +162,8 @@ ic batch_workflow_step_name_is_mandatory(s) {
 }
 ic batch_workflow_step_name_is_unique(s1, s2, n) {
     batch_workflow_step:name(s1, n) and
-    batch_workflow_step:name(s2, n)
+    batch_workflow_step:name(s2, n) and
+    batch_workflow_step:workflow[s1] = batch_workflow_step:workflow[s2]
     implies
     s1 = s2
 }

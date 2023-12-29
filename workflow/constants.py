@@ -2,12 +2,20 @@
 COMMON_MODEL = [
     "source_configs/config.rel",
     "source_configs/data_reload.rel",
+    "batch_config/batch_config.rel",
+    "batch_config/workflow/workflow.rel",
+    "batch_config/workflow/steps/configure_sources.rel",
+    "batch_config/workflow/steps/export.rel",
+    "batch_config/workflow/steps/install_models.rel",
+    "batch_config/workflow/steps/invoke_solver.rel",
+    "batch_config/workflow/steps/load_data.rel",
+    "batch_config/workflow/steps/materialize.rel",
+    "batch_config/workflow/steps/execute_command.rel",
 ]
 
 COMMON_MODEL_RELATIVE_PATH = "/../rel"
 
 CONFIG_BASE_RELATION = "batch:config"
-WORKFLOW_BASE_RELATION = "workflow"
 
 DATE_FORMAT = "%Y%m%d"
 

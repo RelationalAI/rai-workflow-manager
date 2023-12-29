@@ -6,7 +6,7 @@ from typing import List, Iterable
 
 from workflow import utils
 from workflow.common import FileType, Export, Source, ContainerType, AzureConfig, BatchConfig
-from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION, WORKFLOW_BASE_RELATION
+from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION
 
 # Static queries
 DISABLE_IVM = "def insert:relconfig:disable_ivm = true"
@@ -34,11 +34,22 @@ def load_json(relation: str, data) -> QueryWithInputs:
     return QueryWithInputs(f"def config:data = data\n" f"def insert:{relation} = load_json[config]", {"data": data})
 
 
-def update_workflow_idt(batch_config: BatchConfig, idt: str) -> str:
-    relation = utils.build_relation_path(WORKFLOW_BASE_RELATION, batch_config.name)
+def get_workflow_idt(workflow_name) -> str:
     return f"""
-    def delete:{relation} = {relation}
-    def insert:{relation} = "{idt}"
+    def output(idt) {{
+        batch_workflow:remote_id(w, idt) and
+        batch_workflow:name(w, :{workflow_name})
+        from w
+    }}
+    """
+
+
+def update_workflow_idt(batch_config: BatchConfig, idt: str) -> str:
+    return f"""
+    def insert:batch_workflow:remote_id(w, idt) {{
+        idt = "{idt}" and 
+        batch_workflow:name(w, :{batch_config.name})
+    }}
     """
 
 

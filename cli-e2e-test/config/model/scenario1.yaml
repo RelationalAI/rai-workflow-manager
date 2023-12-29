@@ -43,14 +43,14 @@ workflow:
         relativePath: user
         inputFormat: csv
         loadsNumberOfDays: 10
-#      - relation: device_seen_snapshot
-#        isChunkPartitioned: true
-#        isDatePartitioned: true
-#        relativePath: device_seen_snapshot
-#        inputFormat: csv
-#        loadsNumberOfDays: 1
-#        offsetByNumberOfDays: 1
-#        snapshotValidityDays: 3
+      - relation: device_seen_snapshot
+        isChunkPartitioned: true
+        isDatePartitioned: true
+        relativePath: device_seen_snapshot
+        inputFormat: csv
+        loadsNumberOfDays: 1
+        offsetByNumberOfDays: 1
+        snapshotValidityDays: 3
 
   - name: InstallModels1
     type: InstallModels
@@ -101,7 +101,7 @@ workflow:
       - type: csv
         configRelName: users_csv
         relativePath: users
-#      - type: csv
-#        configRelName: device_seen_snapshot_csv
-#        relativePath: device_seen_snapshot
-#        snapshotBinding: device_seen_snapshot
+      - type: csv
+        configRelName: device_seen_snapshot_csv
+        relativePath: device_seen_snapshot
+        snapshotBinding: device_seen_snapshot

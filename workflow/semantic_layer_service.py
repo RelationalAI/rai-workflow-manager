@@ -7,7 +7,7 @@ from workflow.common import EnvConfig, RaiConfig, BatchConfig
 from workflow.exception import RetryException
 from workflow.manager import ResourceManager
 from workflow.rest import SemanticSearchRestClient
-from workflow.utils import build_models, get_common_model_relative_path, call_with_overhead
+from workflow.utils import build_models, get_common_model_relative_path, call_with_overhead, build_relation_path
 
 
 def init(logger: logging.Logger, env_config: EnvConfig, batch_config: BatchConfig, resource_manager: ResourceManager,
@@ -20,6 +20,12 @@ def init(logger: logging.Logger, env_config: EnvConfig, batch_config: BatchConfi
     extended_models = {**core_models, **models}
     logger.info("Installing RWM common models...")
     rai.install_models(logger, rai_config, env_config, extended_models)
+    # Load batch config
+    batch_config_relation = build_relation_path(constants.CONFIG_BASE_RELATION, batch_config.name)
+    logger.info(f"Cleanup batch config `{batch_config.name}`")
+    rai.execute_query(logger, rai_config, env_config, q.delete_relation(batch_config_relation), readonly=False)
+    logger.info(f"Load a new batch config `{batch_config.name}`")
+    rai.load_json(logger, rai_config, env_config, batch_config_relation, batch_config.content)
 
     rest_client = SemanticSearchRestClient(logger, env_config.semantic_search_base_url,
                                            env_config.semantic_search_pod_prefix)

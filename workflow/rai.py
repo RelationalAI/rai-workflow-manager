@@ -243,19 +243,19 @@ def execute_query_csv(logger: logging.Logger, rai_config: RaiConfig, env_config:
     return _parse_csv_string(rsp)
 
 
-def execute_relation_string(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
-                            ignore_problems: bool = False) -> str:
+def execute_query_string(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
+                         ignore_problems: bool = False) -> str:
     """
-    Execute Rel query with output relation as a json string and parse the output.
+    Execute Rel query and parse the output as string.
     :param logger:          logger
     :param rai_config:      RAI config
     :param env_config:      Env config
-    :param relation:        Rel relations
+    :param query:           Rel query
     :param ignore_problems: Ignore SDK problems if any
-    :return: parsed json string
+    :return: parsed string
     """
 
-    rsp = execute_query(logger, rai_config, env_config, q.output_relation(relation), ignore_problems=ignore_problems)
+    rsp = execute_query(logger, rai_config, env_config, query, ignore_problems=ignore_problems)
     return _parse_string(rsp)
 
 
