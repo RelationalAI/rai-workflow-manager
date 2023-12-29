@@ -575,42 +575,46 @@ class WorkflowExecutor:
     logger: logging.Logger
     config: WorkflowConfig
     resource_manager: ResourceManager
-    factories: dict[str, WorkflowStepFactory]
+    workflow_id: str
+    steps: dict[str, WorkflowStep]
 
-    def __init__(self, logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager, factories):
+    def __init__(self, logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager,
+                 workflow_id: str, steps):
         self.logger = logger
         self.config = config
         self.resource_manager = resource_manager
-        self.factories = factories
+        self.steps = steps
+        self.workflow_id = workflow_id
 
     def run(self):
         rai_config = self.resource_manager.get_rai_config()
         account_name = self.config.env.rai_cloud_account
         rest_client = SemanticSearchRestClient(self.logger, self.config.env.semantic_search_base_url,
                                                self.config.env.semantic_search_pod_prefix)
-        workflow_id = rai.execute_query_string(self.logger, rai_config, self.config.env,
-                                               q.get_workflow_idt(self.config.workflow))
 
         if self.config.recover:
             # Load Retry transitions
             transitions_to_retry = WorkflowExecutor.filter_transitions(WorkflowExecutor.read_transitions(
-                rest_client.get_enabled_transitions(rai_config, account_name, workflow_id)), type=TransitionType.RETRY)
+                rest_client.get_enabled_transitions(rai_config, account_name, self.workflow_id)),
+                                                                       type=TransitionType.RETRY)
             # Fire retry transitions and get start transitions
             available_transitions = WorkflowExecutor.filter_transitions(
-                self.fire_transitions(transitions_to_retry, workflow_id, rest_client, rai_config),
+                self.fire_transitions(transitions_to_retry, self.workflow_id, rest_client, rai_config),
                 type=TransitionType.START)
         else:
             self.logger.info(f"Activating batch for workflow '{self.config.workflow}'")
-            rest_client.activate_workflow(rai_config, account_name, workflow_id)
+            rest_client.activate_workflow(rai_config, account_name, self.workflow_id)
             available_transitions = WorkflowExecutor.filter_transitions(WorkflowExecutor.read_transitions(
-                rest_client.get_enabled_transitions(rai_config, account_name, workflow_id)), type=TransitionType.START)
+                rest_client.get_enabled_transitions(rai_config, account_name, self.workflow_id)),
+                                                                        type=TransitionType.START)
 
         steps = []
         for transition in available_transitions:
-            steps.append(self.read_step(rest_client, rai_config, account_name, workflow_id, transition.step))
+            steps.append(self.steps[transition.step])
         # Fire initial transitions
         if available_transitions:
-            available_transitions = self.fire_transitions(available_transitions, workflow_id, rest_client, rai_config)
+            available_transitions = self.fire_transitions(available_transitions, self.workflow_id, rest_client,
+                                                          rai_config)
 
         failed_steps = {}
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -631,22 +635,21 @@ class WorkflowExecutor:
                     next_transitions += WorkflowExecutor.filter_transitions(available_transitions, step=step.name,
                                                                             type=type)
                 if next_transitions:
-                    available_transitions = self.fire_transitions(next_transitions, workflow_id, rest_client,
+                    available_transitions = self.fire_transitions(next_transitions, self.workflow_id, rest_client,
                                                                   rai_config)
                     # Print timings
                     for t in next_transitions:
                         if t.step not in failed_steps.keys():
-                            self.print_step_timings(rest_client, workflow_id, t.step)
+                            self.print_step_timings(rest_client, self.workflow_id, t.step)
                     # Schedule new steps execution concurrently
                     transitions_to_start = WorkflowExecutor.filter_transitions(available_transitions,
                                                                                type=TransitionType.START)
                     available_steps = []
                     for transition in transitions_to_start:
-                        available_steps.append(
-                            self.read_step(rest_client, rai_config, account_name, workflow_id, transition.step))
+                        available_steps.append(self.steps[transition.step])
                     if available_steps:
-                        available_transitions = self.fire_transitions(transitions_to_start, workflow_id, rest_client,
-                                                                      rai_config)
+                        available_transitions = self.fire_transitions(transitions_to_start, self.workflow_id,
+                                                                      rest_client, rai_config)
                         futures.update(
                             {executor.submit(self.execute_step, step, rai_config): step for step in available_steps})
                 # If any steps failed, exit the loop
@@ -656,12 +659,7 @@ class WorkflowExecutor:
                 # If all transitions have been completed, exit the loop
                 if not futures:
                     break
-        self.print_workflow_timings(rest_client, workflow_id)
-
-    def read_step(self, rest_client, rai_config, account_name, workflow_id, step_name) -> WorkflowStep:
-        step = rest_client.get_step_config(rai_config, account_name, workflow_id, step_name)
-        step_type = step["type"]
-        return self.factories[step_type].get_step(self.logger, self.config, step)
+        self.print_workflow_timings(rest_client, self.workflow_id)
 
     def fire_transitions(self, transitions, workflow_id, rest_client, rai_config) -> [Transition]:
         transitions_json = json.dumps(Transitions(transitions).to_json_dict())
@@ -741,5 +739,21 @@ class WorkflowExecutor:
     def init(logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager,
              factories: dict[str, WorkflowStepFactory] = MappingProxyType({})):
         logger = logger.getChild("workflow")
+        rai_config = resource_manager.get_rai_config()
+
         extended_factories = {**DEFAULT_FACTORIES, **factories}
-        return WorkflowExecutor(logger, config, resource_manager, extended_factories)
+        workflow_info = rai.execute_relation_json(logger, rai_config, config.env,
+                                                  build_relation_path(constants.WORKFLOW_JSON_REL,
+                                                                      config.workflow), ignore_problems=True)
+        steps_json = workflow_info["steps"]
+        if not steps_json:
+            raise ValueError(f"Config `{config.workflow}` doesn't have workflow steps")
+        steps = {}
+        for step in steps_json:
+            step_type = step["type"]
+            step_name = step["name"]
+            if step_type not in extended_factories:
+                logger.warning(f"Step '{step_type}' is not supported")
+            else:
+                steps[step_name] = extended_factories.get(step_type).get_step(logger, config, step)
+        return WorkflowExecutor(logger, config, resource_manager, workflow_info["remoteId"], steps)

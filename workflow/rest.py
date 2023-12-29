@@ -99,10 +99,6 @@ class SemanticSearchRestClient(RestClient):
         endpoint = f"semantic-search/v1alpha1/{account_name}/workflows/{workflow_id}/transitions/fire"
         return self.post(endpoint, headers=self._common_headers(rai_config), data=transition).json()
 
-    def get_step_config(self, rai_config: RaiConfig, account_name: str, workflow_id: str, step: str):
-        endpoint = f"semantic-search/v1alpha1/{account_name}/workflows/{workflow_id}/steps/{step}"
-        return self.get(endpoint, headers=self._common_headers(rai_config)).json()
-
     def get_step_summary(self, rai_config: RaiConfig, account_name: str, workflow_id: str, step: str):
         endpoint = f"semantic-search/v1alpha1/{account_name}/workflows/{workflow_id}/steps/{step}/summary"
         return self.get(endpoint, headers=self._common_headers(rai_config)).json()
