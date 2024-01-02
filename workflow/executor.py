@@ -629,6 +629,7 @@ class WorkflowExecutor:
                 next_transitions = []
                 for completed_future in completed_futures:
                     step, type = completed_future.result()
+                    self.logger.debug(f"Step '{step.name}' completed with status '{type}'")
                     if type == TransitionType.FAIL:
                         failed_steps[step.name] = step
                     del futures[completed_future]  # Remove the completed future
@@ -654,6 +655,11 @@ class WorkflowExecutor:
                             {executor.submit(self.execute_step, step, rai_config): step for step in available_steps})
                 # If any steps failed, exit the loop
                 if failed_steps:
+                    self.logger.debug("Workflow execution failed. Cancel all futures.")
+                    for future in futures:
+                        future.cancel()
+                    # cancel all active txns
+                    rai.EXECUTION_CTX.drop_ctx(self.logger, rai_config)
                     raise Exception(
                         f"Workflow execution failed. List of failed steps: {', '.join(str(s) for s in failed_steps)}")
                 # If all transitions have been completed, exit the loop

@@ -5,11 +5,48 @@ import time
 from typing import Dict, List
 from urllib.error import HTTPError
 from railib import api, config, rest
+import threading
 
 from workflow import query as q
 from workflow.common import RaiConfig, EnvConfig
 from workflow.utils import call_with_overhead
 from workflow.exception import ConcurrentWriteAttemptException, RetryException
+
+
+class ExecutionContext:
+    _instance = None
+    _lock = threading.Lock()
+    active_transactions: List[str] = []
+
+    def __new__(cls):
+        # Double-checked locking to ensure only one instance is created
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super(ExecutionContext, cls).__new__(cls)
+        return cls._instance
+
+    def add_txn(self, value):
+        with self._lock:
+            self.active_transactions.append(value)
+
+    def remove_txn(self, value):
+        with self._lock:
+            if value in self.active_transactions:
+                self.active_transactions.remove(value)
+
+    def drop_ctx(self, logger: logging.Logger, rai_config: RaiConfig):
+        logger.info("Dropping execution context")
+        with self._lock:
+            for txn in self.active_transactions:
+                try:
+                    logger.debug(f"Canceling transaction {txn}")
+                    cancel_transaction(logger, rai_config, txn)
+                except Exception as e:
+                    logger.warning(f"Failed to cancel transaction {txn}: {e}")
+
+
+EXECUTION_CTX = ExecutionContext()
 
 
 def get_config(engine: str, database: str, env_config: EnvConfig) -> RaiConfig:
@@ -192,20 +229,25 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, env_config: Env
         if not (txn.results is None):
             return txn
 
-        logger.info(f"Execute query: polling for transaction with id - {txn.transaction['id']}")
+        txn_id = txn.transaction['id']
+        EXECUTION_CTX.add_txn(txn_id)
+        logger.info(f"Execute query: polling for transaction with id - {txn_id}")
         rsp = api.TransactionAsyncResponse()
-        txn = api.get_transaction(rai_config.ctx, txn.transaction["id"])
+        try:
+            txn = api.get_transaction(rai_config.ctx, txn_id)
 
-        api.poll_with_specified_overhead(
-            lambda: api.is_txn_term_state(api.get_transaction(rai_config.ctx, txn["id"])["state"]),
-            overhead_rate=0.2,
-            start_time=start_time
-        )
+            api.poll_with_specified_overhead(
+                lambda: api.is_txn_term_state(api.get_transaction(rai_config.ctx, txn["id"])["state"]),
+                overhead_rate=0.2,
+                start_time=start_time
+            )
 
-        rsp.transaction = api.get_transaction(rai_config.ctx, txn["id"])
-        rsp.metadata = api.get_transaction_metadata(rai_config.ctx, txn["id"])
-        rsp.problems = api.get_transaction_problems(rai_config.ctx, txn["id"])
-        rsp.results = api.get_transaction_results(rai_config.ctx, txn["id"])
+            rsp.transaction = api.get_transaction(rai_config.ctx, txn["id"])
+            rsp.metadata = api.get_transaction_metadata(rai_config.ctx, txn["id"])
+            rsp.problems = api.get_transaction_problems(rai_config.ctx, txn["id"])
+            rsp.results = api.get_transaction_results(rai_config.ctx, txn["id"])
+        finally:
+            EXECUTION_CTX.remove_txn(txn_id)
 
         _assert_problems(logger, rsp, ignore_problems)
         return rsp
