@@ -172,11 +172,6 @@ def parse() -> Namespace:
             parser.add_argument(a, **run_args[a])
     args = parser.parse_args()
     # Validation
-    if 'selected_steps' in vars(args) and args.selected_steps and 'recover_step' in vars(args) and args.recover_step:
-        parser.error("`--recover-step` can't be used when selected-steps are specified.")
-    if 'recover' in vars(args) and args.recover and 'recover_step' in vars(args) and args.recover_step:
-        parser.error(
-            "`--recover` and `--recover-step` options are mutually exclusive. You must choose only 1 option.")
     if 'step_timeout' in vars(args):
         try:
             args.step_timeout_dict = parse_string_int_key_value_argument(args.step_timeout)
