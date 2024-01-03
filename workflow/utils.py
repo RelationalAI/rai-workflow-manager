@@ -194,3 +194,15 @@ def call_with_overhead(
     loop = asyncio.get_event_loop()
     loop.run_until_complete(
         call_with_overhead_async(f, logger, overhead_rate, start_time, timeout, max_tries, first_delay, max_delay))
+
+
+def get_or_create_eventloop():
+    """Get the current event loop or create a new one."""
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError as ex:
+        if "There is no current event loop in thread" in str(ex):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return asyncio.get_event_loop()
+        raise ex
