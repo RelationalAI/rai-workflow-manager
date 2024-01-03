@@ -72,6 +72,7 @@ properties:
 | HTTP retries for RAI sdk in case of errors. (Can be overridden by CLI argument)                                         | `rai_sdk_http_retries`                 |
 | Enable check for multiple write txns in flight to avoid parallel writes initiated by other interactions with RAI engine | `fail_on_multiple_write_txn_in_flight` |
 | Semantic Layer Service base url.                                                                                        | `sematic_search_base_url`              |
+| Semantic Layer Service pod prefix.                                                                                      | `sematic_search_pod_prefix`            |
 | RAI Cloud account name.                                                                                                 | `rai_cloud_account`                    |
 | A list of containers to use for loading and exporting data.                                                             | `container`                            |
 | The name of the container.                                                                                              | `container.name`                       |
