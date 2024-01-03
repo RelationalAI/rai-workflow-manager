@@ -358,7 +358,8 @@ class LoadDataWorkflowStep(WorkflowStep):
             self.await_pending(env_config, logger, missed_resources)
 
     def await_pending(self, env_config, logger, missed_resources):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         if loop.is_running():
             raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion')
         pending = [src for src in missed_resources if self._resource_is_async(src)]
