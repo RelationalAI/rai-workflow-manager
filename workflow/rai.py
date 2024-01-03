@@ -2,51 +2,15 @@ import logging
 import re
 import json
 import time
+import concurrent.futures
 from typing import Dict, List
 from urllib.error import HTTPError
 from railib import api, config, rest
-import threading
 
 from workflow import query as q
 from workflow.common import RaiConfig, EnvConfig
 from workflow.utils import call_with_overhead
 from workflow.exception import ConcurrentWriteAttemptException, RetryException
-
-
-class ExecutionContext:
-    _instance = None
-    _lock = threading.Lock()
-    active_transactions: List[str] = []
-
-    def __new__(cls):
-        # Double-checked locking to ensure only one instance is created
-        if not cls._instance:
-            with cls._lock:
-                if not cls._instance:
-                    cls._instance = super(ExecutionContext, cls).__new__(cls)
-        return cls._instance
-
-    def add_txn(self, value):
-        with self._lock:
-            self.active_transactions.append(value)
-
-    def remove_txn(self, value):
-        with self._lock:
-            if value in self.active_transactions:
-                self.active_transactions.remove(value)
-
-    def drop_ctx(self, logger: logging.Logger, rai_config: RaiConfig):
-        logger.info("Dropping execution context")
-        with self._lock:
-            for txn in self.active_transactions:
-                try:
-                    logger.debug(f"Canceling transaction {txn}")
-                    cancel_transaction(logger, rai_config, txn)
-                except Exception as e:
-                    logger.warning(f"Failed to cancel transaction {txn}: {e}")
-
-
-EXECUTION_CTX = ExecutionContext()
 
 
 def get_config(engine: str, database: str, env_config: EnvConfig) -> RaiConfig:
@@ -87,20 +51,22 @@ def cancel_transaction(logger: logging.Logger, rai_config: RaiConfig, txn: str) 
 
 
 def load_json(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
-              json_data: str) -> None:
+              json_data: str, cancellation_token=None) -> None:
     """
     Load json into RAI DB
-    :param logger:      logger
-    :param rai_config:  RAI config
-    :param env_config:  Env config
-    :param relation:    relation for insert
-    :param json_data:   json data string
+    :param logger:          logger
+    :param rai_config:      RAI config
+    :param env_config:      Env config
+    :param relation:        relation for insert
+    :param json_data:       json data string
+    :param cancellation_token:  Signal to cancel the transaction
     :return:
     """
     logger.info(f"Loading json as '{relation}'")
     logger.debug(f"Json content: '{json_data}'")
     query_model = q.load_json(relation, json_data)
-    execute_query(logger, rai_config, env_config, query_model.query, query_model.inputs, readonly=False)
+    execute_query(logger, rai_config, env_config, query_model.query, query_model.inputs, readonly=False,
+                  cancellation_token=cancellation_token)
 
 
 def create_engine(logger: logging.Logger, rai_config: RaiConfig, size: str = "XS") -> None:
@@ -189,37 +155,42 @@ def database_exist(logger: logging.Logger, rai_config: RaiConfig) -> bool:
     return bool(api.get_database(rai_config.ctx, rai_config.database))
 
 
-def install_models(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, models: dict) -> None:
+def install_models(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, models: dict,
+                   cancellation_token=None) -> None:
     """
     Install Rel model into RAI DB specified in RAI config.
     :param logger:      logger
     :param rai_config:  RAI config
     :param env_config:  Env config
     :param models:      RAI models to install
+    :param cancellation_token:  Signal to cancel the transaction
     :return:
     """
     logger.info("Installing models")
 
     query_model = q.install_model(models)
-    execute_query(logger, rai_config, env_config, query_model.query, query_model.inputs, False, False)
+    execute_query(logger, rai_config, env_config, query_model.query, query_model.inputs, False, False,
+                  cancellation_token)
 
 
 def execute_query(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str, inputs: dict = None,
-                  readonly: bool = True, ignore_problems: bool = False) -> api.TransactionAsyncResponse:
+                  readonly: bool = True, ignore_problems: bool = False,
+                  cancellation_token=None) -> api.TransactionAsyncResponse:
     """
     Execute Rel query using DB and engine from RAI config.
-    :param logger:          logger
-    :param rai_config:      RAI config
-    :param env_config:      Env config
-    :param query:           Rel query
-    :param inputs:          Rel query inputs
-    :param readonly:        Parameter to specify transaction type: Read/Write.
-    :param ignore_problems: Ignore SDK problems if any
+    :param logger:              logger
+    :param rai_config:          RAI config
+    :param env_config:          Env config
+    :param query:               Rel query
+    :param inputs:              Rel query inputs
+    :param readonly:            Parameter to specify transaction type: Read/Write.
+    :param ignore_problems:     Ignore SDK problems if any
+    :param cancellation_token:  Signal to cancel the transaction
     :return: SDK response
     """
     try:
         if env_config.fail_on_multiple_write_txn_in_flight and not readonly:
-            _check_running_write_txn(logger, rai_config)
+            _check_running_write_txn(logger, rai_config, cancellation_token)
         logger.info(f"Execute query: database={rai_config.database} engine={rai_config.engine} readonly={readonly}")
         start_time = int(time.time())
         txn = api.exec_async(rai_config.ctx, rai_config.database, rai_config.engine, query, readonly, inputs)
@@ -230,24 +201,24 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, env_config: Env
             return txn
 
         txn_id = txn.transaction['id']
-        EXECUTION_CTX.add_txn(txn_id)
         logger.info(f"Execute query: polling for transaction with id - {txn_id}")
         rsp = api.TransactionAsyncResponse()
-        try:
-            txn = api.get_transaction(rai_config.ctx, txn_id)
+        txn = api.get_transaction(rai_config.ctx, txn_id)
 
-            api.poll_with_specified_overhead(
-                lambda: api.is_txn_term_state(api.get_transaction(rai_config.ctx, txn["id"])["state"]),
-                overhead_rate=0.2,
-                start_time=start_time
-            )
-
-            rsp.transaction = api.get_transaction(rai_config.ctx, txn["id"])
-            rsp.metadata = api.get_transaction_metadata(rai_config.ctx, txn["id"])
-            rsp.problems = api.get_transaction_problems(rai_config.ctx, txn["id"])
-            rsp.results = api.get_transaction_results(rai_config.ctx, txn["id"])
-        finally:
-            EXECUTION_CTX.remove_txn(txn_id)
+        api.poll_with_specified_overhead(
+            lambda: api.is_txn_term_state(
+                api.get_transaction(rai_config.ctx, txn["id"])["state"]) or (
+                                cancellation_token and cancellation_token.is_set()),
+            overhead_rate=0.2,
+            start_time=start_time
+        )
+        if cancellation_token and cancellation_token.is_set():
+            cancel_transaction(logger, rai_config, txn_id)
+            raise concurrent.futures.CancelledError(f"Transaction {txn_id} was canceled")
+        rsp.transaction = api.get_transaction(rai_config.ctx, txn["id"])
+        rsp.metadata = api.get_transaction_metadata(rai_config.ctx, txn["id"])
+        rsp.problems = api.get_transaction_problems(rai_config.ctx, txn["id"])
+        rsp.results = api.get_transaction_results(rai_config.ctx, txn["id"])
 
         _assert_problems(logger, rsp, ignore_problems)
         return rsp
@@ -256,63 +227,71 @@ def execute_query(logger: logging.Logger, rai_config: RaiConfig, env_config: Env
 
 
 def execute_relation_json(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
-                          ignore_problems: bool = False) -> Dict:
+                          ignore_problems: bool = False, cancellation_token=None) -> Dict:
     """
     Execute Rel query with output relation as a json string and parse the output.
-    :param logger:          logger
-    :param rai_config:      RAI config
-    :param env_config:      Env config
-    :param relation:        Rel relations
-    :param ignore_problems: Ignore SDK problems if any
+    :param logger:              logger
+    :param rai_config:          RAI config
+    :param env_config:          Env config
+    :param relation:            Rel relations
+    :param ignore_problems:     Ignore SDK problems if any
+    :param cancellation_token:  Signal to cancel the transaction
     :return: parsed json string
     """
-    rsp = execute_query(logger, rai_config, env_config, q.output_json(relation), ignore_problems=ignore_problems)
+    rsp = execute_query(logger, rai_config, env_config, q.output_json(relation), ignore_problems=ignore_problems,
+                        cancellation_token=cancellation_token)
     return _parse_json_string(rsp)
 
 
 def execute_query_csv(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
-                      ignore_problems: bool = False) -> Dict:
+                      ignore_problems: bool = False, cancellation_token=None) -> Dict:
     """
     Execute query and parse the output as CSV.
-    :param logger:          logger
-    :param rai_config:      RAI config
-    :param env_config:      Env config
-    :param query:           Rel query
-    :param ignore_problems: Ignore SDK problems if any
+    :param logger:              logger
+    :param rai_config:          RAI config
+    :param env_config:          Env config
+    :param query:               Rel query
+    :param ignore_problems:     Ignore SDK problems if any
+    :param cancellation_token:  Signal to cancel the transaction
     :return: parsed CSV output
     """
-    rsp = execute_query(logger, rai_config, env_config, query, ignore_problems=ignore_problems)
+    rsp = execute_query(logger, rai_config, env_config, query, ignore_problems=ignore_problems,
+                        cancellation_token=cancellation_token)
     return _parse_csv_string(rsp)
 
 
 def execute_query_string(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
-                         ignore_problems: bool = False) -> str:
+                         ignore_problems: bool = False, cancellation_token=None) -> str:
     """
     Execute Rel query and parse the output as string.
-    :param logger:          logger
-    :param rai_config:      RAI config
-    :param env_config:      Env config
-    :param query:           Rel query
-    :param ignore_problems: Ignore SDK problems if any
+    :param logger:              logger
+    :param rai_config:          RAI config
+    :param env_config:          Env config
+    :param query:               Rel query
+    :param ignore_problems:     Ignore SDK problems if any
+    :param cancellation_token:  Signal to cancel the transaction
     :return: parsed string
     """
 
-    rsp = execute_query(logger, rai_config, env_config, query, ignore_problems=ignore_problems)
+    rsp = execute_query(logger, rai_config, env_config, query, ignore_problems=ignore_problems,
+                        cancellation_token=cancellation_token)
     return _parse_string(rsp)
 
 
 def execute_query_take_single(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
-                              readonly: bool = True, ignore_problems: bool = False) -> any:
+                              readonly: bool = True, ignore_problems: bool = False, cancellation_token=None) -> any:
     """
     Execute query and take the first result.
-    :param logger:          logger
-    :param rai_config:      RAI config
-    :param env_config:      Env config
-    :param query:           Rel query
-    :param readonly:        Parameter to specify transaction type: Read/Write
-    :param ignore_problems: Ignore SDK problems if any
+    :param logger:              logger
+    :param rai_config:          RAI config
+    :param env_config:          Env config
+    :param query:               Rel query
+    :param readonly:            Parameter to specify transaction type: Read/Write
+    :param ignore_problems:     Ignore SDK problems if any
+    :param cancellation_token:  Signal to cancel the transaction
     """
-    rsp = execute_query(logger, rai_config, env_config, query, readonly=readonly, ignore_problems=ignore_problems)
+    rsp = execute_query(logger, rai_config, env_config, query, readonly=readonly, ignore_problems=ignore_problems,
+                        cancellation_token=cancellation_token)
     if not rsp.results:
         logger.debug(f"Query returned no results: {query}")
         return None
@@ -388,14 +367,17 @@ def _parse_csv_string(rsp: api.TransactionAsyncResponse) -> Dict:
     return resp
 
 
-def _check_running_write_txn(logger: logging.Logger, rai_config: RaiConfig) -> None:
+def _check_running_write_txn(logger: logging.Logger, rai_config: RaiConfig, cancellation_token=None) -> None:
     try:
         call_with_overhead(
-            f=lambda: not _is_running_write_txn(logger, rai_config),
+            f=lambda: not _is_running_write_txn(logger, rai_config) or (
+                        cancellation_token and cancellation_token.is_set()),
             logger=logger,
             overhead_rate=0.5,
             timeout=30  # 30 sec
         )
+        if cancellation_token and cancellation_token.is_set():
+            raise concurrent.futures.CancelledError("Operation was canceled")
     except RetryException:
         raise ConcurrentWriteAttemptException(rai_config.engine)
 
