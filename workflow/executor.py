@@ -19,7 +19,7 @@ from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, F
     FileMetadata
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
-    get_common_model_relative_path
+    get_common_model_relative_path, get_or_create_eventloop
 
 
 class WorkflowStepState(str, Enum):
@@ -358,7 +358,7 @@ class LoadDataWorkflowStep(WorkflowStep):
             self.await_pending(env_config, logger, missed_resources)
 
     def await_pending(self, env_config, logger, missed_resources):
-        loop = asyncio.get_event_loop()
+        loop = get_or_create_eventloop()
         if loop.is_running():
             raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion')
         pending = [src for src in missed_resources if self._resource_is_async(src)]
