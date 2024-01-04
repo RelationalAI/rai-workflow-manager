@@ -1,6 +1,7 @@
 import re
 from argparse import ArgumentParser, Namespace, BooleanOptionalAction
 from cli.logger import LogRotationOption
+from cli.common import CliAction
 
 prohibited_symbols_in_file_name = re.compile(r'[\\/:*?"<>|]')
 
@@ -9,9 +10,9 @@ def parse() -> Namespace:
     common_args = {
         "--action": {
             "help": "Cli action",
-            "choices": ["run", "init"],
+            "choices": [CliAction.RUN, CliAction.INIT],
             "required": True,
-            "type": str
+            "type": CliAction,
         },
         "--database": {
             "help": "RAI database",

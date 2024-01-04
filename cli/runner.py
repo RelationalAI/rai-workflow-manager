@@ -6,6 +6,7 @@ from types import MappingProxyType
 
 import cli.args
 import cli.logger
+import cli.common
 import workflow.constants
 import workflow.manager
 import workflow.common
@@ -40,7 +41,7 @@ def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingP
         start_time = time.time()
         # create engine if it doesn't exist
         resource_manager.add_engine(args.engine_size)
-        if args.action == "init":
+        if args.action == cli.common.CliAction.INIT:
             # load batch config as json string
             batch_config_json = workflow.utils.read_config(args.batch_config)
             # Create db and disable IVM in case of enabled flag
@@ -48,7 +49,7 @@ def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingP
             semantic_layer_service.init(logger, env_config,
                                         workflow.common.BatchConfig(args.batch_config_name, batch_config_json),
                                         resource_manager, models)
-        elif args.action == "run":
+        elif args.action == cli.common.CliAction.RUN:
             # Init workflow executor
             parameters = {
                 workflow.constants.REL_CONFIG_DIR: args.rel_config_dir,

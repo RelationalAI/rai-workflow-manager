@@ -260,6 +260,22 @@ def execute_query_csv(logger: logging.Logger, rai_config: RaiConfig, env_config:
     return _parse_csv_string(rsp)
 
 
+def execute_relation_string(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, relation: str,
+                            ignore_problems: bool = False, cancellation_token=None) -> str:
+    """
+    Execute Rel relation and parse the output as string.
+    :param logger:              logger
+    :param rai_config:          RAI config
+    :param env_config:          Env config
+    :param relation:            Rel relation
+    :param ignore_problems:     Ignore SDK problems if any
+    :param cancellation_token:  Signal to cancel the transaction
+    :return: parsed string
+    """
+    return execute_query_string(logger, rai_config, env_config, q.output_relation(relation),
+                                ignore_problems=ignore_problems, cancellation_token=cancellation_token)
+
+
 def execute_query_string(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
                          ignore_problems: bool = False, cancellation_token=None) -> str:
     """
