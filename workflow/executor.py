@@ -17,7 +17,8 @@ from workflow.exception import StepTimeOutException, CommandExecutionException
 from workflow.common import EnvConfig, RaiConfig, Source, Export, FileType, ContainerType, Container, FileMetadata, \
     Transition, Transitions, TransitionType
 from workflow.manager import ResourceManager
-from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path
+from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
+    get_or_create_eventloop
 
 
 @dataclasses.dataclass
@@ -381,7 +382,7 @@ class LoadDataWorkflowStep(WorkflowStep):
 
     def await_pending(self, env_config, logger, missed_resources):
         # todo: implement efficient snowflake data sync cancellation
-        loop = asyncio.get_event_loop()
+        loop = get_or_create_eventloop()
         if loop.is_running():
             raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion')
         pending = [src for src in missed_resources if self._resource_is_async(src)]
