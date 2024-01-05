@@ -291,11 +291,11 @@ class CliE2ETest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        # clean up db which stores workflow metadata
-        workflow.semantic_layer_service.delete_layer(cls.logger, cls.env_config, cls.resource_manager, "workflow")
+        cls.resource_manager.cleanup_resources()
         # shut down engine which use semantic layer service
         workflow.semantic_layer_service.shutdown(cls.logger, cls.env_config, cls.resource_manager)
-        cls.resource_manager.cleanup_resources()
+        # clean up db which stores workflow metadata
+        workflow.semantic_layer_service.delete_layer(cls.logger, cls.env_config, cls.resource_manager, "workflow")
 
     def assert_output_dir_files(self, scenario: str):
         for filename in os.listdir(f"{self.output}"):
