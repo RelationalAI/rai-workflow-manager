@@ -54,7 +54,7 @@ jobs:
       - name: Update loader
         run: |
           cd $GITHUB_WORKSPACE/cli-e2e-test/config
-          sed -i '1irai_cloud_account="${{ secrets.RAI_CLOUD_ACCOUNT }}"' loader.toml
+          sed -i '1irai_cloud_account="${{ secrets.EA_RAI_CLOUD_ACCOUNT }}"' loader.toml
           sed -i '1isematic_search_pod_prefix="${{ steps.generate-resource-name.outputs.resource_id }}-"' loader.toml
 
       # Checkout semantic layer service
