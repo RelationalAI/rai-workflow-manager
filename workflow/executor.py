@@ -47,19 +47,19 @@ class WorkflowStep:
     def stop(self):
         self._stop_event.set()
 
-    def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig,
-                resource_manager: ResourceManager, timeout: int):
+    def execute(self, logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager):
         logger.info(f"Executing {self} step...")
         logger = logger.getChild(self.name)
         try:
-            active_rai_config = rai_config
+            active_rai_config = resource_manager.get_rai_config()
             if self.engine_size:
                 resource_manager.add_engine(self.engine_size)
                 active_rai_config = resource_manager.get_rai_config(self.engine_size)
+            timeout = config.step_timeout.get(self.name, 0)
             if timeout > 0:
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     # Submit the function to the executor
-                    future = executor.submit(self._execute, logger, env_config, active_rai_config)
+                    future = executor.submit(self._execute, logger, config.env, active_rai_config)
                     try:
                         # Wait for the function to complete, with a maximum timeout in WorkflowConfig for the step
                         future.result(timeout=timeout)
@@ -67,7 +67,7 @@ class WorkflowStep:
                         self.stop()
                         raise StepTimeOutException(f"Step '{self.name}' exceeded step's timeout: {timeout} sec")
             else:
-                self._execute(logger, env_config, active_rai_config)
+                self._execute(logger, config.env, active_rai_config)
             return self, TransitionType.CONFIRM
         except Exception as e:
             logger.exception(e)
@@ -672,8 +672,8 @@ class WorkflowExecutor:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # Schedule initial steps execution concurrently
             futures = {
-                executor.submit(step.execute, self.logger, self.config.env, rai_config, self.resource_manager,
-                                self.config.step_timeout.get(step.name, 0)): step for step in steps}
+                executor.submit(step.execute, self.logger, self.config, self.resource_manager): step for
+                step in steps}
             # Continuously check for completed tasks and submit new ones
             while True:
                 completed_futures, _ = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
@@ -703,10 +703,9 @@ class WorkflowExecutor:
                     if available_steps:
                         available_transitions = self.fire_transitions(transitions_to_start, self.workflow_id,
                                                                       rest_client, rai_config)
-                        futures.update({executor.submit(step.execute, self.logger, self.config.env, rai_config,
-                                                        self.resource_manager,
-                                                        self.config.step_timeout.get(step.name, 0)): step for step in
-                                        available_steps})
+                        futures.update(
+                            {executor.submit(step.execute, self.logger, self.config, self.resource_manager): step for
+                             step in available_steps})
                 # If any steps failed, exit the loop
                 if failed_steps:
                     self.logger.debug("Workflow execution failed. Cancel all futures and stop running steps.")
