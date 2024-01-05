@@ -23,6 +23,7 @@
     {
       "type": "InstallModels",
       "name": "InstallModels1",
+      "needs": ["ConfigureSources"],
       "modelFiles": [
         "device_seen.rel",
         "device.rel"
@@ -30,7 +31,8 @@
     },
     {
       "type": "LoadData",
-      "name": "LoadData"
+      "name": "LoadData",
+      "needs": ["InstallModels1"]
     }
   ]
 }

@@ -4,8 +4,8 @@ from unittest.mock import Mock, MagicMock
 
 from workflow import paths
 from workflow import constants
-from workflow.common import Source, BatchConfig, EnvConfig, Container, ContainerType
-from workflow.executor import ConfigureSourcesWorkflowStepFactory, WorkflowConfig, WorkflowStepState
+from workflow.common import Source, EnvConfig, Container, ContainerType
+from workflow.executor import ConfigureSourcesWorkflowStepFactory, WorkflowConfig
 
 
 class TestConfigureSourcesWorkflowStepFactory(unittest.TestCase):
@@ -15,7 +15,7 @@ class TestConfigureSourcesWorkflowStepFactory(unittest.TestCase):
         # Setup factory spy
         factory = ConfigureSourcesWorkflowStepFactory()
         config = _create_wf_cfg(EnvConfig({"azure": _create_container("default", ContainerType.AZURE),
-                                           "local": _create_container("local", ContainerType.LOCAL)}), Mock())
+                                           "local": _create_container("local", ContainerType.LOCAL)}))
         spy = MagicMock(wraps=factory._parse_sources)
         sources = [_create_test_source(config.env.get_container("azure"), "src1"),
                    _create_test_source(config.env.get_container("local"), "src2"),
@@ -25,13 +25,9 @@ class TestConfigureSourcesWorkflowStepFactory(unittest.TestCase):
         factory._parse_sources = spy
 
         # When
-        step = factory._get_step(self.logger, config, "1", "name", "ConfigureSources", WorkflowStepState.INIT, 0, None,
-                                 {"configFiles": []})
+        step = factory._get_step(self.logger, config, "name", "ConfigureSources", None, {"configFiles": []})
         # Then
-        self.assertEqual("1", step.idt)
         self.assertEqual("name", step.name)
-        self.assertEqual(WorkflowStepState.INIT, step.state)
-        self.assertEqual(0, step.timing)
         self.assertEqual(None, step.engine_size)
         self.assertEqual([], step.config_files)
         self.assertEqual("./rel", step.rel_config_dir)
@@ -69,7 +65,7 @@ def _create_container(name: str, c_type: ContainerType) -> Container:
     )
 
 
-def _create_wf_cfg(env_config: EnvConfig, batch_config: BatchConfig) -> WorkflowConfig:
+def _create_wf_cfg(env_config: EnvConfig) -> WorkflowConfig:
     parameters = {
         constants.REL_CONFIG_DIR: "./rel",
         constants.START_DATE: "2021-01-01",
@@ -80,9 +76,7 @@ def _create_wf_cfg(env_config: EnvConfig, batch_config: BatchConfig) -> Workflow
     }
     return WorkflowConfig(
         env=env_config,
-        batch_config=batch_config,
+        workflow="default",
         recover=False,
-        recover_step="",
-        selected_steps=[],
         step_params=parameters
     )

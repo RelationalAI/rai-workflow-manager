@@ -54,6 +54,7 @@ workflow:
 
   - name: InstallModels1
     type: InstallModels
+    needs: [ConfigureSources, TestExecuteCommand]
     modelFiles:
       - device.rel
       - zip.rel
@@ -65,9 +66,11 @@ workflow:
 
   - name: LoadData
     type: LoadData
+    needs: [InstallModels1]
 
   - name: Materialize
     type: Materialize
+    needs: [LoadData]
     relations:
       - city:name
       - device:name
@@ -78,6 +81,7 @@ workflow:
 
   - name: Export
     type: Export
+    needs: [Materialize]
     exportJointly: true
     dateFormat: "%Y%m%d"
     defaultContainer: export

@@ -1,4 +1,5 @@
 rai_sdk_http_retries=0
+sematic_search_base_url="http://localhost:8081"
 
 [[container]]
 name="input"
