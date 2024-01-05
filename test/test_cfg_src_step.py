@@ -1,13 +1,11 @@
 import logging
 import unittest
-import uuid
-from datetime import datetime
 from typing import List
 from unittest.mock import Mock, patch
 
 from workflow import paths
 from workflow.common import Source, Container, ContainerType, RaiConfig, EnvConfig, FileMetadata
-from workflow.executor import ConfigureSourcesWorkflowStep, WorkflowStepState
+from workflow.executor import ConfigureSourcesWorkflowStep
 
 
 class TestConfigureSourcesWorkflowStep(unittest.TestCase):
@@ -568,11 +566,8 @@ def _create_test_source(is_chunk_partitioned: bool = True, is_date_partitioned: 
 def _create_cfg_sources_step(sources: List[Source], paths_builders: dict[str, paths.PathsBuilder], start_date,
                              end_date) -> ConfigureSourcesWorkflowStep:
     return ConfigureSourcesWorkflowStep(
-        idt=str(uuid.uuid4()),
         name="test",
         type_value="ConfigureSources",
-        state=WorkflowStepState.INIT,
-        timing=datetime.now().second,
         engine_size="xs",
         config_files=[],
         rel_config_dir="",

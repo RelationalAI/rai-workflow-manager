@@ -23,6 +23,7 @@ The included CLI implementation enhances your experience by providing an intuiti
 ### Requirements
 
 * Python 3.9+
+* [Semantic Layer Service](https://github.com/RelationalAI/semantic-search)
 
 ### Build project
 
@@ -35,6 +36,9 @@ python -m virtualenv venv
 source ./venv/bin/activate
 pip install -r requirements.txt
 ```
+
+### Build Semantic Layer Service
+Follow instructions in [README](https://github.com/RelationalAI/semantic-search?tab=readme-ov-file#running-the-semantic-search-service).
 
 ### RAI Workflow Framework
 

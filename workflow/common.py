@@ -7,7 +7,7 @@ from railib import api
 from workflow.constants import ACCOUNT_PARAM, CONTAINER_PARAM, DATA_PATH_PARAM, AZURE_SAS, CONTAINER, CONTAINER_TYPE, \
     CONTAINER_NAME, USER_PARAM, PASSWORD_PARAM, SNOWFLAKE_ROLE, SNOWFLAKE_WAREHOUSE, DATABASE_PARAM, SCHEMA_PARAM, \
     FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, RAI_SDK_HTTP_RETRIES, RAI_PROFILE, RAI_PROFILE_PATH, \
-    SEMANTIC_SEARCH_BASE_URL, RAI_CLOUD_ACCOUNT
+    SEMANTIC_SEARCH_BASE_URL, RAI_CLOUD_ACCOUNT, SEMANTIC_SEARCH_POD_PREFIX
 
 
 class MetaEnum(EnumMeta):
@@ -177,6 +177,7 @@ class EnvConfig:
     rai_profile: str = "default"
     rai_profile_path: str = "~/.rai/config"
     semantic_search_base_url: str = ""
+    semantic_search_pod_prefix: str = ""
     rai_cloud_account: str = ""
 
     __EXTRACTORS = {
@@ -206,7 +207,7 @@ class EnvConfig:
         return EnvConfig(containers, env_vars.get(FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT, False),
                          env_vars.get(RAI_SDK_HTTP_RETRIES, 3), env_vars.get(RAI_PROFILE, "default"),
                          env_vars.get(RAI_PROFILE_PATH, "~/.rai/config"), env_vars.get(SEMANTIC_SEARCH_BASE_URL, ""),
-                         env_vars.get(RAI_CLOUD_ACCOUNT, ""))
+                         env_vars.get(SEMANTIC_SEARCH_POD_PREFIX, "rwm-"), env_vars.get(RAI_CLOUD_ACCOUNT, ""))
 
 
 @dataclasses.dataclass
@@ -224,3 +225,47 @@ class Export:
 class BatchConfig:
     name: str
     content: str
+
+
+class TransitionType(str, BaseEnum):
+    START = 'Start'
+    CONFIRM = 'Confirm'
+    FAIL = 'Fail'
+    RETRY = 'Retry'
+
+    def __str__(self):
+        return self.value
+
+    @staticmethod
+    def from_source(src):
+        try:
+            return ContainerType[src["container_type"]]
+        except KeyError as ex:
+            raise ValueError(f"Container type is not supported: {ex}")
+
+
+@dataclasses.dataclass
+class Transition:
+    workflow_id: str
+    step: str
+    timestamp: str
+    type: TransitionType
+
+    # todo: use dataclasses_json
+    def to_json_dict(self) -> dict[str, str]:
+        return {
+            "workflowId": self.workflow_id,
+            "step": self.step,
+            "timestamp": self.timestamp,
+            "type": self.type.value
+        }
+
+
+@dataclasses.dataclass
+class Transitions:
+    transitions: [Transition]
+
+    def to_json_dict(self) -> dict:
+        return {
+            "transitions": [t.to_json_dict() for t in self.transitions]
+        }

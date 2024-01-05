@@ -1,12 +1,10 @@
 import logging
 import unittest
-import uuid
-from datetime import datetime
 from typing import List
 from unittest.mock import Mock, patch
 
 from workflow.common import Export, RaiConfig, FileType, EnvConfig
-from workflow.executor import WorkflowStepState, ExportWorkflowStep
+from workflow.executor import ExportWorkflowStep
 
 
 class TestConfigureSourcesWorkflowStep(unittest.TestCase):
@@ -57,11 +55,8 @@ class TestConfigureSourcesWorkflowStep(unittest.TestCase):
 def _create_export_step(exports: List[Export], end_date: str, export_jointly: bool = True,
                         date_format: str = "%Y%m%d") -> ExportWorkflowStep:
     return ExportWorkflowStep(
-        idt=str(uuid.uuid4()),
         name="test",
         type_value="Export",
-        state=WorkflowStepState.INIT,
-        timing=datetime.now().second,
         engine_size="xs",
         exports=exports,
         export_jointly=export_jointly,

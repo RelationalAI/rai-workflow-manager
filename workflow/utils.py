@@ -95,18 +95,22 @@ def build_models(filenames: List[str], files_root: str) -> dict:
     return models
 
 
-def format_duration(seconds: float) -> str:
+def format_duration(duration: float) -> str:
+    seconds, milliseconds = divmod(duration, 1000)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     hours_int = int(hours)
     minutes_int = int(minutes)
     seconds_int = int(seconds)
+    milliseconds_int = int(milliseconds)
     if hours_int != 0:
-        return f"[{hours_int:d}h {minutes_int:d}m {seconds_int:d}s]"
+        return f"[{hours_int:d}h {minutes_int:d}m {seconds_int:d}s {milliseconds_int:d}ms]"
     elif minutes_int != 0:
-        return f"[{minutes_int:d}m {seconds_int:d}s]"
+        return f"[{minutes_int:d}m {seconds_int:d}s {milliseconds_int:d}ms]"
+    elif seconds_int != 0:
+        return f"[{seconds_int:d}s {milliseconds_int:d}ms]"
     else:
-        return f"[{seconds_int:d}s]"
+        return f"[{milliseconds_int:d}ms]"
 
 
 def get_common_model_relative_path(file) -> str:
@@ -147,7 +151,7 @@ def to_rai_date_format(date_format: str) -> str:
     return rai_date_format
 
 
-async def call_with_overhead_async(
+def call_with_overhead(
         f,
         logger: logging.Logger,
         overhead_rate: float,
@@ -175,13 +179,13 @@ async def call_with_overhead_async(
         duration = min((time.time() - start_time) * overhead_rate, max_delay)
         if tries == 1:
             logger.debug(f"Sleep duration for the first try: {first_delay}s")
-            await asyncio.sleep(first_delay)
+            time.sleep(first_delay)
         else:
             logger.debug(f"Sleep duration for a try: {duration}s")
-            await asyncio.sleep(duration)
+            time.sleep(duration)
 
 
-def call_with_overhead(
+async def call_with_overhead_async(
         f,
         logger: logging.Logger,
         overhead_rate: float,
@@ -191,9 +195,9 @@ def call_with_overhead(
         first_delay: float = 0.5,
         max_delay: int = 120,  # 2 minutes
 ):
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(
-        call_with_overhead_async(f, logger, overhead_rate, start_time, timeout, max_tries, first_delay, max_delay))
+    loop = get_or_create_eventloop()
+    await loop.run_in_executor(None, call_with_overhead_async, f, logger, overhead_rate, start_time, timeout, max_tries,
+                               first_delay, max_delay)
 
 
 def get_or_create_eventloop():

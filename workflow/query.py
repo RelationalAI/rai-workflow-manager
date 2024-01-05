@@ -5,7 +5,7 @@ import dataclasses
 from typing import List, Iterable
 
 from workflow import utils
-from workflow.common import FileType, Export, Source, ContainerType, AzureConfig
+from workflow.common import FileType, Export, Source, ContainerType, AzureConfig, BatchConfig
 from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION
 
 # Static queries
@@ -32,6 +32,25 @@ class QueryWithInputs:
 
 def load_json(relation: str, data) -> QueryWithInputs:
     return QueryWithInputs(f"def config:data = data\n" f"def insert:{relation} = load_json[config]", {"data": data})
+
+
+def get_workflow_idt(workflow_name) -> str:
+    return f"""
+    def output(idt) {{
+        batch_workflow:remote_id(w, idt) and
+        batch_workflow:name(w, :{workflow_name})
+        from w
+    }}
+    """
+
+
+def update_workflow_idt(batch_config: BatchConfig, idt: str) -> str:
+    return f"""
+    def insert:batch_workflow:remote_id(w, idt) {{
+        idt = "{idt}" and 
+        batch_workflow:name(w, :{batch_config.name})
+    }}
+    """
 
 
 def install_model(models: dict) -> QueryWithInputs:
@@ -201,48 +220,8 @@ def export_relations_to_azure(logger: logging.Logger, config: AzureConfig, expor
     return query
 
 
-def init_workflow_steps(batch_config_name: str) -> str:
-    return f"""
-    def delete:batch_workflow_step:state_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
-        batch_workflow_step:state_value(s, v)
-    }}
-    def delete:batch_workflow_step:execution_time_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
-        batch_workflow_step:execution_time_value(s, v)
-    }}
-    def insert:batch_workflow_step:execution_time_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
-        v = 0.0
-        
-    }}
-    def insert:batch_workflow_step:state_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
-        v = "INIT"
-    }}
-    """
-
-
 def delete_relation(relation: str) -> str:
     return f"def delete:{relation} = {relation}"
-
-
-def update_step_state(idt: str, state: str) -> str:
-    return f"""
-    def insert:batch_workflow_step:state_value(s in BatchWorkflowStep, v) {{
-        s = uint128_hash_value_convert[parse_uuid["{idt}"]] and 
-        v = "{state}"
-    }}
-    """
-
-
-def update_execution_time(idt: str, execution_time: float) -> str:
-    return f"""
-    def insert:batch_workflow_step:execution_time_value(s in BatchWorkflowStep, v) {{
-        s = uint128_hash_value_convert[parse_uuid["{idt}"]] and 
-        v = {execution_time}
-    }}
-    """
 
 
 def materialize(relations: List[str]) -> str:

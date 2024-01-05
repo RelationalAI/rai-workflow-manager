@@ -21,17 +21,20 @@
     {
       "type": "InstallModels",
       "name": "InstallModels1",
+      "needs": ["ConfigureSources"],
       "modelFiles": [
         "city.rel"
       ]
     },
     {
       "type": "LoadData",
-      "name": "LoadData"
+      "name": "LoadData",
+      "needs": ["InstallModels1"]
     },
     {
       "type": "Materialize",
       "name": "Materialize",
+      "needs": ["LoadData"],
       "relations": [
         "city:name"
       ],
@@ -40,6 +43,7 @@
     {
       "type": "Export",
       "name": "Export",
+      "needs": ["Materialize"],
       "exportJointly": false,
       "dateFormat": "%Y%m%d",
       "defaultContainer": "export",

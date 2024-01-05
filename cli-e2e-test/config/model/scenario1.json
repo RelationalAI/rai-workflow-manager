@@ -68,6 +68,7 @@
     {
       "type": "InstallModels",
       "name": "InstallModels1",
+      "needs": ["TestExecuteCommand", "ConfigureSources"],
       "modelFiles": [
         "device.rel",
         "zip.rel",
@@ -80,11 +81,13 @@
     },
     {
       "type": "LoadData",
-      "name": "LoadData"
+      "name": "LoadData",
+      "needs": ["InstallModels1"]
     },
     {
       "type": "Materialize",
       "name": "Materialize",
+      "needs": ["LoadData"],
       "relations": [
         "city:name",
         "device:name",
@@ -97,6 +100,7 @@
     {
       "type": "Export",
       "name": "Export",
+      "needs": ["Materialize"],
       "exportJointly": true,
       "dateFormat": "%Y%m%d",
       "defaultContainer": "export",

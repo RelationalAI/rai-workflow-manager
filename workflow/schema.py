@@ -29,6 +29,7 @@ class WorkflowStepSchema(Schema):
 step_schema = {
     "type": str,
     "name": str,
+    Optional("needs"): [str],
     Optional("engineSize"): str
 }
 

@@ -56,6 +56,7 @@ RAI_PROFILE_PATH = "rai_profile_path"
 RAI_SDK_HTTP_RETRIES = "rai_sdk_http_retries"
 FAIL_ON_MULTIPLE_WRITE_TXN_IN_FLIGHT = "fail_on_multiple_write_txn_in_flight"
 SEMANTIC_SEARCH_BASE_URL = "sematic_search_base_url"
+SEMANTIC_SEARCH_POD_PREFIX = "sematic_search_pod_prefix"
 RAI_CLOUD_ACCOUNT = "rai_cloud_account"
 # Generic container params
 ACCOUNT_PARAM = "account"
