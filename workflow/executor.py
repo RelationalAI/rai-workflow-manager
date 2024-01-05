@@ -59,7 +59,7 @@ class WorkflowStep:
             if timeout > 0:
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     # Submit the function to the executor
-                    future = executor.submit(self._execute, logger, config.env, active_rai_config)
+                    future = executor.submit(self._execute, logger, config, active_rai_config)
                     try:
                         # Wait for the function to complete, with a maximum timeout in WorkflowConfig for the step
                         future.result(timeout=timeout)
@@ -67,7 +67,7 @@ class WorkflowStep:
                         self.stop()
                         raise StepTimeOutException(f"Step '{self.name}' exceeded step's timeout: {timeout} sec")
             else:
-                self._execute(logger, config.env, active_rai_config)
+                self._execute(logger, config, active_rai_config)
             return self, TransitionType.CONFIRM
         except Exception as e:
             logger.exception(e)
@@ -81,7 +81,7 @@ class WorkflowStep:
             logger.info(f"Stopping {self} step...")
             raise concurrent.futures.CancelledError(f"Step {self} was cancelled")
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
         raise NotImplementedError("This class is abstract")
 
 
@@ -121,8 +121,8 @@ class InstallModelsStep(WorkflowStep):
         self.rel_config_dir = rel_config_dir
         self.model_files = model_files
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        rai.install_models(logger, rai_config, env_config, build_models(self.model_files, self.rel_config_dir),
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        rai.install_models(logger, rai_config, config.env, build_models(self.model_files, self.rel_config_dir),
                            cancellation_token=self._stop_event)
 
 
@@ -159,25 +159,25 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         self.force_reimport = force_reimport
         self.force_reimport_not_chunk_partitioned = force_reimport_not_chunk_partitioned
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        rai.install_models(logger, rai_config, env_config, build_models(self.config_files, self.rel_config_dir),
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        rai.install_models(logger, rai_config, config.env, build_models(self.config_files, self.rel_config_dir),
                            cancellation_token=self._stop_event)
 
-        self._inflate_sources(logger, rai_config, env_config)
+        self._inflate_sources(logger, rai_config, config.env)
         # calculate expired sources
         declared_sources = {src["source"]: src for src in
-                            rai.execute_relation_json(logger, rai_config, env_config,
+                            rai.execute_relation_json(logger, rai_config, config.env,
                                                       constants.DECLARED_DATE_PARTITIONED_SOURCE_REL,
                                                       cancellation_token=self._stop_event)}
         expired_sources = self._calculate_expired_sources(logger, declared_sources)
 
         # mark declared sources for reimport
-        rai.execute_query(logger, rai_config, env_config,
+        rai.execute_query(logger, rai_config, config.env,
                           q.discover_reimport_sources(self.sources, expired_sources, self.force_reimport,
                                                       self.force_reimport_not_chunk_partitioned),
                           readonly=False, cancellation_token=self._stop_event)
         # populate declared sources
-        rai.execute_query(logger, rai_config, env_config, q.populate_source_configs(self.sources), readonly=False,
+        rai.execute_query(logger, rai_config, config.env, q.populate_source_configs(self.sources), readonly=False,
                           cancellation_token=self._stop_event)
 
     def _inflate_sources(self, logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig):
@@ -351,11 +351,11 @@ class LoadDataWorkflowStep(WorkflowStep):
         super().__init__(name, type_value, engine_size)
         self.collapse_partitions_on_load = collapse_partitions_on_load
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        rai.execute_query(logger, rai_config, env_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False,
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        rai.execute_query(logger, rai_config, config.env, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False,
                           cancellation_token=self._stop_event)
 
-        missed_resources = rai.execute_relation_json(logger, rai_config, env_config, constants.MISSED_RESOURCES_REL,
+        missed_resources = rai.execute_relation_json(logger, rai_config, config.env, constants.MISSED_RESOURCES_REL,
                                                      cancellation_token=self._stop_event)
 
         if not missed_resources:
@@ -372,13 +372,13 @@ class LoadDataWorkflowStep(WorkflowStep):
 
         for src in simple_resources:
             self._health_check(logger)
-            self._load_source(logger, env_config, rai_config, src)
+            self._load_source(logger, config.env, rai_config, src)
 
         if async_resources:
             for src in async_resources:
                 self._health_check(logger)
-                self._load_source(logger, env_config, rai_config, src)
-            self.await_pending(env_config, logger, missed_resources)
+                self._load_source(logger, config.env, rai_config, src)
+            self.await_pending(config.env, logger, missed_resources)
 
     def await_pending(self, env_config, logger, missed_resources):
         # todo: implement efficient snowflake data sync cancellation
@@ -469,13 +469,13 @@ class MaterializeWorkflowStep(WorkflowStep):
         self.relations = relations
         self.materialize_jointly = materialize_jointly
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
         if self.materialize_jointly:
-            rai.execute_query(logger, rai_config, env_config, q.materialize(self.relations), readonly=False,
+            rai.execute_query(logger, rai_config, config.env, q.materialize(self.relations), readonly=False,
                               cancellation_token=self._stop_event)
         else:
             for relation in self.relations:
-                rai.execute_query(logger, rai_config, env_config, q.materialize([relation]), readonly=False,
+                rai.execute_query(logger, rai_config, config.env, q.materialize([relation]), readonly=False,
                                   cancellation_token=self._stop_event)
 
 
@@ -513,21 +513,21 @@ class ExportWorkflowStep(WorkflowStep):
         self.date_format = date_format
         self.end_date = end_date
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        exports = list(filter(lambda e: self._should_export(logger, rai_config, env_config, e), self.exports))
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        exports = list(filter(lambda e: self._should_export(logger, rai_config, config.env, e), self.exports))
         if self.export_jointly:
             exports.sort(key=lambda e: e.container.name)
             container_groups = {container_name: list(group) for container_name, group in
                                 groupby(exports, key=lambda e: e.container.name)}
             for container_name, grouped_exports in container_groups.items():
-                container = env_config.get_container(container_name)
-                ExportWorkflowStep.get_export_function(container)(logger, rai_config, env_config, grouped_exports,
+                container = config.env.get_container(container_name)
+                ExportWorkflowStep.get_export_function(container)(logger, rai_config, config.env, grouped_exports,
                                                                   self.end_date, self.date_format, container,
                                                                   self._stop_event)
         else:
             for export in exports:
                 container = export.container
-                ExportWorkflowStep.get_export_function(container)(logger, rai_config, env_config, [export],
+                ExportWorkflowStep.get_export_function(container)(logger, rai_config, config.env, [export],
                                                                   self.end_date, self.date_format, container,
                                                                   self._stop_event)
 
@@ -597,7 +597,7 @@ class ExecuteCommandWorkflowStep(WorkflowStep):
         super().__init__(name, type_value, engine_size)
         self.command = command
 
-    def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
         process = subprocess.Popen(self.command, shell=True, text=True)
         exit_code = process.wait()
         if exit_code != 0:
