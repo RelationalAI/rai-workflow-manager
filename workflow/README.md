@@ -35,13 +35,14 @@ pip install -r requirements.txt
 # Batch Configuration
 
 The RAI Workflow Manager uses batch configurations to define the steps of your workflow. A batch configuration is a JSON or YAML file that outlines the sequence of steps.
-The order of the steps in the batch configuration is important, as the RAI Workflow Manager executes the steps in the order they are defined in the batch configuration.
+The order of the steps in the batch configuration is not important, as the RAI Workflow Manager executes the steps in parallel. Dependencies between steps are defined using the `needs` property.
 
 ## Common step properties
 
 * `name` (required) The unique identifier of the workflow step. It is used to track the execution of the step and to recover the execution in case of failures.
 * `type` (required) Used to determine which workflow step to execute. The list of supported steps is described in the [Supported Steps](#supported-steps) section.
 * `engineSize` (optional) Identifies the size of the RAI engine to use for the step. If not specified, the default engine size is used.
+* `needs` (optional) Identifies depended steps. By default all steps are independent and executed in parallel.
 
 ## Supported Steps
 

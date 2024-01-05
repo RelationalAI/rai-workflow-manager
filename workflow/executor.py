@@ -1,68 +1,85 @@
 import dataclasses
+import json
 import logging
 import subprocess
-import time
 import asyncio
 import concurrent.futures
+import threading
 from workflow import snow
 from datetime import datetime
-from enum import Enum
 from itertools import groupby
 from types import MappingProxyType
 from typing import List
-
-from more_itertools import peekable
+from workflow.rest import SemanticSearchRestClient
 
 from workflow import query as q, paths, rai, constants
 from workflow.exception import StepTimeOutException, CommandExecutionException
-from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType, Container, \
-    FileMetadata
+from workflow.common import EnvConfig, RaiConfig, Source, Export, FileType, ContainerType, Container, FileMetadata, \
+    Transition, Transitions, TransitionType
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
-    get_common_model_relative_path, get_or_create_eventloop
-
-
-class WorkflowStepState(str, Enum):
-    INIT = 'INIT'
-    IN_PROGRESS = 'IN_PROGRESS'
-    SUCCESS = 'SUCCESS'
-    FAILED = 'FAILED'
+    get_or_create_eventloop
 
 
 @dataclasses.dataclass
 class WorkflowConfig:
     env: EnvConfig
-    batch_config: BatchConfig
+    workflow: str
     recover: bool
-    recover_step: str
-    selected_steps: List[str]
     step_params: dict
     step_timeout: dict[str, int] = None
 
 
 class WorkflowStep:
-    idt: str
     name: str
     type: str
-    state: WorkflowStepState
-    timing: int
     engine_size: str
 
-    def __init__(self, idt: str, name: str, type_value: str, state: WorkflowStepState, timing: int, engine_size: str):
-        self.idt = idt
+    def __init__(self, name: str, type_value: str, engine_size: str):
+        self._stop_event = threading.Event()
         self.name = name
         self.type = type_value
-        self.state = state
-        self.timing = timing
         self.engine_size = engine_size
 
-    def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        logger.info(f"Executing {self.get_name()} step...")
-        logger = logger.getChild(self.name)
-        self._execute(logger, env_config, rai_config)
-
-    def get_name(self) -> str:
+    def __str__(self):
         return f"{self.name}({self.type})"
+
+    def stop(self):
+        self._stop_event.set()
+
+    def execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig,
+                resource_manager: ResourceManager, timeout: int):
+        logger.info(f"Executing {self} step...")
+        logger = logger.getChild(self.name)
+        try:
+            active_rai_config = rai_config
+            if self.engine_size:
+                resource_manager.add_engine(self.engine_size)
+                active_rai_config = resource_manager.get_rai_config(self.engine_size)
+            if timeout > 0:
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    # Submit the function to the executor
+                    future = executor.submit(self._execute, logger, env_config, active_rai_config)
+                    try:
+                        # Wait for the function to complete, with a maximum timeout in WorkflowConfig for the step
+                        future.result(timeout=timeout)
+                    except concurrent.futures.TimeoutError:
+                        self.stop()
+                        raise StepTimeOutException(f"Step '{self.name}' exceeded step's timeout: {timeout} sec")
+            else:
+                self._execute(logger, env_config, active_rai_config)
+            return self, TransitionType.CONFIRM
+        except Exception as e:
+            logger.exception(e)
+            return self, TransitionType.FAIL
+        finally:
+            if self.engine_size:
+                resource_manager.remove_engine(self.engine_size)
+
+    def _health_check(self, logger: logging.Logger):
+        if self._stop_event.is_set():
+            logger.info(f"Stopping {self} step...")
+            raise concurrent.futures.CancelledError(f"Step {self} was cancelled")
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         raise NotImplementedError("This class is abstract")
@@ -71,18 +88,15 @@ class WorkflowStep:
 class WorkflowStepFactory:
 
     def get_step(self, logger: logging.Logger, config: WorkflowConfig, step: dict) -> WorkflowStep:
-        idt = step["idt"]
         name = step["name"]
         type_value = step["type"]
         engine_size = str.upper(step["engineSize"]) if "engineSize" in step else None
-        state = WorkflowStepState(step.get("state"))
-        timing = step.get("executionTime", 0)
 
         self._validate_params(config, step)
-        return self._get_step(logger, config, idt, name, type_value, state, timing, engine_size, step)
+        return self._get_step(logger, config, name, type_value, engine_size, step)
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> WorkflowStep:
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
         raise NotImplementedError("This class is abstract")
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
@@ -102,13 +116,14 @@ class InstallModelsStep(WorkflowStep):
     rel_config_dir: str
     model_files: List[str]
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, rel_config_dir, model_files):
-        super().__init__(idt, name, type_value, state, timing, engine_size)
+    def __init__(self, name, type_value, engine_size, rel_config_dir, model_files):
+        super().__init__(name, type_value, engine_size)
         self.rel_config_dir = rel_config_dir
         self.model_files = model_files
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        rai.install_models(logger, rai_config, env_config, build_models(self.model_files, self.rel_config_dir))
+        rai.install_models(logger, rai_config, env_config, build_models(self.model_files, self.rel_config_dir),
+                           cancellation_token=self._stop_event)
 
 
 class InstallModelWorkflowStepFactory(WorkflowStepFactory):
@@ -116,10 +131,10 @@ class InstallModelWorkflowStepFactory(WorkflowStepFactory):
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.REL_CONFIG_DIR]
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> WorkflowStep:
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
         rel_config_dir = config.step_params[constants.REL_CONFIG_DIR]
-        return InstallModelsStep(idt, name, type_value, state, timing, engine_size, rel_config_dir, step["modelFiles"])
+        return InstallModelsStep(name, type_value, engine_size, rel_config_dir, step["modelFiles"])
 
 
 class ConfigureSourcesWorkflowStep(WorkflowStep):
@@ -132,9 +147,9 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     force_reimport: bool
     force_reimport_not_chunk_partitioned: bool
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, config_files, rel_config_dir, sources,
-                 paths_builders, start_date, end_date, force_reimport, force_reimport_not_chunk_partitioned):
-        super().__init__(idt, name, type_value, state, timing, engine_size)
+    def __init__(self, name, type_value, engine_size, config_files, rel_config_dir, sources, paths_builders, start_date,
+                 end_date, force_reimport, force_reimport_not_chunk_partitioned):
+        super().__init__(name, type_value, engine_size)
         self.config_files = config_files
         self.rel_config_dir = rel_config_dir
         self.sources = sources
@@ -145,25 +160,29 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         self.force_reimport_not_chunk_partitioned = force_reimport_not_chunk_partitioned
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        rai.install_models(logger, rai_config, env_config, build_models(self.config_files, self.rel_config_dir))
+        rai.install_models(logger, rai_config, env_config, build_models(self.config_files, self.rel_config_dir),
+                           cancellation_token=self._stop_event)
 
         self._inflate_sources(logger, rai_config, env_config)
         # calculate expired sources
         declared_sources = {src["source"]: src for src in
                             rai.execute_relation_json(logger, rai_config, env_config,
-                                                      constants.DECLARED_DATE_PARTITIONED_SOURCE_REL)}
+                                                      constants.DECLARED_DATE_PARTITIONED_SOURCE_REL,
+                                                      cancellation_token=self._stop_event)}
         expired_sources = self._calculate_expired_sources(logger, declared_sources)
 
         # mark declared sources for reimport
         rai.execute_query(logger, rai_config, env_config,
                           q.discover_reimport_sources(self.sources, expired_sources, self.force_reimport,
                                                       self.force_reimport_not_chunk_partitioned),
-                          readonly=False)
+                          readonly=False, cancellation_token=self._stop_event)
         # populate declared sources
-        rai.execute_query(logger, rai_config, env_config, q.populate_source_configs(self.sources), readonly=False)
+        rai.execute_query(logger, rai_config, env_config, q.populate_source_configs(self.sources), readonly=False,
+                          cancellation_token=self._stop_event)
 
     def _inflate_sources(self, logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig):
         for src in self.sources:
+            self._health_check(logger)
             logger.info(f"Inflating source: '{src.relation}'")
             days = self._get_date_range(logger, src)
             if src.snapshot_validity_days and src.snapshot_validity_days > 0:
@@ -275,8 +294,8 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.REL_CONFIG_DIR, constants.START_DATE, constants.END_DATE]
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> ConfigureSourcesWorkflowStep:
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> ConfigureSourcesWorkflowStep:
         rel_config_dir = config.step_params[constants.REL_CONFIG_DIR]
         sources = self._parse_sources(step, config.env)
         start_date = config.step_params[constants.START_DATE]
@@ -289,9 +308,9 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
             container = src.container
             if container.name not in paths_builders:
                 paths_builders[container.name] = paths.PathsBuilderFactory.get_path_builder(container)
-        return ConfigureSourcesWorkflowStep(idt, name, type_value, state, timing, engine_size, step["configFiles"],
-                                            rel_config_dir, sources, paths_builders, start_date, end_date,
-                                            force_reimport, force_reimport_not_chunk_partitioned)
+        return ConfigureSourcesWorkflowStep(name, type_value, engine_size, step["configFiles"], rel_config_dir, sources,
+                                            paths_builders, start_date, end_date, force_reimport,
+                                            force_reimport_not_chunk_partitioned)
 
     @staticmethod
     def _parse_sources(step: dict, env_config: EnvConfig) -> List[Source]:
@@ -328,14 +347,16 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
 class LoadDataWorkflowStep(WorkflowStep):
     collapse_partitions_on_load: bool
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load):
-        super().__init__(idt, name, type_value, state, timing, engine_size)
+    def __init__(self, name, type_value, engine_size, collapse_partitions_on_load):
+        super().__init__(name, type_value, engine_size)
         self.collapse_partitions_on_load = collapse_partitions_on_load
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
-        rai.execute_query(logger, rai_config, env_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
+        rai.execute_query(logger, rai_config, env_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False,
+                          cancellation_token=self._stop_event)
 
-        missed_resources = rai.execute_relation_json(logger, rai_config, env_config, constants.MISSED_RESOURCES_REL)
+        missed_resources = rai.execute_relation_json(logger, rai_config, env_config, constants.MISSED_RESOURCES_REL,
+                                                     cancellation_token=self._stop_event)
 
         if not missed_resources:
             logger.info("Missed resources list is empty")
@@ -350,14 +371,17 @@ class LoadDataWorkflowStep(WorkflowStep):
                 simple_resources.append(src)
 
         for src in simple_resources:
+            self._health_check(logger)
             self._load_source(logger, env_config, rai_config, src)
 
         if async_resources:
             for src in async_resources:
+                self._health_check(logger)
                 self._load_source(logger, env_config, rai_config, src)
             self.await_pending(env_config, logger, missed_resources)
 
     def await_pending(self, env_config, logger, missed_resources):
+        # todo: implement efficient snowflake data sync cancellation
         loop = get_or_create_eventloop()
         if loop.is_running():
             raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion')
@@ -408,15 +432,15 @@ class LoadDataWorkflowStep(WorkflowStep):
     def _resource_is_async(src):
         return True if ContainerType.SNOWFLAKE == ContainerType.from_source(src) else False
 
-    @staticmethod
-    def _load_resource(logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) -> None:
+    def _load_resource(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources,
+                       src) -> None:
         try:
             container = env_config.get_container(src["container"])
             config = EnvConfig.get_config(container)
             if ContainerType.LOCAL == container.type or ContainerType.AZURE == container.type:
                 query_with_input = q.load_resources(logger, config, resources, src)
                 rai.execute_query(logger, rai_config, env_config, query_with_input.query, query_with_input.inputs,
-                                  readonly=False)
+                                  readonly=False, cancellation_token=self._stop_event)
             elif ContainerType.SNOWFLAKE == container.type:
                 snow.begin_data_sync(logger, config, rai_config, resources, src)
         except KeyError as e:
@@ -430,35 +454,36 @@ class LoadDataWorkflowStepFactory(WorkflowStepFactory):
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.COLLAPSE_PARTITIONS_ON_LOAD]
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> WorkflowStep:
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
         collapse_partitions_on_load = config.step_params[constants.COLLAPSE_PARTITIONS_ON_LOAD]
-        return LoadDataWorkflowStep(idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load)
+        return LoadDataWorkflowStep(name, type_value, engine_size, collapse_partitions_on_load)
 
 
 class MaterializeWorkflowStep(WorkflowStep):
     relations: List[str]
     materialize_jointly: bool
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, relations, materialize_jointly):
-        super().__init__(idt, name, type_value, state, timing, engine_size)
+    def __init__(self, name, type_value, engine_size, relations, materialize_jointly):
+        super().__init__(name, type_value, engine_size)
         self.relations = relations
         self.materialize_jointly = materialize_jointly
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         if self.materialize_jointly:
-            rai.execute_query(logger, rai_config, env_config, q.materialize(self.relations), readonly=False)
+            rai.execute_query(logger, rai_config, env_config, q.materialize(self.relations), readonly=False,
+                              cancellation_token=self._stop_event)
         else:
             for relation in self.relations:
-                rai.execute_query(logger, rai_config, env_config, q.materialize([relation]), readonly=False)
+                rai.execute_query(logger, rai_config, env_config, q.materialize([relation]), readonly=False,
+                                  cancellation_token=self._stop_event)
 
 
 class MaterializeWorkflowStepFactory(WorkflowStepFactory):
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> WorkflowStep:
-        return MaterializeWorkflowStep(idt, name, type_value, state, timing, engine_size, step["relations"],
-                                       step["materializeJointly"])
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
+        return MaterializeWorkflowStep(name, type_value, engine_size, step["relations"], step["materializeJointly"])
 
 
 class ExportWorkflowStep(WorkflowStep):
@@ -469,18 +494,20 @@ class ExportWorkflowStep(WorkflowStep):
 
     EXPORT_FUNCTION = {
         ContainerType.LOCAL:
-            lambda logger, rai_config, env_config, exports, end_date, date_format, container: save_csv_output(
-                rai.execute_query_csv(logger, rai_config, env_config, q.export_relations_local(logger, exports)),
-                EnvConfig.get_config(container)),
+            lambda logger, rai_config, env_config, exports, end_date, date_format, container, cancellation_token:
+            save_csv_output(
+                rai.execute_query_csv(logger, rai_config, env_config, q.export_relations_local(logger, exports),
+                                      cancellation_token=cancellation_token), EnvConfig.get_config(container)),
         ContainerType.AZURE:
-            lambda logger, rai_config, env_config, exports, end_date, date_format, container: rai.execute_query(
-                logger, rai_config, env_config,
-                q.export_relations_to_azure(logger, EnvConfig.get_config(container), exports, end_date, date_format))
+            lambda logger, rai_config, env_config, exports, end_date, date_format, container, cancellation_token:
+            rai.execute_query(logger, rai_config, env_config,
+                              q.export_relations_to_azure(logger, EnvConfig.get_config(container), exports, end_date,
+                                                          date_format), cancellation_token=cancellation_token)
     }
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, exports, export_jointly, date_format,
+    def __init__(self, name, type_value, engine_size, exports, export_jointly, date_format,
                  end_date):
-        super().__init__(idt, name, type_value, state, timing, engine_size)
+        super().__init__(name, type_value, engine_size)
         self.exports = exports
         self.export_jointly = export_jointly
         self.date_format = date_format
@@ -495,12 +522,14 @@ class ExportWorkflowStep(WorkflowStep):
             for container_name, grouped_exports in container_groups.items():
                 container = env_config.get_container(container_name)
                 ExportWorkflowStep.get_export_function(container)(logger, rai_config, env_config, grouped_exports,
-                                                                  self.end_date, self.date_format, container)
+                                                                  self.end_date, self.date_format, container,
+                                                                  self._stop_event)
         else:
             for export in exports:
                 container = export.container
                 ExportWorkflowStep.get_export_function(container)(logger, rai_config, env_config, [export],
-                                                                  self.end_date, self.date_format, container)
+                                                                  self.end_date, self.date_format, container,
+                                                                  self._stop_event)
 
     @staticmethod
     def get_export_function(container: Container):
@@ -516,7 +545,8 @@ class ExportWorkflowStep(WorkflowStep):
         logger.info(f"Checking validity of snapshot: {export.snapshot_binding}")
         current_date = datetime.strptime(self.end_date, self.date_format)
         query = q.get_snapshot_expiration_date(export.snapshot_binding, self.date_format)
-        expiration_date_str = rai.execute_query_take_single(logger, rai_config, env_config, query)
+        expiration_date_str = rai.execute_query_take_single(logger, rai_config, env_config, query,
+                                                            cancellation_token=self._stop_event)
         # if nothing returned we opt for exporting the snapshot
         if expiration_date_str is None:
             return True
@@ -533,12 +563,12 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
     def _required_params(self, config: WorkflowConfig) -> List[str]:
         return [constants.END_DATE]
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> WorkflowStep:
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
         exports = self._load_exports(logger, config.env, step)
         end_date = config.step_params[constants.END_DATE]
-        return ExportWorkflowStep(idt, name, type_value, state, timing, engine_size, exports, step["exportJointly"],
-                                  step["dateFormat"], end_date)
+        return ExportWorkflowStep(name, type_value, engine_size, exports, step["exportJointly"], step["dateFormat"],
+                                  end_date)
 
     @staticmethod
     def _load_exports(logger: logging.Logger, env_config: EnvConfig, src) -> List[Export]:
@@ -563,8 +593,8 @@ class ExportWorkflowStepFactory(WorkflowStepFactory):
 class ExecuteCommandWorkflowStep(WorkflowStep):
     command: str
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, command):
-        super().__init__(idt, name, type_value, state, timing, engine_size)
+    def __init__(self, name, type_value, engine_size, command):
+        super().__init__(name, type_value, engine_size)
         self.command = command
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
@@ -576,9 +606,9 @@ class ExecuteCommandWorkflowStep(WorkflowStep):
 
 class ExecuteCommandWorkflowStepFactory(WorkflowStepFactory):
 
-    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
-                  engine_size, step: dict) -> WorkflowStep:
-        return ExecuteCommandWorkflowStep(idt, name, type_value, state, timing, engine_size, step["command"])
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
+        return ExecuteCommandWorkflowStep(name, type_value, engine_size, step["command"])
 
 
 DEFAULT_FACTORIES = MappingProxyType(
@@ -597,78 +627,113 @@ class WorkflowExecutor:
     logger: logging.Logger
     config: WorkflowConfig
     resource_manager: ResourceManager
-    steps: List[WorkflowStep]
+    workflow_id: str
+    steps: dict[str, WorkflowStep]
 
-    def __init__(self, logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager, steps):
+    def __init__(self, logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager,
+                 workflow_id: str, steps):
         self.logger = logger
         self.config = config
         self.resource_manager = resource_manager
         self.steps = steps
+        self.workflow_id = workflow_id
 
     def run(self):
-        recover_step_reached = False
         rai_config = self.resource_manager.get_rai_config()
-        steps_iter = peekable(self.steps)
-        for step in steps_iter:
-            if self.config.selected_steps:
-                if step.name not in self.config.selected_steps:
-                    self.logger.info(f"Step {step.name} (id='{step.idt}') is not selected. Skipping...")
-                    continue
-            else:
-                # `recover_step` option has higher priority than `recover` option
-                if self.config.recover_step and not recover_step_reached:
-                    if step.name == self.config.recover_step:
-                        recover_step_reached = True
-                    if not recover_step_reached:
-                        self.logger.info(
-                            f"Recovery... Skipping the step {step.name} (id='{step.idt}') till reach recovery step")
-                        continue
-                elif self.config.recover and step.state == WorkflowStepState.SUCCESS:
-                    self.logger.info(f"Recovery... Skipping the successful step {step.name} (id='{step.idt}')")
-                    continue
+        account_name = self.config.env.rai_cloud_account
+        rest_client = SemanticSearchRestClient(self.logger, self.config.env.semantic_search_base_url,
+                                               self.config.env.semantic_search_pod_prefix)
 
-            start_time = time.time()
-            self._update_step_state(step, rai_config, WorkflowStepState.IN_PROGRESS)
-            try:
-                if step.engine_size:
-                    self.resource_manager.add_engine(step.engine_size)
-                    self.execute_step(step, self.resource_manager.get_rai_config(step.engine_size))
-                    next_step = steps_iter.peek(None)
-                    if next_step and next_step.engine_size != step.engine_size:
-                        self.resource_manager.remove_engine(step.engine_size)
-                else:
-                    self.execute_step(step, rai_config)
+        if self.config.recover:
+            # Load Retry transitions
+            transitions_to_retry = WorkflowExecutor.filter_transitions(WorkflowExecutor.read_transitions(
+                rest_client.get_enabled_transitions(rai_config, account_name, self.workflow_id)),
+                type=TransitionType.RETRY)
+            # Fire retry transitions and get start transitions
+            available_transitions = WorkflowExecutor.filter_transitions(
+                self.fire_transitions(transitions_to_retry, self.workflow_id, rest_client, rai_config),
+                type=TransitionType.START)
+        else:
+            self.logger.info(f"Activating batch for workflow '{self.config.workflow}'")
+            rest_client.activate_workflow(rai_config, account_name, self.workflow_id)
+            available_transitions = WorkflowExecutor.filter_transitions(WorkflowExecutor.read_transitions(
+                rest_client.get_enabled_transitions(rai_config, account_name, self.workflow_id)),
+                type=TransitionType.START)
 
-                end_time = time.time()
-                execution_time = end_time - start_time
-                query = "\n".join([q.update_step_state(step.idt, WorkflowStepState.SUCCESS.name),
-                                   q.update_execution_time(step.idt, execution_time)])
-                self.logger.info(f"Update {step.get_name()}'s timings and state to '{WorkflowStepState.SUCCESS.name}'")
-                rai.execute_query(self.logger, rai_config, self.config.env, query, readonly=False)
-            except StepTimeOutException as e:
-                # Skip step state update since write txn can be stuck and RWM will raise ConcurrentWriteAttemptException
-                if step.engine_size:
-                    self.resource_manager.remove_engine(step.engine_size)
-                raise e
-            except Exception as e:
-                self._update_step_state(step, rai_config, WorkflowStepState.FAILED)
-                if step.engine_size:
-                    self.resource_manager.remove_engine(step.engine_size)
-                raise e
+        steps = []
+        for transition in available_transitions:
+            steps.append(self.steps[transition.step])
+        # Fire initial transitions
+        if available_transitions:
+            available_transitions = self.fire_transitions(available_transitions, self.workflow_id, rest_client,
+                                                          rai_config)
 
-            self.logger.info(f"{step.get_name()} finished in {format_duration(execution_time)}")
+        failed_steps = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Schedule initial steps execution concurrently
+            futures = {
+                executor.submit(step.execute, self.logger, self.config.env, rai_config, self.resource_manager,
+                                self.config.step_timeout.get(step.name, 0)): step for step in steps}
+            # Continuously check for completed tasks and submit new ones
+            while True:
+                completed_futures, _ = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
+                # Check for completion status of steps associated with completed futures
+                next_transitions = []
+                for completed_future in completed_futures:
+                    step, type = completed_future.result()
+                    self.logger.debug(f"Step '{step.name}' completed with status '{type}'")
+                    if type == TransitionType.FAIL:
+                        failed_steps[step.name] = step
+                    del futures[completed_future]  # Remove the completed future
+                    next_transitions += WorkflowExecutor.filter_transitions(available_transitions, step=step.name,
+                                                                            type=type)
+                if next_transitions:
+                    available_transitions = self.fire_transitions(next_transitions, self.workflow_id, rest_client,
+                                                                  rai_config)
+                    # Print timings
+                    for t in next_transitions:
+                        if t.step not in failed_steps.keys():
+                            self.print_step_timings(rest_client, self.workflow_id, t.step)
+                    # Schedule new steps execution concurrently
+                    transitions_to_start = WorkflowExecutor.filter_transitions(available_transitions,
+                                                                               type=TransitionType.START)
+                    available_steps = []
+                    for transition in transitions_to_start:
+                        available_steps.append(self.steps[transition.step])
+                    if available_steps:
+                        available_transitions = self.fire_transitions(transitions_to_start, self.workflow_id,
+                                                                      rest_client, rai_config)
+                        futures.update({executor.submit(step.execute, self.logger, self.config.env, rai_config,
+                                                        self.resource_manager,
+                                                        self.config.step_timeout.get(step.name, 0)): step for step in
+                                        available_steps})
+                # If any steps failed, exit the loop
+                if failed_steps:
+                    self.logger.debug("Workflow execution failed. Cancel all futures and stop running steps.")
+                    for future in futures:
+                        # Cancel all pending futures
+                        future.cancel()
+                        # Stop all running steps
+                        futures.get(future).stop()
+                    raise Exception(
+                        f"Workflow execution failed. List of failed steps: {', '.join(str(s) for s in failed_steps)}")
+                # If all transitions have been completed, exit the loop
+                if not futures:
+                    break
+        self.print_workflow_timings(rest_client, self.workflow_id)
 
-    def _update_step_state(self, step: WorkflowStep, rai_config: RaiConfig, state: WorkflowStepState) -> None:
-        self.logger.info(f"Update {step.get_name()}'s state to '{state.name}'")
-        rai.execute_query(self.logger, rai_config, self.config.env, q.update_step_state(step.idt, state.name),
-                          readonly=False, ignore_problems=True)
+    def fire_transitions(self, transitions, workflow_id, rest_client, rai_config) -> [Transition]:
+        transitions_json = json.dumps(Transitions(transitions).to_json_dict())
+        rsp = rest_client.fire_transition(rai_config, self.config.env.rai_cloud_account, workflow_id,
+                                          transitions_json)
+        return WorkflowExecutor.read_transitions(rsp)
 
-    def print_timings(self) -> None:
+    def print_workflow_timings(self, rest_client: SemanticSearchRestClient, workflow_id: str) -> None:
         rai_config = self.resource_manager.get_rai_config()
-        env_config = self.config.env
-        relation = build_relation_path(constants.WORKFLOW_JSON_REL, self.config.batch_config.name)
-        workflow_info = rai.execute_relation_json(self.logger, rai_config, env_config, relation, ignore_problems=True)
-        steps = workflow_info["steps"]
+        account_name = self.config.env.rai_cloud_account
+        rsp = rest_client.get_workflow_summary(rai_config, account_name, workflow_id)
+        steps = rsp["steps"]
+        self.logger.info("Workflow execution summary")
         for step in steps:
             execution_time = step["executionTime"]
             self.logger.info(f"{step['name']}({step['type']}) finished in {format_duration(execution_time)}")
@@ -678,61 +743,49 @@ class WorkflowExecutor:
             if len(group_steps) > 1:
                 execution_time = sum([step["executionTime"] for step in group_steps])
                 self.logger.info(f"{step_type} steps execution time is {format_duration(execution_time)}")
-        self.logger.info(f"Total workflow execution time is {format_duration(workflow_info['totalTime'])}")
+        self.logger.info(f"Total workflow execution time is {format_duration(rsp['executionTime'])}")
 
-    def execute_step(self, step, rai_config: RaiConfig) -> None:
-        if self.config.step_timeout and self.config.step_timeout.get(step.name, 0) > 0:
-            timeout = self.config.step_timeout.get(step.name)
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                # Submit the function to the executor
-                future = executor.submit(step.execute, self.logger, self.config.env, rai_config)
-                try:
-                    # Wait for the function to complete, with a maximum timeout in WorkflowConfig for the step
-                    future.result(timeout=timeout)
-                except concurrent.futures.TimeoutError:
-                    raise StepTimeOutException(f"Step '{step.name}' exceeded step's timeout: {timeout} sec")
-        else:
-            step.execute(self.logger, self.config.env, rai_config)
+    def print_step_timings(self, rest_client: SemanticSearchRestClient, workflow_id: str, step_name: str) -> None:
+        rai_config = self.resource_manager.get_rai_config()
+        account_name = self.config.env.rai_cloud_account
+        rsp = rest_client.get_step_summary(rai_config, account_name, workflow_id, step_name)
+        self.logger.info(f"{step_name}({rsp['type']}) finished in {format_duration(rsp['executionTime'])}")
+
+    @staticmethod
+    def read_transitions(rsp) -> [Transition]:
+        transitions = []
+        for item in rsp["transitions"]:
+            transitions.append(
+                Transition(item['workflowId'], item['step'], item['timestamp'], TransitionType[item['type'].upper()]))
+        return transitions
+
+    @staticmethod
+    def filter_transitions(transitions, type=None, step=None) -> [Transition]:
+        filtered_items = list(
+            filter(lambda transition: (transition.step == step or step is None) and
+                                      (transition.type == type or type is None),
+                   transitions))
+        return filtered_items
 
     @staticmethod
     def init(logger: logging.Logger, config: WorkflowConfig, resource_manager: ResourceManager,
-             factories: dict[str, WorkflowStepFactory] = MappingProxyType({}),
-             models: dict[str, str] = MappingProxyType({})):
+             factories: dict[str, WorkflowStepFactory] = MappingProxyType({})):
         logger = logger.getChild("workflow")
         rai_config = resource_manager.get_rai_config()
-
-        if not config.recover and not config.recover_step:
-            # Install common model for workflow manager
-            core_models = build_models(constants.COMMON_MODEL, get_common_model_relative_path(__file__))
-            extended_models = {**core_models, **models}
-            logger.info("Installing RWM common models...")
-            rai.install_models(logger, rai_config, config.env, extended_models)
-
-        # Load batch config
-        batch_config_relation = build_relation_path(constants.CONFIG_BASE_RELATION, config.batch_config.name)
-        logger.info(f"Cleanup batch config `{config.batch_config.name}`")
-        rai.execute_query(logger, rai_config, config.env, q.delete_relation(batch_config_relation), readonly=False)
-        logger.info(f"Load a new batch config `{config.batch_config.name}`")
-        rai.load_json(logger, rai_config, config.env, batch_config_relation, config.batch_config.content)
-
-        if not config.recover and not config.recover_step:
-            # Init workflow steps
-            logger.info("Init workflow steps")
-            rai.execute_query(logger, rai_config, config.env, q.init_workflow_steps(config.batch_config.name),
-                              readonly=False)
 
         extended_factories = {**DEFAULT_FACTORIES, **factories}
         workflow_info = rai.execute_relation_json(logger, rai_config, config.env,
                                                   build_relation_path(constants.WORKFLOW_JSON_REL,
-                                                                      config.batch_config.name), ignore_problems=True)
+                                                                      config.workflow), ignore_problems=True)
         steps_json = workflow_info["steps"]
         if not steps_json:
-            raise ValueError(f"Config `{config.batch_config.name}` doesn't have workflow steps")
-        steps = []
+            raise ValueError(f"Config `{config.workflow}` doesn't have workflow steps")
+        steps = {}
         for step in steps_json:
             step_type = step["type"]
+            step_name = step["name"]
             if step_type not in extended_factories:
                 logger.warning(f"Step '{step_type}' is not supported")
             else:
-                steps.append(extended_factories.get(step_type).get_step(logger, config, step))
-        return WorkflowExecutor(logger, config, resource_manager, steps)
+                steps[step_name] = extended_factories.get(step_type).get_step(logger, config, step)
+        return WorkflowExecutor(logger, config, resource_manager, workflow_info["remoteId"], steps)
