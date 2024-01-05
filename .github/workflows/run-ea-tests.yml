@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 0 * * *" # Runs every day at midnight UTC
 
+env:
+  RAI_CLOUD_HOST: "azure-ea.relationalai.com"
+
 jobs:
   Run-RWM-Tests:
     runs-on: ubuntu-latest
@@ -32,7 +35,7 @@ jobs:
           cd ~/.rai
           echo "[default]" > config
           echo "region = us-east" >> config
-          echo "host = azure-ea.relationalai.com" >> config
+          echo "host = ${{ env.RAI_CLOUD_HOST }}" >> config
           echo "client_credentials_url = https://login-ea.relationalai.com/oauth/token" >> config
           echo "port = 443" >> config
           echo "client_id = ${{ secrets.EA_CLIENT_ID }}" >> config
@@ -73,7 +76,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/semantic-search
           ./docker-build
-          docker run --rm -d --name testServer -p 8081:8081 semantic-search:latest
+          docker run --rm -d -e RAICLOUD_HOST=${{ env.RAI_CLOUD_HOST }} --name testServer -p 8081:8081 semantic-search:latest
 
       # Run e2e Python CLI test
       - name: Python CLI tests
