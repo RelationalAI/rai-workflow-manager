@@ -26,6 +26,7 @@ class CliE2ETest(unittest.TestCase):
     expected = "./expected_results"
     resource_name = os.environ.get("RAI_RESOURCE_NAME", f"wm-cli-e2e-test-{str(uuid.uuid4())}")
     cmd_with_common_arguments = ["python", "main.py",
+                                 "--log-level", "DEBUG",
                                  "--env-config", env_config_path,
                                  "--engine", resource_name,
                                  "--database", resource_name]
