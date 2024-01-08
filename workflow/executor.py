@@ -5,20 +5,25 @@ import subprocess
 import asyncio
 import concurrent.futures
 import threading
+import zipfile
+import io
+import os
+import shutil
 from workflow import snow
 from datetime import datetime
 from itertools import groupby
 from types import MappingProxyType
 from typing import List
+from simple_ddl_parser import parse_from_file
 from workflow.rest import SemanticSearchRestClient
 
 from workflow import query as q, paths, rai, constants
-from workflow.exception import StepTimeOutException, CommandExecutionException
+from workflow.exception import StepTimeOutException, CommandExecutionException, RetryException
 from workflow.common import EnvConfig, RaiConfig, Source, Export, FileType, ContainerType, Container, FileMetadata, \
-    Transition, Transitions, TransitionType
+    Transition, Transitions, TransitionType, ModelFile
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
-    get_or_create_eventloop
+    get_or_create_eventloop, read, call_with_overhead
 
 
 @dataclasses.dataclass
@@ -611,6 +616,154 @@ class ExecuteCommandWorkflowStepFactory(WorkflowStepFactory):
         return ExecuteCommandWorkflowStep(name, type_value, engine_size, step["command"])
 
 
+class ExtractDDLMetamodelWorkflowStep(WorkflowStep):
+    ddl_files: [str]
+
+    def __init__(self, name, type_value, engine_size, ddl_files):
+        super().__init__(name, type_value, engine_size)
+        self.ddlFiles = ddl_files
+
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        ddl_data = []
+        for ddl_file in self.ddlFiles:
+            ddl_data.extend(parse_from_file(ddl_file))
+        logger.debug(f"Extracted DDL metamodel: {json.dumps(ddl_data)}")
+        rai.execute_query(logger, rai_config, config.env,
+                          q.insert_plain_data(constants.EXTRACT_DDL_METAMODEL_REL, json.dumps(ddl_data)), readonly=False)
+
+
+class ExtractDDLMetamodelWorkflowStepFactory(WorkflowStepFactory):
+
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
+        return ExtractDDLMetamodelWorkflowStep(name, type_value, engine_size, step["ddlFiles"])
+
+
+class InitModelGenerationWorkflowStep(WorkflowStep):
+    sources_metadata_bindings: [str]
+    model_files: [ModelFile]
+
+    def __init__(self, name, type_value, engine_size, sources_metadata_bindings, model_files):
+        super().__init__(name, type_value, engine_size)
+        self.sources_metadata_bindings = sources_metadata_bindings
+        self.model_files = model_files
+
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        tabular_metadata = rai.execute_relation_string(logger, rai_config, config.env,
+                                                       constants.EXTRACT_DDL_METAMODEL_REL)
+
+        metadata = []
+        for model_file in self.model_files:
+            metadata.append(model_file.to_metadata())
+
+        rest_client = SemanticSearchRestClient(logger, config.env.semantic_search_base_url,
+                                               config.env.semantic_search_pod_prefix)
+
+        with io.BytesIO() as zip_buffer:
+            with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+                for f in self.model_files:
+                    zip_file.write(f.path, f.get_file_name())
+                metadata_bindings = {"patterns": [], "bindings": []}
+                for fpath in self.sources_metadata_bindings:
+                    json_string = read(fpath)
+                    data = json.loads(json_string)
+                    metadata_bindings["patterns"].extend(data["patterns"])
+                    metadata_bindings["bindings"].extend(data["bindings"])
+                zip_file.writestr("sources_metadata_bindings.json", json.dumps(metadata_bindings))
+                zip_file.writestr("physical_tabular_metadata.json", tabular_metadata)
+            zip_buffer.seek(0)
+            logger.info("Init semantic layer rel model generation")
+            rsp = rest_client.init_model_generation(rai_config, config.env.rai_cloud_account,
+                                                    {'metadata': json.dumps(metadata)},
+                                                    {"zip": ("models.zip", zip_buffer, "application/zip")})
+            rai.execute_query(logger, rai_config, config.env,
+                              q.insert_plain_data(constants.INIT_MODEL_GENERATION_OPERATION_ID, rsp["operationId"]),
+                              readonly=False)
+
+
+class InitModelGenerationWorkflowStepFactory(WorkflowStepFactory):
+
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
+        return InitModelGenerationWorkflowStep(name, type_value, engine_size, step["sourcesMetadataBindings"],
+                                               InitModelGenerationWorkflowStepFactory._extract_model_files(step))
+
+    @staticmethod
+    def _extract_model_files(step) -> [ModelFile]:
+        model_files = []
+        for model_file in step["modelFiles"]:
+            model_files.append(ModelFile(model_file["path"], model_file["name"], model_file.get("primary", False)))
+        return model_files
+
+
+class InstallGeneratedSourcesWorkflowStep(WorkflowStep):
+
+    def _execute(self, logger: logging.Logger, config: WorkflowConfig, rai_config: RaiConfig):
+        rest_client = SemanticSearchRestClient(logger, config.env.semantic_search_base_url,
+                                               config.env.semantic_search_pod_prefix)
+        logger.info("Wait semantic layer rel model generation complete")
+        InstallGeneratedSourcesWorkflowStep._wait_init_generation_complete(logger, rai_config, config.env, rest_client)
+        logger.info("Request semantic layer rel model generation result")
+        generated_result = rest_client.get_generated_models(rai_config, config.env.rai_cloud_account)
+        extract_folder = "./generated-models"
+        try:
+            with io.BytesIO(generated_result) as zip_buffer:
+                with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
+                    # Extract all files to the specified path
+                    zip_file.extractall(extract_folder)
+
+            file_list = []
+            for root, dirs, files in os.walk(extract_folder):
+                for file in files:
+                    relative_path = os.path.relpath(os.path.join(root, file), extract_folder)
+                    file_list.append(relative_path)
+            models = build_models(file_list, extract_folder)
+            logger.info("Installing generated rel models")
+            rai.install_models(logger, rai_config, config.env, models)
+        finally:
+            if os.path.exists(extract_folder):
+                shutil.rmtree(extract_folder)
+        # cleanup semantic layer after installation
+        # todo: remove later
+        rest_client.delete_layer(rai_config, config.env.rai_cloud_account, rai_config.database)
+
+    @staticmethod
+    def _wait_init_generation_complete(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig,
+                                       rest_client: SemanticSearchRestClient) -> None:
+        operation_id = rai.execute_relation_string(logger, rai_config, env_config,
+                                                   constants.INIT_MODEL_GENERATION_OPERATION_ID)
+        if operation_id == "":
+            raise Exception("Init model generation wasn't triggered")
+        account_name = env_config.rai_cloud_account
+        try:
+            call_with_overhead(
+                f=lambda: InstallGeneratedSourcesWorkflowStep._is_init_generation_completed(logger, rai_config,
+                                                                                            rest_client,
+                                                                                            account_name,
+                                                                                            int(operation_id)),
+                logger=logger,
+                overhead_rate=0.5,
+                timeout=1800  # 30 min
+            )
+        except RetryException:
+            raise Exception("Model generation init timeout")
+
+    @staticmethod
+    def _is_init_generation_completed(logger: logging.Logger, rai_config: RaiConfig,
+                                      rest_client: SemanticSearchRestClient, account_name: str,
+                                      startup_id: int) -> bool:
+        result = rest_client.get_async_operation_result(rai_config, account_name, startup_id)
+        logger.debug(f"Semantic layer async operation result: {result}")
+        return result["isOperationInProgress"] is False
+
+
+class InstallGeneratedSourcesWorkflowStepFactory(WorkflowStepFactory):
+
+    def _get_step(self, logger: logging.Logger, config: WorkflowConfig, name, type_value, engine_size,
+                  step: dict) -> WorkflowStep:
+        return InstallGeneratedSourcesWorkflowStep(name, type_value, engine_size)
+
+
 DEFAULT_FACTORIES = MappingProxyType(
     {
         constants.CONFIGURE_SOURCES: ConfigureSourcesWorkflowStepFactory(),
@@ -618,7 +771,10 @@ DEFAULT_FACTORIES = MappingProxyType(
         constants.LOAD_DATA: LoadDataWorkflowStepFactory(),
         constants.MATERIALIZE: MaterializeWorkflowStepFactory(),
         constants.EXPORT: ExportWorkflowStepFactory(),
-        constants.EXECUTE_COMMAND: ExecuteCommandWorkflowStepFactory()
+        constants.EXECUTE_COMMAND: ExecuteCommandWorkflowStepFactory(),
+        constants.EXTRACT_DDL_METAMODEL: ExtractDDLMetamodelWorkflowStepFactory(),
+        constants.INIT_MODEL_GENERATION: InitModelGenerationWorkflowStepFactory(),
+        constants.INSTALL_GENERATED_SOURCES: InstallGeneratedSourcesWorkflowStepFactory()
     }
 )
 

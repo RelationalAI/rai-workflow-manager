@@ -239,6 +239,10 @@ def output_relation(relation: str) -> str:
     return f"def output = {relation}"
 
 
+def insert_plain_data(relation: str, data: str) -> str:
+    return f"def insert:{relation} = raw\"\"\"{data}\"\"\""
+
+
 def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType) -> QueryWithInputs:
     try:
         raw_data_rel_name = f"{rel_name}_data"

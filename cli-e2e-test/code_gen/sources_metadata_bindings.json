@@ -1,0 +1,41 @@
+{
+  "bindings": [
+    {
+      "attribute": { "attributeName": "custNr", "tableName": "CUSTOMER" },
+      "role": { "relationship": "CustomerIsIdentifiedByCustomerId", "player": "CustomerId" }
+    },
+    {
+      "attribute": { "attributeName": "acctId", "tableName": "SUBSCR" },
+      "role": { "relationship": "AccountIsIdentifiedByAccountNr", "player": "AccountNr" }
+    },
+    {
+      "attribute": { "attributeName": "fullName", "tableName": "CUSTOMER" },
+      "role": { "relationship": "CustomerHasFullName", "player": "FullName" }
+    },
+    {
+      "attribute": { "attributeName": "custId", "tableName": "SUBSCR" },
+      "role": { "relationship": "CustomerOwnsSubscription", "player": "Customer" }
+    },
+    {
+      "attribute": { "attributeName": "acctId", "tableName": "SUBSCR" },
+      "role": { "relationship": "SubscriptionIsPartOfAccount", "player": "Account" }
+    },
+    {
+      "attribute": { "attributeName": "phoneNo", "tableName": "SUBSCR" },
+      "role": { "relationship": "SubscriptionHasSubscriberPhoneNumber", "player": "PhoneNumber" }
+    },
+    {
+      "attribute": { "attributeName": "active", "tableName": "SUBSCR" },
+      "role": { "relationship": "SubscriptionIsActive", "player": "Subscription" }
+    },
+    {
+      "attribute": { "attributeName": "acctActiveYN", "tableName": "SUBSCR", "hasValue": "Y"  },
+      "role": { "relationship": "AccountIsActive", "player": "Account" }
+    }
+  ],
+  "patterns": [
+    { "conceptName": "Account", "pattern": "Entity" },
+    { "conceptName": "AccountNr", "pattern": "ValueType" },
+    { "conceptName": "FullName", "pattern": "Entity" }
+  ]
+}

@@ -1,0 +1,20 @@
+workflow:
+
+  - name: ExtractDDLMetamodel
+    type: ExtractDDLMetamodel
+    ddlFiles:
+      - code_gen/init.sql
+
+  - name: InitModelGeneration
+    type: InitModelGeneration
+    needs: [ExtractDDLMetamodel]
+    sourcesMetadataBindings:
+      - code_gen/sources_metadata_bindings.json
+    modelFiles:
+      - path: code_gen/CodeGenExample.orm
+        primary: true
+        name: "CodeGenExample"
+
+  - name: InstallGeneratedSources
+    type: InstallGeneratedSources
+    needs: [InitModelGeneration]
