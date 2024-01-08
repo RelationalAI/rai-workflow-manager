@@ -32,8 +32,14 @@ INVOKE_SOLVER = 'InvokeSolver'
 MATERIALIZE = 'Materialize'
 EXPORT = 'Export'
 EXECUTE_COMMAND = 'ExecuteCommand'
+EXTRACT_DDL_METAMODEL = 'ExtractDDLMetamodel'
+INIT_MODEL_GENERATION = 'InitModelGeneration'
+INSTALL_GENERATED_SOURCES = 'InstallGeneratedSources'
 
 # RAI constants
+EXTRACT_DDL_METAMODEL_REL = "batch:config:default:ddl_metamodel"
+INIT_MODEL_GENERATION_OPERATION_ID = "batch:config:default:init_model_generation_operation_id"
+
 IMPORT_CONFIG_REL = "import_config"
 
 MISSED_RESOURCES_REL = "missing_resources_json"

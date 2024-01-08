@@ -1,4 +1,5 @@
 import dataclasses
+import os
 from enum import Enum, EnumMeta
 from typing import List, Any
 
@@ -269,3 +270,20 @@ class Transitions:
         return {
             "transitions": [t.to_json_dict() for t in self.transitions]
         }
+
+
+class ModelFile:
+    path: str
+    name: str
+    primary: bool = False
+
+    def __init__(self, path: str, name: str, primary: bool = False):
+        self.path = path
+        self.name = name
+        self.primary = primary
+
+    def get_file_name(self) -> str:
+        return os.path.basename(self.path)
+
+    def to_metadata(self) -> dict:
+        return {"name": self.name, "fileName": self.get_file_name(), "isPrimary": self.primary}

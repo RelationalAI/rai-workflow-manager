@@ -36,7 +36,8 @@ setup(
         "requests==2.31.0",
         "more-itertools==10.1.0",
         "azure-storage-blob==12.17.0",
-        "snowflake-connector-python==3.2.0"],
+        "snowflake-connector-python==3.2.0",
+        "simple-ddl-parser==0.31.1"],
     license="http://www.apache.org/licenses/LICENSE-2.0",
     long_description="The RAI Workflow Framework, which allows you to execute batch configurations, along with a "
                      "default Command-Line Interface (CLI) implementation to interact with the RAI Workflow "

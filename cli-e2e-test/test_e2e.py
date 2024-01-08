@@ -255,6 +255,11 @@ class CliE2ETest(unittest.TestCase):
         expiration_date_str = workflow.rai.execute_query_take_single(self.logger, rai_config, self.env_config, query)
         self.assertEqual(expiration_date_str, "20220106")
 
+    def test_scenario10_code_generation(self):
+        # when
+        self.create_workflow("./config/model/scenario10.json")
+        self.run_workflow()
+
     def create_workflow(self, scenario):
         args = ["--batch-config", scenario,
                 "--action", "init",
