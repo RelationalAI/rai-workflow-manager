@@ -257,7 +257,7 @@ class CliE2ETest(unittest.TestCase):
 
     def test_scenario10_code_generation(self):
         # when
-        self.create_workflow("./config/model/scenario10.json")
+        self.create_workflow("./config/model/scenario10.yaml")
         self.run_workflow()
 
     def create_workflow(self, scenario):
