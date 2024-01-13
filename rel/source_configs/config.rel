@@ -196,7 +196,7 @@ def SimpleSource(s in Source) { not MultiPartSource(s) }
 def DatePartitionedSource = relation:identifies[rel_name:identifies[^RelationName[date_partitioned_source_relation]]]
 def ChunkPartitionedSource = relation:identifies[rel_name:identifies[^RelationName[chunk_partitioned_source_relation]]]
 
-ic date_part_src_should_declare_date_part_res_reg_exp_missmatch(s in DatePartitionedSource, rel, r, u, reg_exp) {
+ic date_part_src_should_declare_date_part_res_reg_exp_mismatch(s in DatePartitionedSource, rel, r, u, reg_exp) {
     source:relname(s, rel) and
     source:declares(s, r) and
     resource:id(r, u) and
@@ -205,7 +205,7 @@ ic date_part_src_should_declare_date_part_res_reg_exp_missmatch(s in DatePartiti
     DatePartResource(r)
 }
 
-ic chunk_part_src_should_declare_chunk_part_res_reg_exp_missmatch(s in ChunkPartitionedSource, rel, r, u, reg_exp) {
+ic chunk_part_src_should_declare_chunk_part_res_reg_exp_mismatch(s in ChunkPartitionedSource, rel, r, u, reg_exp) {
     source:relname(s, rel) and
     source:declares(s, r) and
     resource:id(r, u) and
