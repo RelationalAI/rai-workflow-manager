@@ -66,7 +66,7 @@ def sync_finished(logger: logging.Logger, cursor, source_table: str):
         raise Exception(f"Snowflake sync for `{source_table}` has failed. Health status: {health_status}")
     if key_value_pairs.get(constants.SNOWFLAKE_SYNC_STATUS) == constants.SNOWFLAKE_FINISHED_SYNC_STATUS:
         synced_rows = key_value_pairs.get(constants.SNOWFLAKE_TOTAL_ROWS)
-        logger.info(f"Snowflake sync finished for `{source_table}` has finished. Synced row: {synced_rows}")
+        logger.info(f"Snowflake sync finished for `{source_table}` has finished. Synced rows: {synced_rows}")
         return True
     return False
 
