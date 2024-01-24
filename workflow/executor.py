@@ -533,6 +533,8 @@ class ExportWorkflowStep(WorkflowStep):
                               exports: List[Export]):
         logger.info("Identifying partitioned exports...")
         rez = rai.execute_query_take_tuples(logger, rai_config, env_config, q.discover_partitioned_exports(exports))
+        if not rez:
+            return
         # now get the keys of the output dict `rez` and drop the `:` from the start of the key
         partitioned_export_names = [k[1:] for k in rez.keys()]
         for export in exports:

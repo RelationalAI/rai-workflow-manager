@@ -278,7 +278,7 @@ def execute_query_take_tuples(logger: logging.Logger, rai_config: RaiConfig, env
     rsp = execute_query(logger, rai_config, env_config, query, readonly=readonly, ignore_problems=ignore_problems)
     if not rsp.results:
         logger.debug(f"Query returned no results: {query}")
-        return None
+        return {}
     return _parse_as_dict(rsp)
 
 
