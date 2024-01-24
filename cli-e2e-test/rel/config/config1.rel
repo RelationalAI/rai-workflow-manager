@@ -14,6 +14,8 @@ module export_config
         def syntax:header = {
             1, :name
         }
+
+        def partition_size = 512  // defines the upper bound (MB) for the size of a partition
     end
 
     module stores_csv
@@ -22,6 +24,8 @@ module export_config
         def syntax:header = {
             1, :name
         }
+
+        def partition_size = 512  // defines the upper bound (MB) for the size of a partition
     end
 
     module products_csv

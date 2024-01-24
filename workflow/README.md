@@ -311,7 +311,12 @@ workflow:
 
 * `data` relation contains the well-defined (:col, key..., val) data to be exported;
 * `syntax:header` relation contains the header of the CSV file (Int, Symbol);
-* `partition_size` defines max size of the exported files in MB, if above threshold RAI partitions it in multiple files `filename_{part_nr}.csv`
+* `partition_size` defines max size of the exported files in MB, if above threshold RAI partitions it in multiple files
+  `filename_0_{part_nr}.csv`.
+
+Note: RWM puts a static `_0` postfix by default, as otherwise RAI would not add it if there's only one partition.
+Therefore, file names will look like `filename_0.csv` in case of a single partition and `filename_0_1.csv`, etc. in
+case of multiple partitions. *This only applies to CSV exports to Azure, as local exports can not be partitioned.*
 
 #### Basic exports
 The former needs to be used when a simple export config is passed as shown below:

@@ -218,6 +218,7 @@ class Export:
     snapshot_binding: str
     container: Container
     offset_by_number_of_days: int = 0
+    is_partitioned: bool = False
 
 
 @dataclasses.dataclass
