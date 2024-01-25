@@ -488,6 +488,7 @@ class ExportWorkflowStep(WorkflowStep):
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         exports = list(filter(lambda e: self._should_export(logger, rai_config, env_config, e), self.exports))
+        self._discover_partitioned(logger, rai_config, env_config, exports)
         if self.export_jointly:
             exports.sort(key=lambda e: e.container.name)
             container_groups = {container_name: list(group) for container_name, group in
@@ -526,6 +527,18 @@ class ExportWorkflowStep(WorkflowStep):
             logger.info(
                 f"Skipping export of {export.relation}: defined as a snapshot and the current one is still valid")
         return should_export
+
+    @staticmethod
+    def _discover_partitioned(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig,
+                              exports: List[Export]):
+        logger.info("Identifying partitioned exports...")
+        rez = rai.execute_query_take_tuples(logger, rai_config, env_config, q.discover_partitioned_exports(exports))
+        if not rez:
+            return
+        # now get the keys of the output dict `rez` and drop the `:` from the start of the key
+        partitioned_export_names = [k[1:] for k in rez.keys()]
+        for export in exports:
+            export.is_partitioned = export.relation in partitioned_export_names
 
 
 class ExportWorkflowStepFactory(WorkflowStepFactory):

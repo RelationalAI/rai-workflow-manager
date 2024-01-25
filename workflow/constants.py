@@ -23,6 +23,9 @@ DATE_PREFIX = "data_dt="  # TODO use pattern?
 
 BLOB_PAGE_SIZE = 500
 
+# query constants
+PARTITIONED_EXPORT_POSTFIX = "_0"
+
 # Step types
 CONFIGURE_SOURCES = 'ConfigureSources'
 INSTALL_MODELS = 'InstallModels'

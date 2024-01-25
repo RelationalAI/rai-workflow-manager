@@ -264,6 +264,24 @@ def execute_query_take_single(logger: logging.Logger, rai_config: RaiConfig, env
     return rsp.results[0]['table'].to_pydict()["v1"][0]
 
 
+def execute_query_take_tuples(logger: logging.Logger, rai_config: RaiConfig, env_config: EnvConfig, query: str,
+                              readonly: bool = True, ignore_problems: bool = False) -> any:
+    """
+    Execute query and take the results as an array of tuples.
+    :param logger:          logger
+    :param rai_config:      RAI config
+    :param env_config:      Env config
+    :param query:           Rel query
+    :param readonly:        Parameter to specify transaction type: Read/Write
+    :param ignore_problems: Ignore SDK problems if any
+    """
+    rsp = execute_query(logger, rai_config, env_config, query, readonly=readonly, ignore_problems=ignore_problems)
+    if not rsp.results:
+        logger.debug(f"Query returned no results: {query}")
+        return {}
+    return _parse_as_dict(rsp)
+
+
 def list_transactions(logger: logging.Logger, rai_config: RaiConfig) -> List:
     """
     List all transactions for the engine
@@ -322,13 +340,29 @@ def _parse_csv_string(rsp: api.TransactionAsyncResponse) -> Dict:
     Parse the output for a csv_string query ie
         def output:{rel_name} = csv_string[...]
     """
-    resp = {}
     rel_pattern = r'^/:output/:(.*)/String$'
+    return _parse_matching_pattern(rsp, rel_pattern)
+
+
+def _parse_as_dict(rsp: api.TransactionAsyncResponse) -> Dict:
+    """
+    Parse the output as dictionary, everything starting with :output
+    """
+    rel_pattern = r'^/:output/(.*)$'
+    return _parse_matching_pattern(rsp, rel_pattern)
+
+
+def _parse_matching_pattern(rsp: api.TransactionAsyncResponse, pattern: str) -> Dict:
+    resp = {}
     for result in rsp.results:
-        match = re.search(rel_pattern, result['relationId'])
+        match = re.search(pattern, result['relationId'])
         if match:
             relation_id = match.group(1)
-            data = result['table'].to_pydict()["v1"][0]
+            result_dict = result['table'].to_pydict()
+            if "v1" in result_dict:
+                data = result_dict["v1"][0]
+            else:
+                data = True  # if only relation label present, the value is True
             resp[relation_id] = data
     return resp
 

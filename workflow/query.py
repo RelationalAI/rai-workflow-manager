@@ -6,7 +6,7 @@ from typing import List, Iterable
 
 from workflow import utils
 from workflow.common import FileType, Export, Source, ContainerType, AzureConfig
-from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION
+from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION, PARTITIONED_EXPORT_POSTFIX
 
 # Static queries
 DISABLE_IVM = "def insert:relconfig:disable_ivm = true"
@@ -169,6 +169,15 @@ def get_snapshot_expiration_date(snapshot_binding: str, date_format: str) -> str
         from cfg_src, src, snapshot_date, validity_days
     }}
     """
+
+
+def discover_partitioned_exports(exports: List[Export]) -> str:
+    query = ""
+    for export in exports:
+        query += f"""
+        def output:{export.relation} = export_config:{export.relation}:partition_size = _
+        """
+    return query
 
 
 def export_relations_local(logger: logging.Logger, exports: List[Export]) -> str:
@@ -414,7 +423,9 @@ def _export_meta_relation_as_csv_local(export: Export) -> str:
 
 def _export_relation_as_csv_to_azure(config: AzureConfig, export: Export, end_date: str, date_format: str) -> str:
     rel_name = export.relation
-    export_path = f"{_compose_export_path(config, export, end_date, date_format)}/{rel_name}.csv"
+    # for partitioned exports we append "_0" to the file name postfix so that we always have a partition number
+    postfix = PARTITIONED_EXPORT_POSTFIX if export.is_partitioned else ""
+    export_path = f"{_compose_export_path(config, export, end_date, date_format)}/{rel_name}{postfix}.csv"
     return f"""
     module _export_csv_config
         def {rel_name} = export_config:{rel_name}
@@ -428,6 +439,9 @@ def _export_relation_as_csv_to_azure(config: AzureConfig, export: Export, end_da
 def _export_meta_relation_as_csv_to_azure(config: AzureConfig, export: Export, end_date: str, date_format: str) -> str:
     rel_name = export.relation
     postfix = _to_rel_meta_key_as_str(export)
+    # for partitioned exports we append "_0" to the file name postfix so that we always have a partition number
+    if export.is_partitioned:
+        postfix += PARTITIONED_EXPORT_POSTFIX
     base_path = _compose_export_path(config, export, end_date, date_format)
     export_path = f"{base_path}/{rel_name}_{postfix}.csv"
     key_str = _to_rel_meta_key_as_seq(export)
