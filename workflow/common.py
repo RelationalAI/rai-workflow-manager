@@ -28,8 +28,8 @@ class FileFormat(str, BaseEnum):
     JSON = '.json'
     JSONL = '.jsonl'
     CSV_GZ = '.csv.gz'
-    JSON_GZ = '.csv.gz'
-    JSONL_GZ = '.csv.gz'
+    JSON_GZ = '.json.gz'
+    JSONL_GZ = '.jsonl.gz'
 
     @staticmethod
     def is_supported(file_name):
