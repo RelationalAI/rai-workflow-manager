@@ -51,7 +51,8 @@ def start(factories: dict[str, workflow.executor.WorkflowStepFactory] = MappingP
             workflow.constants.END_DATE: args.end_date,
             workflow.constants.FORCE_REIMPORT: args.force_reimport,
             workflow.constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED: args.force_reimport_not_chunk_partitioned,
-            workflow.constants.COLLAPSE_PARTITIONS_ON_LOAD: args.collapse_partitions_on_load
+            workflow.constants.COLLAPSE_PARTITIONS_ON_LOAD: args.collapse_partitions_on_load,
+            workflow.constants.LOAD_DATA_JOINTLY: args.load_data_jointly
         }
         config = workflow.executor.WorkflowConfig(env_config, workflow.common.BatchConfig(args.batch_config_name,
                                                                                           batch_config_json),

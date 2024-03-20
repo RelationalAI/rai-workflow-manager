@@ -76,7 +76,8 @@ def _create_wf_cfg(env_config: EnvConfig, batch_config: BatchConfig) -> Workflow
         constants.END_DATE: "2021-01-01",
         constants.FORCE_REIMPORT: False,
         constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED: False,
-        constants.COLLAPSE_PARTITIONS_ON_LOAD: False
+        constants.COLLAPSE_PARTITIONS_ON_LOAD: False,
+        constants.LOAD_DATA_JOINTLY: False
     }
     return WorkflowConfig(
         env=env_config,

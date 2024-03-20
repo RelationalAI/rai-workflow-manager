@@ -1,10 +1,9 @@
+import asyncio
+import concurrent.futures
 import dataclasses
 import logging
 import subprocess
 import time
-import asyncio
-import concurrent.futures
-from workflow import snow
 from datetime import datetime
 from enum import Enum
 from itertools import groupby
@@ -14,9 +13,10 @@ from typing import List
 from more_itertools import peekable
 
 from workflow import query as q, paths, rai, constants
-from workflow.exception import StepTimeOutException, CommandExecutionException
+from workflow import snow
 from workflow.common import EnvConfig, RaiConfig, Source, BatchConfig, Export, FileType, ContainerType, Container, \
     FileMetadata
+from workflow.exception import StepTimeOutException, CommandExecutionException
 from workflow.manager import ResourceManager
 from workflow.utils import save_csv_output, format_duration, build_models, extract_date_range, build_relation_path, \
     get_common_model_relative_path, get_or_create_eventloop
@@ -327,10 +327,12 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
 
 class LoadDataWorkflowStep(WorkflowStep):
     collapse_partitions_on_load: bool
+    load_jointly: bool
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load):
+    def __init__(self, idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load, load_jointly):
         super().__init__(idt, name, type_value, state, timing, engine_size)
         self.collapse_partitions_on_load = collapse_partitions_on_load
+        self.load_jointly = load_jointly
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         rai.execute_query(logger, rai_config, env_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
@@ -349,20 +351,22 @@ class LoadDataWorkflowStep(WorkflowStep):
             else:
                 simple_resources.append(src)
 
-        for src in simple_resources:
-            self._load_source(logger, env_config, rai_config, src)
+        self._load_simple_resources(logger, env_config, rai_config, simple_resources)
 
         if async_resources:
-            for src in async_resources:
-                self._load_source(logger, env_config, rai_config, src)
-            self.await_pending(env_config, logger, missed_resources)
+            self._load_async_resources(logger, env_config, rai_config, async_resources)
 
-    def await_pending(self, env_config, logger, missed_resources):
+    def _load_async_resources(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig,
+                              async_resources) -> None:
+        for src in async_resources:
+            self._load_async_resource(logger, env_config, rai_config, src)
+        self._await_pending(env_config, logger, async_resources)
+
+    def _await_pending(self, env_config, logger, pending_resources):
         loop = get_or_create_eventloop()
         if loop.is_running():
             raise Exception('Waiting for resource would interrupt unexpected event loop - aborting to avoid confusion')
-        pending = [src for src in missed_resources if self._resource_is_async(src)]
-        pending_cos = [self._await_async_resource(logger, env_config, resource) for resource in pending]
+        pending_cos = [self._await_async_resource(logger, env_config, resource) for resource in pending_resources]
         loop.run_until_complete(asyncio.gather(*pending_cos))
 
     async def _await_async_resource(self, logger: logging.Logger, env_config: EnvConfig, src):
@@ -371,69 +375,103 @@ class LoadDataWorkflowStep(WorkflowStep):
         if ContainerType.SNOWFLAKE == container.type:
             await snow.await_data_sync(logger, config, src["resources"])
 
-    def _load_source(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, src):
-        source_name = src["source"]
-        if 'is_date_partitioned' in src and src['is_date_partitioned'] == 'Y':
-            logger.info(f"Loading source '{source_name}' partitioned by date")
-            if self.collapse_partitions_on_load:
-                srcs = src["dates"]
-                first_date = srcs[0]["date"]
-                last_date = srcs[-1]["date"]
+    def _load_simple_resources(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig,
+                               simple_resources) -> None:
+        # prepare queries for simple resources
+        query_batches = []
+        for src in simple_resources:
+            # now add all the items returned by _get_data_load_query` to the `query_batches` list
+            query_batches.extend(self._get_data_load_query(logger, env_config, src))
 
-                logger.info(
-                    f"Loading '{source_name}' all date partitions simultaneously, range {first_date} to {last_date}")
-
-                resources = []
-                for d in srcs:
-                    resources += d["resources"]
-                self._load_resource(logger, env_config, rai_config, resources, src)
-            else:
-                logger.info(f"Loading '{source_name}' one date partition at a time")
-                for d in src["dates"]:
-                    logger.info(f"Loading partition for date {d['date']}")
-
-                    for res in d["resources"]:
-                        self._load_resource(logger, env_config, rai_config, [res], src)
+        # execute queries for simple resources, if `load_jointly` is set to True then execute all queries in one txn
+        if self.load_jointly:
+            logger.info("Loading all CSV/JSON(L) sources jointly")
+            query = ""
+            inputs = {}
+            for query_with_input in query_batches:
+                query += query_with_input.query
+                inputs.update(query_with_input.inputs)
+            rai.execute_query(logger, rai_config, env_config, query, inputs, readonly=False)
         else:
-            logger.info(f"Loading source '{source_name}' not partitioned by date")
-            if self.collapse_partitions_on_load:
-                logger.info(f"Loading '{source_name}' all chunk partitions simultaneously")
-                self._load_resource(logger, env_config, rai_config, src["resources"], src)
+            for query_with_input in query_batches:
+                rai.execute_query(logger, rai_config, env_config, query_with_input.query, query_with_input.inputs,
+                                  readonly=False)
+
+    def _get_data_load_query(self, logger: logging.Logger, env_config: EnvConfig, src) -> list:
+        try:
+            container = env_config.get_container(src["container"])
+            config = EnvConfig.get_config(container)
+            if 'is_date_partitioned' in src and src['is_date_partitioned'] == 'Y':
+                return self._get_date_part_load_query(logger, config, src)
             else:
-                logger.info(f"Loading '{source_name}' one chunk partition at a time")
-                for res in src["resources"]:
-                    self._load_resource(logger, env_config, rai_config, [res], src)
+                return self._get_simple_src_load_query(logger, config, src)
+        except KeyError as e:
+            logger.error(f"Unsupported file type: {src['file_type']}. Skip the source: {src}", e)
+        except ValueError as e:
+            logger.error(f"Unsupported source type. Skip the source: {src}", e)
+        return []  # return empty list if source is not supported
+
+    def _get_date_part_load_query(self, logger: logging.Logger, config, src):
+        source_name = src["source"]
+        logger.info(f"Loading source '{source_name}' partitioned by date")
+        if self.collapse_partitions_on_load:
+            srcs = src["dates"]
+            first_date = srcs[0]["date"]
+            last_date = srcs[-1]["date"]
+
+            logger.info(
+                f"Loading '{source_name}' all date partitions simultaneously, range {first_date} to {last_date}")
+
+            resources = []
+            for d in srcs:
+                resources += d["resources"]
+            return [q.load_resources(logger, config, resources, src)]
+        else:
+            logger.info(f"Loading '{source_name}' one date partition at a time")
+            batch = []
+            for d in src["dates"]:
+                logger.info(f"Loading partition for date {d['date']}")
+
+                for res in d["resources"]:
+                    batch.append(q.load_resources(logger, config, [res], src))
+            return batch
+
+    def _get_simple_src_load_query(self, logger: logging.Logger, config, src):
+        source_name = src["source"]
+        logger.info(f"Loading source '{source_name}' not partitioned by date")
+        if self.collapse_partitions_on_load:
+            logger.info(f"Loading '{source_name}' all chunk partitions simultaneously")
+            return [q.load_resources(logger, config, src["resources"], src)]
+        else:
+            logger.info(f"Loading '{source_name}' one chunk partition at a time")
+            batch = []
+            for res in src["resources"]:
+                batch.append(q.load_resources(logger, config, [res], src))
+            return batch
 
     @staticmethod
     def _resource_is_async(src):
         return True if ContainerType.SNOWFLAKE == ContainerType.from_source(src) else False
 
     @staticmethod
-    def _load_resource(logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) -> None:
-        try:
-            container = env_config.get_container(src["container"])
-            config = EnvConfig.get_config(container)
-            if ContainerType.LOCAL == container.type or ContainerType.AZURE == container.type:
-                query_with_input = q.load_resources(logger, config, resources, src)
-                rai.execute_query(logger, rai_config, env_config, query_with_input.query, query_with_input.inputs,
-                                  readonly=False)
-            elif ContainerType.SNOWFLAKE == container.type:
-                snow.begin_data_sync(logger, config, rai_config, resources, src)
-        except KeyError as e:
-            logger.error(f"Unsupported file type: {src['file_type']}. Skip the source: {src}", e)
-        except ValueError as e:
-            logger.error(f"Unsupported source type. Skip the source: {src}", e)
+    def _load_async_resource(logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig, resources, src) ->\
+            None:
+        container = env_config.get_container(src["container"])
+        config = EnvConfig.get_config(container)
+        snow.begin_data_sync(logger, config, rai_config, resources, src)
 
 
 class LoadDataWorkflowStepFactory(WorkflowStepFactory):
 
     def _required_params(self, config: WorkflowConfig) -> List[str]:
-        return [constants.COLLAPSE_PARTITIONS_ON_LOAD]
+        return [constants.COLLAPSE_PARTITIONS_ON_LOAD, constants.LOAD_DATA_JOINTLY]
 
     def _get_step(self, logger: logging.Logger, config: WorkflowConfig, idt, name, type_value, state, timing,
                   engine_size, step: dict) -> WorkflowStep:
         collapse_partitions_on_load = config.step_params[constants.COLLAPSE_PARTITIONS_ON_LOAD]
-        return LoadDataWorkflowStep(idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load)
+        load_jointly = config.step_params[constants.LOAD_DATA_JOINTLY]
+        return LoadDataWorkflowStep(idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load,
+                                    load_jointly)
 
 
 class MaterializeWorkflowStep(WorkflowStep):
