@@ -80,6 +80,7 @@ END_DATE = "end_date"
 FORCE_REIMPORT = "force_reimport"
 FORCE_REIMPORT_NOT_CHUNK_PARTITIONED = "force_reimport_not_chunk_partitioned"
 COLLAPSE_PARTITIONS_ON_LOAD = "collapse_partitions_on_load"
+LOAD_DATA_JOINTLY = "load_data_jointly"
 
 # Snowflake constants
 

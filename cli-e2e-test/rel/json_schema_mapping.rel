@@ -9,12 +9,16 @@
 
 def JsonSourceConfigKey(k) { json_source_config(k, x...) from x... }
 
+@function
 def json_source:value[src in JsonSourceConfigKey] = source_catalog[src, _, :value]
+@function
 def json_source:child[src in JsonSourceConfigKey] = source_catalog[src, _, :child]
 def json_source:root[src in JsonSourceConfigKey] = source_catalog[src, _, :root]
 def json_source:array[src in JsonSourceConfigKey] = source_catalog[src, _, :array]
 
+@function
 def json_source:value[src in JsonSourceConfigKey] = simple_source_catalog[src, :value]
+@function
 def json_source:child[src in JsonSourceConfigKey] = simple_source_catalog[src, :child]
 def json_source:root[src in JsonSourceConfigKey] = simple_source_catalog[src, :root]
 def json_source:array[src in JsonSourceConfigKey] = simple_source_catalog[src, :array]

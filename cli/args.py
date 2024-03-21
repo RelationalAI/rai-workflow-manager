@@ -82,6 +82,12 @@ def parse() -> Namespace:
         default=True
     )
     parser.add_argument(
+        "--load-data-jointly",
+        help="When loading data, load all sources and partitions in one transaction",
+        action=BooleanOptionalAction,
+        default=False
+    )
+    parser.add_argument(
         "--log-level",
         help="Set log level",
         required=False,

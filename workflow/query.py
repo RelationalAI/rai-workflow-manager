@@ -307,10 +307,10 @@ def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> Qu
     load_config = _multi_part_load_config_query(rel_name, file_type,
                                                 _local_multipart_config_integration(raw_data_rel_name))
 
-    query = f"{_part_index_relation(part_indexes)}\n" \
+    query = f"{_part_index_relation(rel_name, part_indexes)}\n" \
             f"{raw_text}\n" \
             f"{load_config}\n" \
-            f"{insert_text}"
+            f"{insert_text}\n"
 
     return QueryWithInputs(query, inputs)
 
@@ -330,10 +330,10 @@ def _azure_load_multipart_query(rel_name: str, file_type: FileType, parts, confi
     load_config = _multi_part_load_config_query(rel_name, file_type,
                                                 _azure_multipart_config_integration(path_rel_name, config))
 
-    return f"{_part_index_relation(part_indexes)}\n" \
+    return f"{_part_index_relation(rel_name, part_indexes)}\n" \
            f"{_path_rel_name_relation(path_rel_name, part_uri_map)}\n" \
            f"{load_config}\n" \
-           f"{insert_text}"
+           f"{insert_text}\n"
 
 
 def _multi_part_load_config_query(rel_name: str, file_type: FileType, config_integration: str) -> str:
@@ -345,7 +345,7 @@ def _multi_part_load_config_query(rel_name: str, file_type: FileType, config_int
     return f"""
 bound {IMPORT_CONFIG_REL}:{rel_name}:schema
 bound {IMPORT_CONFIG_REL}:{rel_name}:syntax:header
-module {_config_rel_name(rel_name)}[i in part_indexes]
+module {_config_rel_name(rel_name)}[i in part_indexes:{rel_name}]
     {schema}
     {config_integration}
 end
@@ -383,25 +383,25 @@ def _indexed_literal(raw_data_rel_name: str, index: int) -> str:
 def _config_rel_name(rel: str) -> str: return f"load_{rel}_config"
 
 
-def _part_index_relation(part_index: str) -> str:
-    return f"def part_index_config:schema:INDEX = \"int\"\n" \
-           f"def part_index_config:data = \"\"\"\n" \
+def _part_index_relation(rel_name: str, part_index: str) -> str:
+    return f"def part_index_config:{rel_name}:schema:INDEX = \"int\"\n" \
+           f"def part_index_config:{rel_name}:data = \"\"\"\n" \
            f"INDEX\n" \
            f"{part_index}\n" \
            f"\"\"\"" \
-           f"def part_indexes_csv = load_csv[part_index_config]\n" \
-           f"def part_indexes = part_indexes_csv:INDEX[_]"
+           f"def part_indexes_csv:{rel_name} = load_csv[part_index_config:{rel_name}]\n" \
+           f"def part_indexes:{rel_name} = part_indexes_csv:{rel_name}:INDEX[_]"
 
 
 def _path_rel_name_relation(path_rel_name: str, part_uri_map: str) -> str:
-    return f"def part_uri_map_config:schema:INDEX = \"int\"\n" \
-           f"def part_uri_map_config:schema:URI = \"string\"\n" \
-           f"def part_uri_map_config:data = \"\"\"\n" \
+    return f"def part_uri_map_config:{path_rel_name}:schema:INDEX = \"int\"\n" \
+           f"def part_uri_map_config:{path_rel_name}:schema:URI = \"string\"\n" \
+           f"def part_uri_map_config:{path_rel_name}:data = \"\"\"\n" \
            f"INDEX,URI\n" \
            f"{part_uri_map}\n" \
            f"\"\"\"" \
-           f"def part_uri_map_csv = load_csv[part_uri_map_config]\n" \
-           f"def {path_rel_name}(i, u) {{ part_uri_map_csv:INDEX(row, i) and part_uri_map_csv:URI(row, u) from row }}"
+           f"def part_uri_map_csv:{path_rel_name} = load_csv[part_uri_map_config:{path_rel_name}]\n" \
+           f"def {path_rel_name}(i, u) {{ part_uri_map_csv:{path_rel_name}:INDEX(row, i) and part_uri_map_csv:{path_rel_name}:URI(row, u) from row }}"
 
 
 def _export_relation_as_csv_local(rel_name) -> str:

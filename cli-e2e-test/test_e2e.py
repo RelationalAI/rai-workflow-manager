@@ -40,6 +40,16 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
+    def test_scenario1_load_data_jointly(self):
+        # when
+        test_args = ["--batch-config", "./config/model/scenario1.json",
+                     "--end-date", "20220105",
+                     "--drop-db", "--load-data-jointly"]
+        rsp = call(self.cmd_with_common_arguments + test_args)
+        # then
+        self.assertNotEqual(rsp, 1)
+        self.assert_output_dir_files(self.test_scenario1_model.__name__)
+
     def test_scenario1_model_yaml(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario1.yaml",
@@ -122,7 +132,7 @@ class CliE2ETest(unittest.TestCase):
         rsp_json = workflow.rai.execute_relation_json(self.logger, rai_config, self.env_config, RESOURCES_TO_DELETE_REL)
         self.assertEqual(rsp_json, [{'partition': 2023090800001, 'relation': 'city_data'}])
 
-    def test_scenario3_model_two_partitions_overriden_by_one_for_date_partitioned(self):
+    def test_scenario3_model_two_partitions_overridden_by_one_for_date_partitioned(self):
         # when
         test_args = ["--batch-config", "./config/model/scenario3.json",
                      "--start-date", "20230908",
