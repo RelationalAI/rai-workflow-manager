@@ -1,3 +1,11 @@
+module import_config:product_data
+    def schema = {
+        :product, "string"
+    }
+
+    bound syntax:header
+end
+
 module product_data
     def PRODUCT_NAME[idx, row] = source_catalog:product_data[idx, :product, row]
 end
