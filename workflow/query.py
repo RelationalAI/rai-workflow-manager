@@ -343,8 +343,6 @@ def _multi_part_load_config_query(rel_name: str, file_type: FileType, config_int
                  f"def syntax:header = {IMPORT_CONFIG_REL}:{rel_name}:syntax:header"
 
     return f"""
-bound {IMPORT_CONFIG_REL}:{rel_name}:schema
-bound {IMPORT_CONFIG_REL}:{rel_name}:syntax:header
 module {_config_rel_name(rel_name)}[i in part_indexes:{rel_name}]
     {schema}
     {config_integration}

@@ -1,3 +1,12 @@
+module import_config:device_data
+    def schema = {
+        :device, "string" ;
+        :IMEI, "int"
+    }
+
+    bound syntax:header
+end
+
 module device_data
     def DEVICE_NAME[idx, row] = source_catalog:device_data[idx, :device, row]
 end

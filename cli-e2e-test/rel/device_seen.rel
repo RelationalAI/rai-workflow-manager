@@ -1,3 +1,12 @@
+module import_config:device_seen_snapshot
+    def schema = {
+        :device, "string" ;
+        :last_seen, "date"
+    }
+
+    bound syntax:header
+end
+
 module device_seen_snapshot
     def DEVICE_NAME[idx, row] = source_catalog:device_seen_snapshot[idx, :device, row]
     def LAST_SEEN[idx, row] = source_catalog:device_seen_snapshot[idx, :last_seen, row]

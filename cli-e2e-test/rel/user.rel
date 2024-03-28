@@ -1,3 +1,12 @@
+module import_config:user_data
+    def schema = {
+        :user_id, "int" ;
+        :user_name, "string"
+    }
+
+    bound syntax:header
+end
+
 module user_data
     def USER_NAME[idx, row] = source_catalog:user_data[idx, :user_name, row]
 end

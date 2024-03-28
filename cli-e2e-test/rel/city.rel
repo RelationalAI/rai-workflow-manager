@@ -1,3 +1,11 @@
+module import_config:city_data
+    def schema = {
+        :city, "string"
+    }
+
+    bound syntax:header
+end
+
 module city_data
     def CITY_NAME[idx, row] = source_catalog:city_data[idx, :city, row]
 end
