@@ -318,9 +318,15 @@ def _parse_json_string(rsp: api.TransactionAsyncResponse) -> Dict:
     """
     if not rsp.results:
         return {}
-    pa_table = rsp.results[0]['table']
-    data = pa_table.to_pydict()
-    return json.loads(data["v1"][0])
+    output_result = {}
+    for result in rsp.results:
+        if result['relationId'] == "/:output/String":
+            pa_table = result['table']
+            output_result = pa_table.to_pydict()
+            break
+    if not output_result:
+        return {}
+    return json.loads(output_result["v1"][0])
 
 
 def _parse_string(rsp: api.TransactionAsyncResponse) -> str:
