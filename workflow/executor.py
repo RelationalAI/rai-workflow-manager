@@ -131,9 +131,11 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
     end_date: str
     force_reimport: bool
     force_reimport_not_chunk_partitioned: bool
+    enable_incremental_snapshots: bool
 
     def __init__(self, idt, name, type_value, state, timing, engine_size, config_files, rel_config_dir, sources,
-                 paths_builders, start_date, end_date, force_reimport, force_reimport_not_chunk_partitioned):
+                 paths_builders, start_date, end_date, force_reimport, force_reimport_not_chunk_partitioned,
+                 enable_incremental_snapshots):
         super().__init__(idt, name, type_value, state, timing, engine_size)
         self.config_files = config_files
         self.rel_config_dir = rel_config_dir
@@ -143,6 +145,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         self.end_date = end_date
         self.force_reimport = force_reimport
         self.force_reimport_not_chunk_partitioned = force_reimport_not_chunk_partitioned
+        self.enable_incremental_snapshots = enable_incremental_snapshots
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         rai.install_models(logger, rai_config, env_config, build_models(self.config_files, self.rel_config_dir))
@@ -152,6 +155,15 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
         declared_sources = {src["source"]: src for src in
                             rai.execute_relation_json(logger, rai_config, env_config,
                                                       constants.DECLARED_DATE_PARTITIONED_SOURCE_REL)}
+
+        # if `enable_incremental_snapshots` is set to True, we need to filter out snapshot sources
+        if self.enable_incremental_snapshots:
+            # get a set of snapshot source names from the `relation` field
+            snapshot_sources = {src.relation for src in self.sources if src.snapshot_validity_days and
+                                src.snapshot_validity_days >= 0}
+            logger.info(f"Snapshot sources skipped, will be reloaded incrementally: {snapshot_sources}")
+            # filter out snapshot sources from the declared sources
+            declared_sources = {k: v for k, v in declared_sources.items() if k not in snapshot_sources}
         expired_sources = self._calculate_expired_sources(logger, declared_sources)
 
         # mark declared sources for reimport
@@ -284,6 +296,7 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
         force_reimport = config.step_params.get(constants.FORCE_REIMPORT, False)
         force_reimport_not_chunk_partitioned = config.step_params.get(constants.FORCE_REIMPORT_NOT_CHUNK_PARTITIONED,
                                                                       False)
+        enable_incremental_snapshots = config.step_params[constants.ENABLE_INCREMENTAL_SNAPSHOTS]
         paths_builders = {}
         for src in sources:
             container = src.container
@@ -291,7 +304,8 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
                 paths_builders[container.name] = paths.PathsBuilderFactory.get_path_builder(container)
         return ConfigureSourcesWorkflowStep(idt, name, type_value, state, timing, engine_size, step["configFiles"],
                                             rel_config_dir, sources, paths_builders, start_date, end_date,
-                                            force_reimport, force_reimport_not_chunk_partitioned)
+                                            force_reimport, force_reimport_not_chunk_partitioned,
+                                            enable_incremental_snapshots)
 
     @staticmethod
     def _parse_sources(step: dict, env_config: EnvConfig) -> List[Source]:

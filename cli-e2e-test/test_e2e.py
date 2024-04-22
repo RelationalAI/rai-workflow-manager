@@ -51,9 +51,9 @@ class CliE2ETest(unittest.TestCase):
         self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
-        # when loading as of 20220106
+        # when loading as of 20220109
         test_args = ["--batch-config", "./config/model/scenario1.json",
-                     "--end-date", "20220110",
+                     "--end-date", "20220109",
                      "--load-data-jointly",
                      "--enable-incremental-snapshots"]
         rsp = call(self.cmd_with_common_arguments + test_args)
