@@ -131,30 +131,34 @@ def discover_reimport_sources(sources: List[Source], expired_sources: List[tuple
     """
 
 
-def load_resources(logger: logging.Logger, config: AzureConfig, resources, src) -> QueryWithInputs:
+def load_resources(logger: logging.Logger, config: AzureConfig, resources, src, snapshot_diff_enabled: bool = False) ->\
+        QueryWithInputs:
     rel_name = src["source"]
 
     file_stype_str = src["file_type"]
     file_type = FileType[file_stype_str]
     src_type = ContainerType.from_source(src)
+    reload_as_snapshot = snapshot_diff_enabled and src.get("is_snapshot", False)
 
     if 'is_multi_part' in src and src['is_multi_part'] == 'Y':
         if file_type == FileType.CSV or file_type == FileType.JSONL:
             if src_type == ContainerType.LOCAL:
                 logger.info(f"Loading {len(resources)} shards from local files")
-                return _local_load_multipart_query(rel_name, file_type, resources)
+                return _local_load_multipart_query(rel_name, file_type, resources, reload_as_snapshot)
             elif src_type == ContainerType.AZURE:
                 logger.info(f"Loading {len(resources)} shards from Azure files")
-                return QueryWithInputs(_azure_load_multipart_query(rel_name, file_type, resources, config), {})
+                return QueryWithInputs(
+                    _azure_load_multipart_query(rel_name, file_type, resources, config, reload_as_snapshot), {})
         else:
             logger.error(f"Unknown file type {file_stype_str}")
     else:
         if src_type == ContainerType.LOCAL:
             logger.info("Loading from local file")
-            return _local_load_simple_query(rel_name, resources[0]["uri"], file_type)
+            return _local_load_simple_query(rel_name, resources[0]["uri"], file_type, reload_as_snapshot)
         elif src_type == ContainerType.AZURE:
             logger.info("Loading from Azure file")
-            return QueryWithInputs(_azure_load_simple_query(rel_name, resources[0]["uri"], file_type, config), {})
+            return QueryWithInputs(
+                _azure_load_simple_query(rel_name, resources[0]["uri"], file_type, config, reload_as_snapshot), {})
 
 
 def get_snapshot_expiration_date(snapshot_binding: str, date_format: str) -> str:
@@ -269,25 +273,26 @@ def output_relation(relation: str) -> str:
     return f"def output = {relation}"
 
 
-def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType) -> QueryWithInputs:
+def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType, reload_as_snapshot: bool) -> QueryWithInputs:
     try:
         raw_data_rel_name = f"{rel_name}_data"
         data = utils.read(uri)
         query = f"def {IMPORT_CONFIG_REL}:{rel_name}:data = {raw_data_rel_name}\n" \
-                f"{_simple_insert_query(rel_name, file_type)}\n"
+                f"{_simple_insert_query(rel_name, file_type, reload_as_snapshot)}\n"
         return QueryWithInputs(query, {raw_data_rel_name: data})
     except OSError as e:
         raise e
 
 
-def _azure_load_simple_query(rel_name: str, uri: str, file_type: FileType, config: AzureConfig) -> str:
+def _azure_load_simple_query(rel_name: str, uri: str, file_type: FileType, config: AzureConfig,
+                             reload_as_snapshot: bool) -> str:
     return f"def {IMPORT_CONFIG_REL}:{rel_name}:integration:provider = \"azure\"\n" \
            f"def {IMPORT_CONFIG_REL}:{rel_name}:integration:credentials:azure_sas_token = raw\"{config.sas}\"\n" \
            f"def {IMPORT_CONFIG_REL}:{rel_name}:path = \"{uri}\"\n" \
-           f"{_simple_insert_query(rel_name, file_type)}"
+           f"{_simple_insert_query(rel_name, file_type, reload_as_snapshot)}"
 
 
-def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> QueryWithInputs:
+def _local_load_multipart_query(rel_name: str, file_type: FileType, parts, reload_as_snapshot: bool) -> QueryWithInputs:
     raw_data_rel_name = f"{rel_name}_data"
 
     raw_text = ""
@@ -303,7 +308,7 @@ def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> Qu
         except OSError as e:
             raise e
 
-    insert_text = _multi_part_insert_query(rel_name, file_type)
+    insert_text = _multi_part_insert_query(rel_name, file_type, reload_as_snapshot)
     load_config = _multi_part_load_config_query(rel_name, file_type,
                                                 _local_multipart_config_integration(raw_data_rel_name))
 
@@ -315,7 +320,8 @@ def _local_load_multipart_query(rel_name: str, file_type: FileType, parts) -> Qu
     return QueryWithInputs(query, inputs)
 
 
-def _azure_load_multipart_query(rel_name: str, file_type: FileType, parts, config: AzureConfig) -> str:
+def _azure_load_multipart_query(rel_name: str, file_type: FileType, parts, config: AzureConfig,
+                                reload_as_snapshot: bool) -> str:
     path_rel_name = f"{rel_name}_path"
 
     part_indexes = ""
@@ -326,7 +332,7 @@ def _azure_load_multipart_query(rel_name: str, file_type: FileType, parts, confi
         part_indexes += f"{part_idx}\n"
         part_uri_map += f"{part_idx},\"{part_uri}\"\n"
 
-    insert_text = _multi_part_insert_query(rel_name, file_type)
+    insert_text = _multi_part_insert_query(rel_name, file_type, reload_as_snapshot)
     load_config = _multi_part_load_config_query(rel_name, file_type,
                                                 _azure_multipart_config_integration(path_rel_name, config))
 
@@ -360,14 +366,30 @@ def _azure_multipart_config_integration(path_rel_name: str, config: AzureConfig)
            f"def path = {path_rel_name}[i]\n"
 
 
-def _multi_part_insert_query(rel_name: str, file_type: FileType) -> str:
+def _multi_part_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot: bool) -> str:
     conf_rel_name = _config_rel_name(rel_name)
+    insert_body = f"{FILE_LOAD_RELATION[file_type]}[{conf_rel_name}[i]]"
+    if reload_as_snapshot:
+        return _snapshot_delta_query(rel_name, insert_body, True)
+    else:
+        return f"def insert:source_catalog:{rel_name}[i] = {insert_body}"
 
-    return f"def insert:source_catalog:{rel_name}[i] = {FILE_LOAD_RELATION[file_type]}[{conf_rel_name}[i]]"
+
+def _simple_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot: bool) -> str:
+    insert_body = f"{FILE_LOAD_RELATION[file_type]}[{IMPORT_CONFIG_REL}:{rel_name}]"
+    if reload_as_snapshot:
+        return _snapshot_delta_query(rel_name, insert_body, False)
+    else:
+        return f"def insert:simple_source_catalog:{rel_name} = {insert_body}"
 
 
-def _simple_insert_query(rel_name: str, file_type: FileType) -> str:
-    return f"def insert:simple_source_catalog:{rel_name} = {FILE_LOAD_RELATION[file_type]}[{IMPORT_CONFIG_REL}:{rel_name}]"
+def _snapshot_delta_query(rel_name: str, data_body: str, is_partitioned: bool) -> str:
+    catalog_rel = "simple_source_catalog" if not is_partitioned else "source_catalog"
+    partition_index = "[i]" if is_partitioned else ""
+    return f"def _snapshot_data:{rel_name}{partition_index} = {data_body}\n" \
+           f"def _snapshot_delta:{rel_name} = snapshot_diff[{catalog_rel}:{rel_name}, _snapshot_data:{rel_name}]\n" \
+           f"def insert:{catalog_rel}:{rel_name} = _snapshot_delta:{rel_name}:insertions\n" \
+           f"def delete:{catalog_rel}:{rel_name} = _snapshot_delta:{rel_name}:deletions\n"
 
 
 def _load_from_indexed_literal(raw_data_rel_name: str, index: int) -> str:

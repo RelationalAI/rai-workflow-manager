@@ -154,6 +154,12 @@ def parse() -> Namespace:
         default=True
     )
     parser.add_argument(
+        "--enable-incremental-snapshots",
+        help="Loading snapshot sources via first doing a diff and applying insert:* and delete:* deltas",
+        action=BooleanOptionalAction,
+        default=False
+    )
+    parser.add_argument(
         "--recover",
         help="Recover a batch run starting from a FAILED step",
         action=BooleanOptionalAction,

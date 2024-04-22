@@ -328,11 +328,14 @@ class ConfigureSourcesWorkflowStepFactory(WorkflowStepFactory):
 class LoadDataWorkflowStep(WorkflowStep):
     collapse_partitions_on_load: bool
     load_jointly: bool
+    enable_incremental_snapshots: bool
 
-    def __init__(self, idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load, load_jointly):
+    def __init__(self, idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load, load_jointly,
+                 enable_incremental_snapshots):
         super().__init__(idt, name, type_value, state, timing, engine_size)
         self.collapse_partitions_on_load = collapse_partitions_on_load
         self.load_jointly = load_jointly
+        self.enable_incremental_snapshots = enable_incremental_snapshots
 
     def _execute(self, logger: logging.Logger, env_config: EnvConfig, rai_config: RaiConfig):
         rai.execute_query(logger, rai_config, env_config, q.DELETE_REFRESHED_SOURCES_DATA, readonly=False)
@@ -353,6 +356,7 @@ class LoadDataWorkflowStep(WorkflowStep):
 
         self._load_simple_resources(logger, env_config, rai_config, simple_resources)
 
+        # note: async resources do not support snapshot diffing, as CDC should be incremental
         if async_resources:
             self._load_async_resources(logger, env_config, rai_config, async_resources)
 
@@ -425,7 +429,7 @@ class LoadDataWorkflowStep(WorkflowStep):
             resources = []
             for d in srcs:
                 resources += d["resources"]
-            return [q.load_resources(logger, config, resources, src)]
+            return [q.load_resources(logger, config, resources, src, self.enable_incremental_snapshots)]
         else:
             logger.info(f"Loading '{source_name}' one date partition at a time")
             batch = []
@@ -433,7 +437,8 @@ class LoadDataWorkflowStep(WorkflowStep):
                 logger.info(f"Loading partition for date {d['date']}")
 
                 for res in d["resources"]:
-                    batch.append(q.load_resources(logger, config, [res], src))
+                    batch.append(
+                        q.load_resources(logger, config, [res], src, self.enable_incremental_snapshots))
             return batch
 
     def _get_simple_src_load_query(self, logger: logging.Logger, config, src):
@@ -441,12 +446,12 @@ class LoadDataWorkflowStep(WorkflowStep):
         logger.info(f"Loading source '{source_name}' not partitioned by date")
         if self.collapse_partitions_on_load:
             logger.info(f"Loading '{source_name}' all chunk partitions simultaneously")
-            return [q.load_resources(logger, config, src["resources"], src)]
+            return [q.load_resources(logger, config, src["resources"], src, self.enable_incremental_snapshots)]
         else:
             logger.info(f"Loading '{source_name}' one chunk partition at a time")
             batch = []
             for res in src["resources"]:
-                batch.append(q.load_resources(logger, config, [res], src))
+                batch.append(q.load_resources(logger, config, [res], src, self.enable_incremental_snapshots))
             return batch
 
     @staticmethod
@@ -470,8 +475,9 @@ class LoadDataWorkflowStepFactory(WorkflowStepFactory):
                   engine_size, step: dict) -> WorkflowStep:
         collapse_partitions_on_load = config.step_params[constants.COLLAPSE_PARTITIONS_ON_LOAD]
         load_jointly = config.step_params[constants.LOAD_DATA_JOINTLY]
+        enable_incremental_snapshots = config.step_params[constants.ENABLE_INCREMENTAL_SNAPSHOTS]
         return LoadDataWorkflowStep(idt, name, type_value, state, timing, engine_size, collapse_partitions_on_load,
-                                    load_jointly)
+                                    load_jointly, enable_incremental_snapshots)
 
 
 class MaterializeWorkflowStep(WorkflowStep):

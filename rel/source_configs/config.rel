@@ -268,6 +268,10 @@ module source
     }
 
     def resource_part_index = declares . part_resource:part_index
+
+    def has_batch_config(s, cfg) {
+        source:relname[s] = #(batch_source:relation[cfg])
+    }
 end
 
 /**
@@ -394,6 +398,15 @@ def missing_resources_json(:[], n, :is_date_partitioned, v) {
       not source:date_partitioned(s) and
       v = "F" )
     from s
+}
+
+def missing_resources_json(:[], n, :is_snapshot, v) {
+    source:needs_resource(s) and
+    source:index[s] = n and
+    source:has_batch_config(s, cfg) and
+    batch_source:snapshot_validity_days(cfg, _) and
+    boolean_true(v)
+    from s, cfg
 }
 
 def missing_resources_json(:[], i, :resources, :[], k, :uri, n) {

@@ -123,7 +123,10 @@ def resources_to_delete(rel) {
     rel = #(transpose[resource_to_invalidate][_])
 }
 
-def resources_data_to_delete_idx = enumerate[resources_data_to_delete]
+// the following enumerate is split in order to help the compiler handle arity overloads
+def resources_data_to_delete_idx = enumerate[r, ix: resources_data_to_delete(r, ix)]
+def resources_data_to_delete_idx = enumerate[r: resources_data_to_delete(r)]
+
 def resources_data_to_delete_json(:[], i, :relation, s) {
     resources_data_to_delete_idx(i, r, _) and
     s = relname_string[r]
