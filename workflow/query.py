@@ -384,12 +384,18 @@ def _simple_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot:
 
 
 def _snapshot_delta_query(rel_name: str, data_body: str, is_partitioned: bool) -> str:
-    catalog_rel = "simple_source_catalog" if not is_partitioned else "source_catalog"
-    partition_index = "[i]" if is_partitioned else ""
-    return f"def _snapshot_data:{rel_name}{partition_index} = {data_body}\n" \
-           f"def _snapshot_delta:{rel_name} = snapshot_diff[{catalog_rel}:{rel_name}, _snapshot_data:{rel_name}]\n" \
-           f"def insert:{catalog_rel}:{rel_name} = _snapshot_delta:{rel_name}:insertions\n" \
-           f"def delete:{catalog_rel}:{rel_name} = _snapshot_delta:{rel_name}:deletions\n"
+    part_index_col = "[i]" if is_partitioned else ""
+    part_index_var = "i, " if is_partitioned else ""
+    return f"def _snapshot_data_raw:{rel_name}{part_index_col} = {data_body}\n" \
+           f"def _snapshot_data_key:{rel_name} = import_config:{rel_name}:row_key_map[_snapshot_data_raw:{rel_name}]\n" \
+           f"def _snapshot_data:{rel_name}(col, key, val) {{\n" \
+           f"    _snapshot_data_key:{rel_name}({part_index_var}row, key) and\n" \
+           f"    _snapshot_data_raw:{rel_name}({part_index_var}col, row, val)\n" \
+           f"    from {part_index_var}row\n" \
+           f"}}\n" \
+           f"def _snapshot_delta:{rel_name} = snapshot_diff[snapshot_catalog:{rel_name}, _snapshot_data:{rel_name}]\n" \
+           f"def insert:snapshot_catalog:{rel_name} = _snapshot_delta:{rel_name}:insertions\n" \
+           f"def delete:snapshot_catalog:{rel_name} = _snapshot_delta:{rel_name}:deletions\n"
 
 
 def _load_from_indexed_literal(raw_data_rel_name: str, index: int) -> str:

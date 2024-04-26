@@ -4,6 +4,7 @@ bound date_partitioned_source_relation = String
 bound source_declares_resource = String, String, String
 bound source_has_input_format = String, String
 bound source_has_container_type = String, String
+bound snapshot_catalog
 bound source_catalog
 bound simple_source_catalog
 bound part_resource_date_pattern = String
