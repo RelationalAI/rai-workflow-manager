@@ -9,7 +9,7 @@ from workflow.common import FileType, Export, Source, ContainerType, AzureConfig
 from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION, PARTITIONED_EXPORT_POSTFIX
 
 # Static queries
-DISABLE_IVM = "def insert:relconfig:disable_ivm = true"
+DISABLE_IVM = "def insert:rel:config:disable_ivm = true"
 
 DELETE_REFRESHED_SOURCES_DATA = """
     def delete:source_catalog(r, p_i, data...) {
