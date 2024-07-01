@@ -41,14 +41,25 @@ class CliE2ETest(unittest.TestCase):
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
 
     def test_scenario1_load_data_jointly(self):
-        # when
+        # when loading as of 20220105
         test_args = ["--batch-config", "./config/model/scenario1.json",
                      "--end-date", "20220105",
-                     "--drop-db", "--load-data-jointly"]
+                     "--drop-db", "--load-data-jointly",
+                     "--enable-incremental-snapshots"]
         rsp = call(self.cmd_with_common_arguments + test_args)
-        # then
+        # then should get the same result as other tests for scenario1
         self.assertNotEqual(rsp, 1)
         self.assert_output_dir_files(self.test_scenario1_model.__name__)
+
+        # when loading as of 20220109
+        test_args = ["--batch-config", "./config/model/scenario1.json",
+                     "--end-date", "20220109",
+                     "--load-data-jointly",
+                     "--enable-incremental-snapshots"]
+        rsp = call(self.cmd_with_common_arguments + test_args)
+        # then should get an updated snapshot
+        self.assertNotEqual(rsp, 1)
+        self.assert_output_dir_files(self.test_scenario1_load_data_jointly.__name__)
 
     def test_scenario1_model_yaml(self):
         # when

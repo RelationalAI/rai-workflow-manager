@@ -5,12 +5,14 @@ module import_config:device_seen_snapshot
     }
 
     bound syntax:header
+
+    @inline
+    def row_key_map[R](idx, row, key) {
+        ^Device(R[idx, :device, row], key)
+    }
 end
 
-module device_seen_snapshot
-    def DEVICE_NAME[idx, row] = source_catalog:device_seen_snapshot[idx, :device, row]
-    def LAST_SEEN[idx, row] = source_catalog:device_seen_snapshot[idx, :last_seen, row]
-end
+entity type Device = String
 
 /*
  * device_seen snapshot is a snapshot of the last time a device was seen, which is
@@ -28,9 +30,9 @@ def device_last_seen[d] = max[t:
     device_seen_today(d, t)
     or
     (
-        device_seen_snapshot:DEVICE_NAME(idx, row, d) and
-        device_seen_snapshot:LAST_SEEN(idx, row, t)
-        from idx, row
+        snapshot_catalog:device_seen_snapshot:device(key, d) and
+        snapshot_catalog:device_seen_snapshot:last_seen(key, t)
+        from key
     )
 ]
 

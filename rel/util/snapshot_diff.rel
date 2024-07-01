@@ -1,0 +1,5 @@
+@outline @nomaintain
+module snapshot_diff[{old}, {new}]
+    def insertions(x...) = new(x...) and not old(x...)
+    def deletions(x...) = old(x...) and not new(x...)
+end

@@ -11,6 +11,7 @@ COMMON_MODEL = [
     "batch_config/workflow/steps/load_data.rel",
     "batch_config/workflow/steps/materialize.rel",
     "batch_config/workflow/steps/execute_command.rel",
+    "util/snapshot_diff.rel",
 ]
 
 COMMON_MODEL_RELATIVE_PATH = "/../rel"
@@ -81,6 +82,7 @@ FORCE_REIMPORT = "force_reimport"
 FORCE_REIMPORT_NOT_CHUNK_PARTITIONED = "force_reimport_not_chunk_partitioned"
 COLLAPSE_PARTITIONS_ON_LOAD = "collapse_partitions_on_load"
 LOAD_DATA_JOINTLY = "load_data_jointly"
+ENABLE_INCREMENTAL_SNAPSHOTS = "enable_incremental_snapshots"
 
 # Snowflake constants
 

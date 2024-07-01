@@ -581,7 +581,8 @@ def _create_cfg_sources_step(sources: List[Source], paths_builders: dict[str, pa
         start_date=start_date,
         end_date=end_date,
         force_reimport=False,
-        force_reimport_not_chunk_partitioned=False
+        force_reimport_not_chunk_partitioned=False,
+        enable_incremental_snapshots=False
     )
 
 
