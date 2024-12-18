@@ -3,11 +3,12 @@
 This repository contains the RAI Workflow Framework, which allows you to execute batch configurations, along with a default Command-Line Interface (CLI) implementation to interact with the RAI Workflow Framework. With this powerful combination, you can easily manage and execute batch configurations for various tasks using the RAI database.
 
 ## Project Status
-[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
+[![Project Status: Inactive – The project has reached a stable, usable state but is no longer being actively developed; support/maintenance will be provided as time allows.](https://www.repostatus.org/badges/latest/inactive.svg)](https://www.repostatus.org/#inactive)
 
-⚠️ **Warning: This project is under active development.**
+⚠️ **Warning: This project is inactive.**
 
-Please note that this project is in the early stages of development, and as such, it may undergo significant changes in subsequent versions. We are actively working on improving and expanding the functionality of the software.
+Please note that this project has reached a stable state, however it's been replaced with a SaaS solution.
+
 ### Compatibility Notice
 
 As the project evolves, there may be changes that could affect compatibility with earlier versions. It is advisable to check the release notes and update your code accordingly when upgrading to a new version.
