@@ -5,5 +5,5 @@ rai-sdk==0.7.5
 requests==2.31.0
 more-itertools==10.1.0
 azure-storage-blob==12.17.0
-snowflake-connector-python==3.11.0
+snowflake-connector-python==3.13.1
 csv-diff==1.1
