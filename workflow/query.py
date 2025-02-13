@@ -222,21 +222,22 @@ def export_relations_to_azure(logger: logging.Logger, config: AzureConfig, expor
 
 def init_workflow_steps(batch_config_name: str) -> str:
     return f"""
-    def delete(:batch_workflow_step, :state_value, s, v):
-        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
+    def delete(:batch_workflow_step, :state_value, s, v): {{
+        {{ {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }}[:{batch_config_name}]}}() and
         batch_workflow_step(:state_value, s, v)
-
-    def delete(:batch_workflow_step, :execution_time_value, s, v):
-        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
+    }}
+    def delete(:batch_workflow_step, :execution_time_value, s, v): {{
+        {{ {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }}[:{batch_config_name}]}}() and
         batch_workflow_step(:execution_time_value, s, v)
-
-    def insert(:batch_workflow_step, :execution_time_value, s, v):
-        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
+    }}
+    def insert(:batch_workflow_step, :execution_time_value, s, v): {{
+        {{ {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }}[:{batch_config_name}]}}() and
         v = 0.0
-
-    def insert(:batch_workflow_step, :state_value, s, v):
-        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
+    }}
+    def insert(:batch_workflow_step, :state_value, s, v): {{
+        {{ {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }}[:{batch_config_name}]}}() and
         v = "INIT"
+    }}
     """
 
 
