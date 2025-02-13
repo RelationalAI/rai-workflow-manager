@@ -1,9 +1,9 @@
-def BatchWorkflowMaterializeStep(s) { batch_workflow_step:type(s, MaterializeType) }
+def BatchWorkflowMaterializeStep(s): { batch_workflow_step(:type, s, MaterializeType) }
 
 module batch_workflow_step
     module materialize
-        def relations(s in BatchWorkflowMaterializeStep, r) { json_data(s, :relations, :[], _, r) }
+        def relations(s in BatchWorkflowMaterializeStep, r): { json_data(s, :relations, :[], _, r) }
 
-        def jointly(s in BatchWorkflowMaterializeStep) { json_data(s, :materializeJointly, boolean_true) }
+        def jointly(s in BatchWorkflowMaterializeStep): { json_data(s, :materializeJointly, boolean_true) }
     end
 end

@@ -1,1 +1,1 @@
-def BatchWorkflowLoadDataStep(s) { batch_workflow_step:type(s, LoadDataType) }
+def BatchWorkflowLoadDataStep(s): { batch_workflow_step(:type, s, LoadDataType) }

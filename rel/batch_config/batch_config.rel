@@ -1,31 +1,30 @@
-bound batch:config
+declare batch(:config, __trail...) requires true
 
 /**
  * Batch config
  */
-value type BatchConfigName = RelName
-entity type BatchConfig = BatchConfigName
+value type BatchConfigName { RelName }
+@inline def ^BatchConfig { make_entity_hash[{:"BatchConfig"}, {BatchConfigName}] }
 
-def BatchConfig(name) { batch_config:id(name, _) }
+def BatchConfig(name): { batch_config(:id, name, _) }
 
 module batch_config_name
-    def identifies(n, c) {
+    def identifies(n, c): {
+        exists((v) |
         value(v) and
         n = ^BatchConfigName[v] and
-        c = ^BatchConfig[n]
-        from v
+        c = ^BatchConfig[n])
     }
 
-    def value(v) {
-        batch:config(v, rest...)
-        from rest...
+    def value(v): {
+        exists((rest...) | batch(:config, v, rest...))
     }
 end
 
 module batch_config
-    def id = transpose[batch_config_name:identifies]
+    def id { transpose[batch_config_name[:identifies]] }
 
-    def identifies(c, w) {
+    def identifies(c, w): {
         BatchConfig(c) and
         w = ^BatchWorkflow[c]
     }

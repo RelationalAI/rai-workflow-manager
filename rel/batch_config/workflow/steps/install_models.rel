@@ -1,7 +1,7 @@
-def BatchWorkflowInstallModelsStep(s) { batch_workflow_step:type(s, InstallModelsType) }
+def BatchWorkflowInstallModelsStep(s): { batch_workflow_step(:type, s, InstallModelsType) }
 
 module batch_workflow_step
     module install_model
-        def model_files(s in BatchWorkflowInstallModelsStep, f) { json_data(s, :modelFiles, :[], _, f) }
+        def model_files(s in BatchWorkflowInstallModelsStep, f): { json_data(s, :modelFiles, :[], _, f) }
     end
 end
