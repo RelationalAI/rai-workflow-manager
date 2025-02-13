@@ -9,18 +9,18 @@ from workflow.common import FileType, Export, Source, ContainerType, AzureConfig
 from workflow.constants import IMPORT_CONFIG_REL, FILE_LOAD_RELATION, PARTITIONED_EXPORT_POSTFIX
 
 # Static queries
-DISABLE_IVM = "def insert:rel:config:disable_ivm = true"
+DISABLE_IVM = "def insert[:rel, :config]: :disable_ivm"
 
 DELETE_REFRESHED_SOURCES_DATA = """
-    def delete:source_catalog(r, p_i, data...) {
+    def delete(:source_catalog, r, p_i, data...): {
         resources_data_to_delete(r, p_i) and
         source_catalog(r, p_i, data...)
     }
-    def delete:source_catalog[r] = source_catalog[r], resources_data_to_delete(r)
-    def delete:simple_source_catalog[r] = simple_source_catalog[r], resources_data_to_delete(r)
-    
-    def delete:declared_sources_to_delete = declared_sources_to_delete
-    def delete:resources_data_to_delete = resources_data_to_delete
+    def delete[:source_catalog, r]: source_catalog[r] where resources_data_to_delete(r)
+    def delete[:simple_source_catalog, r]: simple_source_catalog[r] where resources_data_to_delete(r)
+
+    def delete[:declared_sources_to_delete]: declared_sources_to_delete
+    def delete[:resources_data_to_delete]: resources_data_to_delete
 """
 
 
@@ -31,7 +31,7 @@ class QueryWithInputs:
 
 
 def load_json(relation: str, data) -> QueryWithInputs:
-    return QueryWithInputs(f"def config:data = data\n" f"def insert:{relation} = load_json[config]", {"data": data})
+    return QueryWithInputs(f"def config[:data]: data\n" f"def insert[:{relation}]: load_json[config]", {"data": data})
 
 
 def install_model(models: dict) -> QueryWithInputs:
@@ -42,8 +42,8 @@ def install_model(models: dict) -> QueryWithInputs:
     query = ""
     for name in models:
         input_name = f"input_{str(rand_uint)}_{index}"
-        query += f"def delete:rel:catalog:model[\"{name}\"] = rel:catalog:model[\"{name}\"]\n" \
-                 f"def insert:rel:catalog:model[\"{name}\"] = {input_name}\n"
+        query += f"def delete[:rel, :catalog, :model, \"{name}\"]: rel[:catalog, :model, \"{name}\"]\n" \
+                 f"def insert[:rel, :catalog, :model, \"{name}\"]: {input_name}\n"
         queries_inputs[input_name] = models[name]
         index += 1
 
@@ -61,46 +61,51 @@ def populate_source_configs(sources: List[Source]) -> str:
     date_partitioned_sources = list(filter(lambda source: source.is_date_partitioned, sources))
 
     return f"""
-        def delete:source_declares_resource(r, c, p) {{
+        def delete(:source_declares_resource, r, c, p):
             declared_sources_to_delete(r, p) and
             source_declares_resource(r, c, p)
-        }}
-        
-        def resource_config[:data] = \"\"\"{source_config_csv}\"\"\"
-        def resource_config[:syntax, :header_row] = -1
-        def resource_config[:syntax, :header] = (1, :Relation); (2, :Container); (3, :Path)
-        def resource_config[:schema, :Relation] = "string"
-        def resource_config[:schema, :Container] = "string"
-        def resource_config[:schema, :Path] = "string"
-        def source_config_csv = load_csv[resource_config]
-        def insert:source_declares_resource(r, c, p) =
-            exists(i : 
-                source_config_csv(:Relation, i, r) and 
+
+        def resource_config[:data]: \"\"\"{source_config_csv}\"\"\"
+        def resource_config[:syntax, :header_row]: -1
+        def resource_config[:syntax, :header]: {{(1, :Relation); (2, :Container); (3, :Path)}}
+        def resource_config[:schema, :Relation]: "string"
+        def resource_config[:schema, :Container]: "string"
+        def resource_config[:schema, :Path]: "string"
+        def source_config_csv {{ load_csv[resource_config] }}
+        def insert(:source_declares_resource, r, c, p):
+            exists((i) |
+                source_config_csv(:Relation, i, r) and
                 source_config_csv(:Container, i, c) and
                 source_config_csv(:Path, i, p)
             )
 
-        def input_format_config[:data] = \"\"\"{data_formats_csv}\"\"\"
-        def input_format_config[:syntax, :header_row] = -1
-        def input_format_config[:syntax, :header] = (1, :Relation); (2, :InputFormatCode)
-        def input_format_config[:schema, :Relation] = "string"
-        def input_format_config[:schema, :InputFormatCode] = "string"
-        def input_format_config_csv = load_csv[input_format_config]
-        def insert:source_has_input_format(r, p) =
-            exists(i : input_format_config_csv(:Relation, i, r) and input_format_config_csv(:InputFormatCode, i, p))
-        
-        def container_type_config[:data] = \"\"\"{container_types_csv}\"\"\"
-        def container_type_config[:syntax, :header_row] = -1
-        def container_type_config[:syntax, :header] = (1, :Relation); (2, :ContainerType)
-        def container_type_config[:schema, :Relation] = "string"
-        def container_type_config[:schema, :ContainerType] = "string"
-        def container_type_config_csv = load_csv[container_type_config]
-        def insert:source_has_container_type(r, t) =
-            exists(i : container_type_config_csv(:Relation, i, r) and container_type_config_csv(:ContainerType, i, t))
+        def input_format_config[:data]: \"\"\"{data_formats_csv}\"\"\"
+        def input_format_config[:syntax, :header_row]: -1
+        def input_format_config[:syntax, :header]: {{(1, :Relation); (2, :InputFormatCode)}}
+        def input_format_config[:schema, :Relation]: "string"
+        def input_format_config[:schema, :InputFormatCode]: "string"
+        def input_format_config_csv {{ load_csv[input_format_config] }}
+        def insert(:source_has_input_format, r, p):
+            exists((i) |
+                input_format_config_csv(:Relation, i, r) and
+                input_format_config_csv(:InputFormatCode, i, p)
+            )
 
-        {f"def insert:simple_source_relation = {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
-        {f"def insert:chunk_partitioned_source_relation = {_to_rel_literal_relation([source.relation for source in chunk_partitioned_sources])}" if len(chunk_partitioned_sources) > 0 else ""}
-        {f"def insert:date_partitioned_source_relation = {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
+        def container_type_config[:data]: \"\"\"{container_types_csv}\"\"\"
+        def container_type_config[:syntax, :header_row]: -1
+        def container_type_config[:syntax, :header]: {{(1, :Relation); (2, :ContainerType)}}
+        def container_type_config[:schema, :Relation]: "string"
+        def container_type_config[:schema, :ContainerType]: "string"
+        def container_type_config_csv {{ load_csv[container_type_config] }}
+        def insert(:source_has_container_type, r, t):
+            exists((i) |
+                container_type_config_csv(:Relation, i, r) and
+                container_type_config_csv(:ContainerType, i, t)
+            )
+
+        {f"def insert[:simple_source_relation]: {_to_rel_literal_relation([source.relation for source in simple_sources])}" if len(simple_sources) > 0 else ""}
+        {f"def insert[:chunk_partitioned_source_relation]: {_to_rel_literal_relation([source.relation for source in chunk_partitioned_sources])}" if len(chunk_partitioned_sources) > 0 else ""}
+        {f"def insert[:date_partitioned_source_relation]: {_to_rel_literal_relation([source.relation for source in date_partitioned_sources])}" if len(date_partitioned_sources) > 0 else ""}
     """
 
 
@@ -113,21 +118,21 @@ def discover_reimport_sources(sources: List[Source], expired_sources: List[tuple
     for src in expired_sources:
         expired_sources_src_cfg_csv += f"{src[0]},{src[1]}\n"
     return f"""
-        def force_reimport = {"true" if force_reimport else "false"}
-        def force_reimport_not_chunk_partitioned = {"true" if force_reimport_not_chunk_partitioned else "false"}
+        def force_reimport {{ {"true" if force_reimport else "false"} }}
+        def force_reimport_not_chunk_partitioned {{ {"true" if force_reimport_not_chunk_partitioned else "false"} }}
 
-        def resource_config = new_source_config
-        def resource_config[:data] = \"\"\"{date_partitioned_src_cfg_csv}\"\"\"
-        def new_source_config_csv = load_csv[resource_config]
-        
-        def expired_resource_config = expired_source_config
-        def expired_resource_config[:data] = \"\"\"{expired_sources_src_cfg_csv}\"\"\"
-        def expired_source_config_csv = load_csv[expired_resource_config]
-        
-        def insert:declared_sources_to_delete = resource_to_invalidate
-        def insert:declared_sources_to_delete(rel, path) = part_resource_to_invalidate(rel, _, path)
-        
-        def insert:resources_data_to_delete = resources_to_delete
+        def resource_config {{ new_source_config }}
+        def resource_config[:data]: \"\"\"{date_partitioned_src_cfg_csv}\"\"\"
+        def new_source_config_csv {{ load_csv[resource_config] }}
+
+        def expired_resource_config {{ expired_source_config }}
+        def expired_resource_config[:data]: \"\"\"{expired_sources_src_cfg_csv}\"\"\"
+        def expired_source_config_csv {{ load_csv[expired_resource_config] }}
+
+        def insert[:declared_sources_to_delete]: resource_to_invalidate
+        def insert(:declared_sources_to_delete, rel, path): part_resource_to_invalidate(rel, _, path)
+
+        def insert[:resources_data_to_delete]: resources_to_delete
     """
 
 
@@ -164,13 +169,14 @@ def load_resources(logger: logging.Logger, config: AzureConfig, resources, src, 
 def get_snapshot_expiration_date(snapshot_binding: str, date_format: str) -> str:
     rai_date_format = utils.to_rai_date_format(date_format)
     return f"""
-    def output(valid_until) {{
-        batch_source:relation(cfg_src, "{snapshot_binding}") and
-        batch_source:snapshot_validity_days(cfg_src, validity_days) and
-        source:relname(src, :{snapshot_binding}) and
-        snapshot_date = source:spans[src] and
-        valid_until = format_date[snapshot_date + Day[validity_days], "{rai_date_format}"]
-        from cfg_src, src, snapshot_date, validity_days
+    def output(valid_until): {{
+        exists((cfg_src, src, snapshot_date, validity_days)) |
+            batch_source(:relation, cfg_src, "{snapshot_binding}") and
+            batch_source(:snapshot_validity_days, cfg_src, validity_days) and
+            source(:relname, src, :{snapshot_binding}) and
+            snapshot_date = source[:spans, src] and
+            valid_until = format_date[snapshot_date + Day[validity_days], "{rai_date_format}"]
+        )
     }}
     """
 
@@ -179,7 +185,7 @@ def discover_partitioned_exports(exports: List[Export]) -> str:
     query = ""
     for export in exports:
         query += f"""
-        def output:{export.relation} = export_config:{export.relation}:partition_size = _
+        def output[:{export.relation}]: export_config[:{export.relation},:partition_size] = _
         """
     return query
 
@@ -200,8 +206,8 @@ def export_relations_local(logger: logging.Logger, exports: List[Export]) -> str
 def export_relations_to_azure(logger: logging.Logger, config: AzureConfig, exports: List[Export], end_date: str,
                               date_format: str) -> str:
     query = f"""
-    def _credentials_config:integration:provider = "azure"
-    def _credentials_config:integration:credentials:azure_sas_token = raw"{config.sas}"
+    def _credentials_config[:integration, :provider]: "azure"
+    def _credentials_config[:integration, :credentials, :azure_sas_token]: raw"{config.sas}"
     """
     for export in exports:
         if export.file_type == FileType.CSV:
@@ -216,68 +222,64 @@ def export_relations_to_azure(logger: logging.Logger, config: AzureConfig, expor
 
 def init_workflow_steps(batch_config_name: str) -> str:
     return f"""
-    def delete:batch_workflow_step:state_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
-        batch_workflow_step:state_value(s, v)
-    }}
-    def delete:batch_workflow_step:execution_time_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
-        batch_workflow_step:execution_time_value(s, v)
-    }}
-    def insert:batch_workflow_step:execution_time_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
+    def delete(:batch_workflow_step, :state_value, s, v):
+        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
+        batch_workflow_step(:state_value, s, v)
+
+    def delete(:batch_workflow_step, :execution_time_value, s, v):
+        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
+        batch_workflow_step(:execution_time_value, s, v)
+
+    def insert(:batch_workflow_step, :execution_time_value, s, v):
+        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
         v = 0.0
-        
-    }}
-    def insert:batch_workflow_step:state_value(s, v) {{ 
-        batch_workflow_step:workflow[s] . batch_workflow:name[:{batch_config_name}] and
+
+    def insert(:batch_workflow_step, :state_value, s, v):
+        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[:batch_config_name]}() and
         v = "INIT"
-    }}
     """
 
 
 def delete_relation(relation: str) -> str:
-    return f"def delete:{relation} = {relation}"
+    return f"def delete[:{relation}]: {relation}"
 
 
 def update_step_state(idt: str, state: str) -> str:
     return f"""
-    def insert:batch_workflow_step:state_value(s in BatchWorkflowStep, v) {{
-        s = uint128_hash_value_convert[parse_uuid["{idt}"]] and 
+    def insert(:batch_workflow_step, :state_value, s in BatchWorkflowStep, v):
+        s = uint128_hash_value_convert[parse_uuid["{idt}"]] and
         v = "{state}"
-    }}
     """
 
 
 def update_execution_time(idt: str, execution_time: float) -> str:
     return f"""
-    def insert:batch_workflow_step:execution_time_value(s in BatchWorkflowStep, v) {{
-        s = uint128_hash_value_convert[parse_uuid["{idt}"]] and 
+    def insert(:batch_workflow_step, :execution_time_value, s in BatchWorkflowStep, v):
+        s = uint128_hash_value_convert[parse_uuid["{idt}"]] and
         v = {execution_time}
-    }}
     """
 
 
 def materialize(relations: List[str]) -> str:
     query = ""
     for relation in relations:
-        query += f"def output:{relation} = count[{relation}]\n"
+        query += f"def output[:{relation}]: count[{relation}]\n"
     return query
 
 
 def output_json(relation: str) -> str:
-    return f"def output = json_string[{relation}]"
+    return f"def output {{ json_string[{relation}] }}"
 
 
 def output_relation(relation: str) -> str:
-    return f"def output = {relation}"
+    return f"def output {{ {relation} }}"
 
 
 def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType, reload_as_snapshot: bool) -> QueryWithInputs:
     try:
         raw_data_rel_name = f"{rel_name}_data"
         data = utils.read(uri)
-        query = f"def {IMPORT_CONFIG_REL}:{rel_name}:data = {raw_data_rel_name}\n" \
+        query = f"def {IMPORT_CONFIG_REL}[:{rel_name}, :data]: {raw_data_rel_name}\n" \
                 f"{_simple_insert_query(rel_name, file_type, reload_as_snapshot)}\n"
         return QueryWithInputs(query, {raw_data_rel_name: data})
     except OSError as e:
@@ -286,9 +288,9 @@ def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType, reloa
 
 def _azure_load_simple_query(rel_name: str, uri: str, file_type: FileType, config: AzureConfig,
                              reload_as_snapshot: bool) -> str:
-    return f"def {IMPORT_CONFIG_REL}:{rel_name}:integration:provider = \"azure\"\n" \
-           f"def {IMPORT_CONFIG_REL}:{rel_name}:integration:credentials:azure_sas_token = raw\"{config.sas}\"\n" \
-           f"def {IMPORT_CONFIG_REL}:{rel_name}:path = \"{uri}\"\n" \
+    return f"def {IMPORT_CONFIG_REL}[:{rel_name}, :integration, :provider]: \"azure\"\n" \
+           f"def {IMPORT_CONFIG_REL}[:{rel_name}, :integration, :credentials, :azure_sas_token]: raw\"{config.sas}\"\n" \
+           f"def {IMPORT_CONFIG_REL}[:{rel_name}, :path]: \"{uri}\"\n" \
            f"{_simple_insert_query(rel_name, file_type, reload_as_snapshot)}"
 
 
@@ -361,9 +363,9 @@ def _local_multipart_config_integration(raw_data_rel_name: str) -> str:
 
 
 def _azure_multipart_config_integration(path_rel_name: str, config: AzureConfig) -> str:
-    return f"def integration:provider = \"azure\"\n" \
-           f"def integration:credentials:azure_sas_token = raw\"{config.sas}\"\n" \
-           f"def path = {path_rel_name}[i]\n"
+    return f"def integration[:provider]: \"azure\"\n" \
+           f"def integration[:credentials, :azure_sas_token]: raw\"{config.sas}\"\n" \
+           f"def path {{ {path_rel_name}[i] }}\n"
 
 
 def _multi_part_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot: bool) -> str:
@@ -372,7 +374,7 @@ def _multi_part_insert_query(rel_name: str, file_type: FileType, reload_as_snaps
     if reload_as_snapshot:
         return _snapshot_delta_query(rel_name, insert_body, True)
     else:
-        return f"def insert:source_catalog:{rel_name}[i] = {insert_body}"
+        return f"def insert[:source_catalog, :{rel_name}, i]: {insert_body}"
 
 
 def _simple_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot: bool) -> str:
@@ -380,26 +382,28 @@ def _simple_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot:
     if reload_as_snapshot:
         return _snapshot_delta_query(rel_name, insert_body, False)
     else:
-        return f"def insert:simple_source_catalog:{rel_name} = {insert_body}"
+        return f"def insert[:simple_source_catalog, :{rel_name}]: {insert_body}"
 
 
 def _snapshot_delta_query(rel_name: str, data_body: str, is_partitioned: bool) -> str:
-    part_index_col = "[i]" if is_partitioned else ""
+    part_index_col = ", i" if is_partitioned else ""
     part_index_var = "i, " if is_partitioned else ""
-    return f"def _snapshot_data_raw:{rel_name}{part_index_col} = {data_body}\n" \
-           f"def _snapshot_data_key:{rel_name} = import_config:{rel_name}:row_key_map[_snapshot_data_raw:{rel_name}]\n" \
-           f"def _snapshot_data:{rel_name}(col, key, val) {{\n" \
-           f"    _snapshot_data_key:{rel_name}({part_index_var}row, key) and\n" \
-           f"    _snapshot_data_raw:{rel_name}({part_index_var}col, row, val)\n" \
-           f"    from {part_index_var}row\n" \
+    return f"def _snapshot_data_raw[:{rel_name}{part_index_col}]: {data_body}\n" \
+           f"def _snapshot_data_key[:{rel_name}]: \n" \
+           f"    import_config[:{rel_name}, :row_key_map, _snapshot_data_raw[:{rel_name}]]\n" \
+           f"def _snapshot_data(:{rel_name}, col, key, val): {{\n" \
+           f"    exists(({part_index_var}row)) |\n" \
+           f"        _snapshot_data_key(:{rel_name}, {part_index_var}row, key) and\n" \
+           f"        _snapshot_data_raw(:{rel_name}, {part_index_var}col, row, val)\n" \
+           f"    )\n" \
            f"}}\n" \
-           f"def _snapshot_delta:{rel_name} = snapshot_diff[snapshot_catalog:{rel_name}, _snapshot_data:{rel_name}]\n" \
-           f"def insert:snapshot_catalog:{rel_name} = _snapshot_delta:{rel_name}:insertions\n" \
-           f"def delete:snapshot_catalog:{rel_name} = _snapshot_delta:{rel_name}:deletions\n"
+           f"def _snapshot_delta[:{rel_name}]: snapshot_diff[snapshot_catalog[:{rel_name}], _snapshot_data[:{rel_name}]]\n" \
+           f"def insert[:snapshot_catalog, :{rel_name}]: _snapshot_delta[:{rel_name}, :insertions]\n" \
+           f"def delete[:snapshot_catalog, :{rel_name}]: _snapshot_delta[:{rel_name}, :deletions]\n"
 
 
 def _load_from_indexed_literal(raw_data_rel_name: str, index: int) -> str:
-    return f"def {raw_data_rel_name}[{index}] = {_indexed_literal(raw_data_rel_name, index)}\n"
+    return f"def {raw_data_rel_name}[{index}]: {_indexed_literal(raw_data_rel_name, index)}\n"
 
 
 def _indexed_literal(raw_data_rel_name: str, index: int) -> str:
@@ -410,29 +414,32 @@ def _config_rel_name(rel: str) -> str: return f"load_{rel}_config"
 
 
 def _part_index_relation(rel_name: str, part_index: str) -> str:
-    return f"def part_index_config:{rel_name}:schema:INDEX = \"int\"\n" \
-           f"def part_index_config:{rel_name}:data = \"\"\"\n" \
+    return f"def part_index_config[:{rel_name}, :schema, :INDEX]: \"int\"\n" \
+           f"def part_index_config[:{rel_name}, :data]: \"\"\"\n" \
            f"INDEX\n" \
            f"{part_index}\n" \
            f"\"\"\"" \
-           f"def part_indexes_csv:{rel_name} = load_csv[part_index_config:{rel_name}]\n" \
-           f"def part_indexes:{rel_name} = part_indexes_csv:{rel_name}:INDEX[_]"
+           f"def part_indexes_csv[:{rel_name}]: load_csv[part_index_config[:{rel_name}]]\n" \
+           f"def part_indexes[:{rel_name}]: part_indexes_csv[:{rel_name}, :INDEX, _]"
 
 
 def _path_rel_name_relation(path_rel_name: str, part_uri_map: str) -> str:
-    return f"def part_uri_map_config:{path_rel_name}:schema:INDEX = \"int\"\n" \
-           f"def part_uri_map_config:{path_rel_name}:schema:URI = \"string\"\n" \
-           f"def part_uri_map_config:{path_rel_name}:data = \"\"\"\n" \
+    return f"def part_uri_map_config[:{path_rel_name}, :schema, :INDEX]: \"int\"\n" \
+           f"def part_uri_map_config[:{path_rel_name}, :schema, :URI]: \"string\"\n" \
+           f"def part_uri_map_config[:{path_rel_name}, :data]: \"\"\"\n" \
            f"INDEX,URI\n" \
            f"{part_uri_map}\n" \
            f"\"\"\"" \
-           f"def part_uri_map_csv:{path_rel_name} = load_csv[part_uri_map_config:{path_rel_name}]\n" \
-           f"def {path_rel_name}(i, u) {{ part_uri_map_csv:{path_rel_name}:INDEX(row, i) and part_uri_map_csv:{path_rel_name}:URI(row, u) from row }}"
+           f"def part_uri_map_csv[:{path_rel_name}]: load_csv[part_uri_map_config[:{path_rel_name}]]\n" \
+           f"def {path_rel_name}(i, u): \n" \
+           f"    exists((row)) |\n" \
+           f"        part_uri_map_csv(:{path_rel_name}, :INDEX, row, i) and \n" \
+           f"        part_uri_map_csv(:{path_rel_name}, :URI, row, u))"
 
 
 def _export_relation_as_csv_local(rel_name) -> str:
-    return f"def _export_csv_config:{rel_name} = export_config:{rel_name}\n" \
-           f"def output:{rel_name} = csv_string[_export_csv_config:{rel_name}]"
+    return f"def _export_csv_config[:{rel_name}]: export_config[:{rel_name}]\n" \
+           f"def output[:{rel_name}]: csv_string[_export_csv_config[:{rel_name}]]"
 
 
 def _export_meta_relation_as_csv_local(export: Export) -> str:
@@ -440,10 +447,11 @@ def _export_meta_relation_as_csv_local(export: Export) -> str:
     key_str = _to_rel_meta_key_as_seq(export)
     return f"""
     module _export_csv_config
-        def {rel_name}[{key_str}] =
-            export_config:{rel_name}[{key_str}], export_config:{rel_name}:meta_key({key_str})
+        def {rel_name}[{key_str}]:
+            export_config[:{rel_name}, {key_str}] where
+            export_config(:{rel_name}, :meta_key, {key_str})
     end
-    def output:{rel_name}[{key_str}] = csv_string[_export_csv_config:{rel_name}[{key_str}]]
+    def output[:{rel_name}, {key_str}]: csv_string[_export_csv_config[:{rel_name}, {key_str}]]
     """
 
 
@@ -454,11 +462,11 @@ def _export_relation_as_csv_to_azure(config: AzureConfig, export: Export, end_da
     export_path = f"{_compose_export_path(config, export, end_date, date_format)}/{rel_name}{postfix}.csv"
     return f"""
     module _export_csv_config
-        def {rel_name} = export_config:{rel_name}
-        def {rel_name}:path = raw"{export_path}"
-        def {rel_name} = _credentials_config
+        def {rel_name} {{ export_config[:{rel_name}] }}
+        def {rel_name}[:path]: raw"{export_path}"
+        def {rel_name} {{ _credentials_config }}
     end
-    def export:{rel_name} = export_csv[_export_csv_config:{rel_name}]
+    def export[:{rel_name}]: export_csv[_export_csv_config[:{rel_name}]]
     """
 
 
@@ -474,19 +482,20 @@ def _export_meta_relation_as_csv_to_azure(config: AzureConfig, export: Export, e
     return f"""
     module _export_csv_config
         module {rel_name}
-            def meta_key({key_str}) = export_config:{rel_name}:meta_key({key_str})
-            def filename_postfix[{key_str}] = meta_key({key_str}), "{_to_rel_meta_key_as_str(export)}"
-            def path[{key_str}] = meta_key({key_str}), "{export_path}"
-    
-            def config[keys...] = meta_key(keys...), {{
-                :path, path[keys...] ;
-                export_config:{rel_name}[keys...] ;
+            def meta_key({key_str}): export_config(:{rel_name}, :meta_key, {key_str})
+            def filename_postfix[{key_str}]: "{_to_rel_meta_key_as_str(export)}" where meta_key({key_str})
+            def path[{key_str}]: "{export_path}" where meta_key({key_str})
+
+            def config[keys...]: {{
+                (:path, path[keys...]) ;
+                export_config[:{rel_name}, keys...] ;
                 _credentials_config
-            }}
+            }} where meta_key(keys...)
         end
     end
-    def export:{rel_name}[{key_str}] = export_csv[_export_csv_config:{rel_name}:config[{key_str}]],
-        _export_csv_config:{rel_name}:meta_key[{key_str}]
+    def export[:{rel_name}, {key_str}]:
+        (export_csv[_export_csv_config[:{rel_name}, :config, {key_str}]],
+        _export_csv_config[:{rel_name}, :meta_key, {key_str}])
     """
 
 

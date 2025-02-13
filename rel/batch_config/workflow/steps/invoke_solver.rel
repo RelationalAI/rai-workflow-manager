@@ -1,1 +1,1 @@
-def BatchWorkflowInvokeSolverStep(s) { batch_workflow_step:type(s, InvokeSolverType) }
+def BatchWorkflowInvokeSolverStep(s): { batch_workflow_step(:type, s, InvokeSolverType) }

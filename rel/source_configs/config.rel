@@ -1,188 +1,188 @@
-bound simple_source_relation = String
-bound chunk_partitioned_source_relation = String
-bound date_partitioned_source_relation = String
-bound source_declares_resource = String, String, String
-bound source_has_input_format = String, String
-bound source_has_container_type = String, String
-bound snapshot_catalog
-bound source_catalog
-bound simple_source_catalog
-bound part_resource_date_pattern = String
-bound part_resource_index_pattern = String
-bound part_resource_index_multiplier = Int
+declare simple_source_relation(trail...) requires {String}(trail...)
+declare chunk_partitioned_source_relation(trail...) requires {String}(trail...)
+declare date_partitioned_source_relation(trail...) requires {String}(trail...)
+declare source_declares_resource(trail...) requires {(String, String, String)}(trail...)
+declare source_has_input_format(trail...) requires {(String, String)}(trail...)
+declare source_has_container_type(trail...) requires {(String, String)}(trail...)
+declare snapshot_catalog
+declare source_catalog
+declare simple_source_catalog
+declare part_resource_date_pattern(trail...) requires {String}(trail...)
+declare part_resource_index_pattern(trail...) requires {String}(trail...)
+declare part_resource_index_multiplier(trail...) requires {Int}(trail...)
 
 /**
  * Input formats
  */
 
-value type InputFormatCode = String
-entity type InputFormat = InputFormatCode
+value type InputFormatCode { String }
+@inline def ^InputFormat { make_entity_hash[{:"InputFormat"}, {InputFormatCode}] }
 
-def InputFormat(f) { input_format:id(f, _) }
-def CSVInputFormat = input_format_code:identifies[^InputFormatCode["CSV"]]
+def InputFormat(f): { input_format(:id, f, _) }
+def CSVInputFormat { input_format_code[:identifies, ^InputFormatCode["CSV"]] }
 
 module input_format
-    def id = transpose[input_format_code:identifies]
+    def id { transpose[input_format_code[:identifies]] }
 end
 
 module input_format_code
-    def value = { "CSV" ; "JSON" ; "JSONL" }
+    def value { "CSV" ; "JSON" ; "JSONL" }
 
-    def identifies(c, f) {
+    def identifies(c, f): {
+        exists((v) |
         value(v) and
         ^InputFormatCode(v, c) and
-        ^InputFormat(c, f)
-        from v
+        ^InputFormat(c, f))
     }
 end
 
 @inline
-def input_format_code_to_string = transpose[^InputFormatCode]
+def input_format_code_to_string { transpose[^InputFormatCode] }
 
 /**
  * Container types
  */
 
-value type ContainerTypeCode = String
-entity type ContainerType = ContainerTypeCode
+value type ContainerTypeCode { String }
+@inline def ^ContainerType { make_entity_hash[{:"ContainerType"}, {ContainerTypeCode}] }
 
-def ContainerType(t) { container_type:id(t, _) }
+def ContainerType(t): { container_type(:id, t, _) }
 
 module container_type
-    def id = transpose[container_type_code:identifies]
+    def id { transpose[container_type_code[:identifies]] }
 end
 
 module container_type_code
-    def value = { "AZURE" ; "LOCAL" ; "SNOWFLAKE" }
+    def value { "AZURE" ; "LOCAL" ; "SNOWFLAKE" }
 
-    def identifies(c, t) {
+    def identifies(c, t): {
+        exists((v) |
         value(v) and
         ^ContainerTypeCode(v, c) and
-        ^ContainerType(c, t)
-        from v
+        ^ContainerType(c, t))
     }
 end
 
 @inline
-def container_type_code_to_string = transpose[^ContainerTypeCode]
+def container_type_code_to_string { transpose[^ContainerTypeCode] }
 /**
  * Resources
  */
-def partitioned_source_relation = chunk_partitioned_source_relation; date_partitioned_source_relation
+def partitioned_source_relation {chunk_partitioned_source_relation; date_partitioned_source_relation}
 
-value type URI = String
-entity type Resource = URI
+value type URI { String }
+@inline def ^Resource { make_entity_hash[{:"Resource"}, {URI}] }
 
-def Resource(r) { resource:id(r, _) }
+def Resource(r): { resource(:id, r, _) }
 
-value type PartIndex = Int
-def PartResource(r) { part_resource:part_index(r, _) }
-def DatePartResource(r) { resource:id[r] . uri:parse["date", _] }
-def ChunkPartResource(r) { resource:id[r] . uri:parse[part_resource:shard_alias, _] }
+value type PartIndex { Int }
+def PartResource(r): { part_resource(:part_index, r, _) }
+def DatePartResource(r): {{ resource[:id, r] . ( uri[:parse] ) }["date", _]}()
+def ChunkPartResource(r): {{ resource[:id, r] . ( uri[:parse] ) }[part_resource[:shard_alias], _]}()
 
 module resource
-    def id = transpose[uri:identifies]
-    
-    def part_of = transpose[source:declares]
+    def id { transpose[uri[:identifies]] }
+
+    def part_of { transpose[source[:declares]] }
 end
 
 module part_resource
-    def date(r, d) {
-        uri:identifies(u, r) and
-        d = parse_date[uri:parse[u, "date"], "yyyymmdd"]
-        from u
+    def date(r, d): {
+        exists((u) |
+        uri(:identifies, u, r) and
+        d = parse_date[uri[:parse, u, "date"], "yyyymmdd"])
     }
 
-    def shard_alias = "shard"; "rai_shard"
+    def shard_alias {"shard"; "rai_shard"}
 
-    def part_index(r, n) {
-        uri:identifies(^URI[v], r) and
-        uri:value(v) and
-        parse_part_index[v](n)
-        from v
-    }
-
-    @inline
-    def parse_part_index[v](n) {
-        d = parse_int[uri:parse_value[v, "date"]] and
-        s = parse_int[uri:parse_value[v, shard_alias]] and
-        n = ^PartIndex[d * part_resource_index_multiplier + s]
-        from d, s
+    def part_index(r, n): {
+        exists((v) |
+        uri(:identifies, ^URI[v], r) and
+        uri(:value, v) and
+        parse_part_index(v, n))
     }
 
     @inline
-    def parse_part_index[v](n) {
-        d = parse_int[uri:parse_value[v, "date"]] and
-        not uri:parse_value(v, shard_alias, _) and
-        n = ^PartIndex[d * part_resource_index_multiplier]
-        from d
+    def parse_part_index(v, n): {
+        exists((d, s) |
+        d = parse_int[uri[:parse_value, v, "date"]] and
+        s = parse_int[uri[:parse_value, v, shard_alias]] and
+        n = ^PartIndex[d * part_resource_index_multiplier + s])
     }
 
     @inline
-    def parse_part_index[v](n) {
-        not uri:parse_value(v, "date", _) and
-        s = parse_int[uri:parse_value[v, shard_alias]] and
-        n = ^PartIndex[s]
-        from s
+    def parse_part_index(v, n): {
+        exists((d) |
+        d = parse_int[uri[:parse_value, v, "date"]] and
+        not uri(:parse_value, v, shard_alias, _) and
+        n = ^PartIndex[d * part_resource_index_multiplier])
+    }
+
+    @inline
+    def parse_part_index(v, n): {
+        exists((s) |
+        not uri(:parse_value, v, "date", _) and
+        s = parse_int[uri[:parse_value, v, shard_alias]] and
+        n = ^PartIndex[s])
     }
 end
 
 module uri
 
-    def identifies(u, r) {
+    def identifies(u, r): {
+        exists((v) |
         value(v) and
         u = ^URI[v] and
-        r = ^Resource[u]
-        from v
+        r = ^Resource[u])
     }
 
-    def value(v) { source_declares_resource(_, _, v) }
+    def value(v): { source_declares_resource(_, _, v) }
 
-    def parse(u, i, d) {
+    def parse(u, i, d): {
+        exists((v) |
         value(v) and
         u = ^URI[v] and
-        parse_value[v](i, d)
-        from v
+        parse_value(v, i, d))
     }
 
     @inline
-    def parse_value[v](i, d) {
+    def parse_value(v, i, d): {
         d = capture_group_by_name[part_resource_index_pattern, v, 1, i]
     }
 
     @inline
-    def parse_value[v](i, d) {
+    def parse_value(v, i, d): {
         d = capture_group_by_name[part_resource_date_pattern, v, 1, i]
     }
 
 end
 
-value type RelationName = String
-entity type Relation = RelationName
-def Relation(r) { relation:id(r, _) }
+value type RelationName { String }
+@inline def ^Relation { make_entity_hash[{:"Relation"}, {RelationName}] }
+def Relation(r): { relation(:id, r, _) }
 
 module relation
-    def id = transpose[rel_name:identifies]
-    def relstr[r] = relation_to_string[id[r]]
+    def id { transpose[rel_name[:identifies]] }
+    def relstr[r]: relation_to_string[id[r]]
 
-    def multi_part = rel_name:identifies[^RelationName[partitioned_source_relation]]
+    def multi_part { rel_name[:identifies, ^RelationName[partitioned_source_relation]] }
 
-    def identifies[r in Relation] = ^Source[r]
+    def identifies[r in Relation]: ^Source[r]
 end
 
-def relation_relname[r] = #(relation:relstr[r])
+def relation_relname[r]: ::std::mirror::lift[relation[:relstr, r]]
 
 module rel_name
-    def value = simple_source_relation; partitioned_source_relation
+    def value {simple_source_relation; partitioned_source_relation}
 
-    def identifies(n, r) {
+    def identifies(n, r): {
+        exists((v) |
         value(v) and
         n = ^RelationName[v] and
-        r = ^Relation[n]
-        from v
+        r = ^Relation[n])
     }
 
-    def identifies_source = transpose[source:relname]
+    def identifies_source { transpose[source[:relname]] }
 
 end
 
@@ -190,88 +190,80 @@ end
  * Sources
  */
 
-entity type Source = Relation
-def Source(s) { source:populates(s, _) }
-def MultiPartSource(s) { relation:multi_part(source:populates[s]) }
-def SimpleSource(s in Source) { not MultiPartSource(s) }
-def DatePartitionedSource = relation:identifies[rel_name:identifies[^RelationName[date_partitioned_source_relation]]]
-def ChunkPartitionedSource = relation:identifies[rel_name:identifies[^RelationName[chunk_partitioned_source_relation]]]
+@inline def ^Source { make_entity_hash[{:"Source"}, {Relation}] }
+def Source(s): { source(:populates, s, _) }
+def MultiPartSource(s): { relation(:multi_part, source[:populates, s]) }
+def SimpleSource(s in Source): { not MultiPartSource(s) }
+def DatePartitionedSource { relation[:identifies, rel_name[:identifies, ^RelationName[date_partitioned_source_relation]]] }
+def ChunkPartitionedSource { relation[:identifies, rel_name[:identifies, ^RelationName[chunk_partitioned_source_relation]]] }
 
-ic date_part_src_should_declare_date_part_res_reg_exp_mismatch(s in DatePartitionedSource, rel, r, u, reg_exp) {
-    source:relname(s, rel) and
-    source:declares(s, r) and
-    resource:id(r, u) and
+ic date_part_src_should_declare_date_part_res_reg_exp_mismatch(s in DatePartitionedSource, rel, r, u, reg_exp) requires source(:relname, s, rel) and
+    source(:declares, s, r) and
+    resource(:id, r, u) and
     reg_exp = part_resource_date_pattern
     implies
     DatePartResource(r)
-}
 
-ic chunk_part_src_should_declare_chunk_part_res_reg_exp_mismatch(s in ChunkPartitionedSource, rel, r, u, reg_exp) {
-    source:relname(s, rel) and
-    source:declares(s, r) and
-    resource:id(r, u) and
+ic chunk_part_src_should_declare_chunk_part_res_reg_exp_mismatch(s in ChunkPartitionedSource, rel, r, u, reg_exp) requires source(:relname, s, rel) and
+    source(:declares, s, r) and
+    resource(:id, r, u) and
     reg_exp = part_resource_index_pattern
     implies
     ChunkPartResource(r)
-}
 
-ic source_has_unique_input_format(s) {
-    Source(s)
+ic source_has_unique_input_format(s) requires Source(s)
     implies
-    source:format(s, _)
-}
+    source(:format, s, _)
 
-ic source_has_container_type(s) {
-    Source(s)
+ic source_has_container_type(s) requires Source(s)
     implies
-    source:container_type(s, _)
-}
+    source(:container_type, s, _)
 
 module source
-    def populates = transpose[relation:identifies]
+    def populates { transpose[relation[:identifies]] }
 
-    def declares(s, r) {
+    def declares(s, r): {
+        exists((rel, res) |
         source_declares_resource(rel, _, res) and
-        r = uri:identifies[ ^URI[res] ] and
-        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ]
-        from rel, res
+        r = uri[:identifies,  ^URI[res] ] and
+        s = relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ])
     }
 
-    def spans[s] = part_resource:date[declares[s]]
+    def spans[s]: part_resource[:date, declares[s]]
 
-    def container(s, c) {
+    def container(s, c): {
+        exists((rel) |
         source_declares_resource(rel, c, _) and
-        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ]
-        from rel
+        s = relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ])
     }
 
-    def date_partitioned(s) { s = relation:identifies[ rel_name:identifies[ ^RelationName[date_partitioned_source_relation] ] ] }
+    def date_partitioned(s): { s = relation[:identifies,  rel_name[:identifies,  ^RelationName[date_partitioned_source_relation] ] ] }
 
-    def format(s, f) {
+    def format(s, f): {
+        exists((raw_input_format, rel) |
         source_has_input_format(rel, raw_input_format) and
-        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
-        f = input_format_code:identifies[^InputFormatCode[raw_input_format]]
-        from raw_input_format, rel
+        s = relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ] and
+        f = input_format_code[:identifies, ^InputFormatCode[raw_input_format]])
     }
 
-    def format(s, f) {
-        rel = relation:relstr[source:populates[s]] and
+    def format(s, f): {
+        exists((rel) |
+        rel = relation[:relstr, source[:populates, s]] and
         not source_has_input_format(rel, _) and
-        CSVInputFormat(f)
-        from rel
+        CSVInputFormat(f))
     }
 
-    def container_type(s, typ) {
+    def container_type(s, typ): {
+        exists((raw_container_type, rel) |
         source_has_container_type(rel, raw_container_type) and
-        s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
-        typ = container_type_code:identifies[^ContainerTypeCode[raw_container_type]]
-        from raw_container_type, rel
+        s = relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ] and
+        typ = container_type_code[:identifies, ^ContainerTypeCode[raw_container_type]])
     }
 
-    def resource_part_index = declares . part_resource:part_index
+    def resource_part_index {( declares . ( part_resource[:part_index] ) )}
 
-    def has_batch_config(s, cfg) {
-        source:relname[s] = #(batch_source:relation[cfg])
+    def has_batch_config(s, cfg): {
+        source[:relname, s] = ::std::mirror::lift[batch_source[:relation, cfg]]
     }
 end
 
@@ -281,181 +273,176 @@ end
  */
 
 @inline
-def relation_to_string = transpose[^RelationName]
+def relation_to_string { transpose[^RelationName] }
 @inline
-def uri_to_string = transpose[^URI]
+def uri_to_string { transpose[^URI] }
 @inline
-def part_index_to_int = transpose[^PartIndex]
-def source_relation_string_to_part_index[rel] = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] . source:resource_part_index
+def part_index_to_int { transpose[^PartIndex] }
+def source_relation_string_to_part_index[rel]: ( relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ] . ( source[:resource_part_index] ) )
 
-def source:index(s, i) = sort[Source](i, s)
-def source:date_index(s in Source, d, i) {
-    sort[dt: source:spans(s, dt)](i, d)
+def source(:index, s, i): sort(Source, i, s)
+def source(:date_index, s in Source, d, i): {
+    sort({(dt): source(:spans, s, dt)}, i, d)
 }
 
-def source:relname[s] = relation_relname[source:populates[s]]
+def source[:relname, s]: relation_relname[source[:populates, s]]
 
-def source:populated(s in MultiPartSource, idx) {
-    rel_name:identifies_source(rn, s) and
-    source_catalog(rn, idx, _, _, _)
-    from rn
+def source(:populated, s in MultiPartSource, idx): {
+    exists((rn) |
+    rel_name(:identifies_source, rn, s) and
+    source_catalog(rn, idx, _, _, _))
 }
 
-def source:populated(s in SimpleSource) {
-    rel_name:identifies_source(rn, s) and
-    simple_source_catalog(rn, x...)
-    from rn, x...
+def source(:populated, s in SimpleSource): {
+    exists((rn, x...) |
+    rel_name(:identifies_source, rn, s) and
+    simple_source_catalog(rn, x...))
 }
 
-def source:needs_resource(s) {
-    resource:needed(r) and
-    not part_resource:date(r, _) and
-    resource:part_of(r, s)
-    from r
+def source(:needs_resource, s): {
+    exists((r) |
+    resource(:needed, r) and
+    not part_resource(:date, r, _) and
+    resource(:part_of, r, s))
 }
 
-def source:needs_resource(s) { source:needs_resource_on_date(s, _) }
+def source(:needs_resource, s): { source(:needs_resource_on_date, s, _) }
 
-def source:needs_resource_on_date(s, d) {
-    resource:needed(r) and
-    part_resource:date(r, d) and
-    resource:part_of(r, s)
-    from r
+def source(:needs_resource_on_date, s, d): {
+    exists((r) |
+    resource(:needed, r) and
+    part_resource(:date, r, d) and
+    resource(:part_of, r, s))
 }
 
-def resource:populated(r) {
-    source:declares(s, r) and
-    source:populated(s)
-    from s
+def resource(:populated, r): {
+    exists((s) |
+    source(:declares, s, r) and
+    source(:populated, s))
 }
 
-def resource:populated(r) {
-    source:declares(s, r) and
-    idx = part_index_to_int[part_resource:part_index[r]] and
-    source:populated(s, idx)
-    from idx, s
+def resource(:populated, r): {
+    exists((idx, s) |
+    source(:declares, s, r) and
+    idx = part_index_to_int[part_resource[:part_index, r]] and
+    source(:populated, s, idx))
 }
 
-def resource:needed(r in Resource) = not resource:populated(r)
+def resource(:needed, r in Resource): not resource(:populated, r)
 
-def resource:index(s, d, r, i) {
-    source:spans(s, d) and
-    sort[res:
-         resource:needed(res) and
-         resource:part_of(res, s) and
-         part_resource:date(res, d)](i, r)
+def resource(:index, s, d, r, i): {
+    source(:spans, s, d) and
+    sort({(res): resource(:needed, res) and
+         resource(:part_of, res, s) and
+         part_resource(:date, res, d)}, i, r)
 }
 
-def resource:index(s, r, i) {
-    not source:date_partitioned(s) and
-    sort[res:
-         resource:needed(res) and
-         resource:part_of(res, s)](i, r)
+def resource(:index, s, r, i): {
+    not source(:date_partitioned, s) and
+    sort({(res): resource(:needed, res) and
+         resource(:part_of, res, s)}, i, r)
 }
 
-ic resource_part_index_is_unique_within_source(s, r1, r2, n) {
-    source:declares(s, r1) and
-    source:declares(s, r2) and
-    part_resource:part_index(r1, n) and
-    part_resource:part_index(r2, n)
+ic resource_part_index_is_unique_within_source(s, r1, r2, n) requires source(:declares, s, r1) and
+    source(:declares, s, r2) and
+    part_resource(:part_index, r1, n) and
+    part_resource(:part_index, r2, n)
     implies
     r1 = r2
+
+def missing_resources_json(:[], n, :source, name): {
+    exists((s) |
+    source(:needs_resource, s) and
+    source[:index, s] = n and
+    name = relation_to_string[relation[:id, source[:populates, s]]])
 }
 
-def missing_resources_json(:[], n, :source, name) {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    name = relation_to_string[relation:id[source:populates[s]]]
-    from s
+def missing_resources_json(:[], n, :is_multi_part, "Y"): {
+    exists((s) |
+    source(:needs_resource, s) and
+    source[:index, s] = n and
+    MultiPartSource(s))
 }
 
-def missing_resources_json(:[], n, :is_multi_part, "Y") {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    MultiPartSource(s)
-    from s
+def missing_resources_json(:[], n, :container, v): {
+    exists((s) |
+    source(:needs_resource, s) and
+    source[:index, s] = n and
+    source(:container, s, v))
 }
 
-def missing_resources_json(:[], n, :container, v) {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    source:container(s, v)
-    from s
+def missing_resources_json(:[], n, :container_type, typ): {
+    exists((s) |
+    source(:needs_resource, s) and
+    source[:index, s] = n and
+    typ = container_type_code_to_string[container_type[:id, source[:container_type, s]]])
 }
 
-def missing_resources_json(:[], n, :container_type, typ) {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    typ = container_type_code_to_string[container_type:id[source:container_type[s]]]
-    from s
-}
-
-def missing_resources_json(:[], n, :is_date_partitioned, v) {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    ( source:date_partitioned(s) and
+def missing_resources_json(:[], n, :is_date_partitioned, v): {
+    exists((s) |
+    source(:needs_resource, s) and
+    source[:index, s] = n and
+    ( source(:date_partitioned, s) and
       v = "Y"
       or
-      not source:date_partitioned(s) and
-      v = "F" )
-    from s
+      not source(:date_partitioned, s) and
+      v = "F" ))
 }
 
-def missing_resources_json(:[], n, :is_snapshot, v) {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    source:has_batch_config(s, cfg) and
-    batch_source:snapshot_validity_days(cfg, _) and
-    boolean_true(v)
-    from s, cfg
+def missing_resources_json(:[], n, :is_snapshot, v): {
+    exists((s, cfg) | source(:needs_resource, s) and
+    source[:index, s] = n and
+    source(:has_batch_config, s, cfg) and
+    batch_source(:snapshot_validity_days, cfg, _) and
+    boolean_true(v))
 }
 
-def missing_resources_json(:[], i, :resources, :[], k, :uri, n) {
-    source:index[s] = i and
-    resource:index[s, r] = k and
-    n = uri_to_string[resource:id[r]]
-    from s, r
+def missing_resources_json(:[], i, :resources, :[], k, :uri, n): {
+    exists((s, r) |
+    source[:index, s] = i and
+    resource[:index, s, r] = k and
+    n = uri_to_string[resource[:id, r]])
 }
 
-def missing_resources_json(:[], i, :resources, :[], k, :part_index, n) {
-    source:index[s] = i and
-    resource:index[s, r] = k and
-    n = part_resource:part_index[r]
-    from s, r
+def missing_resources_json(:[], i, :resources, :[], k, :part_index, n): {
+    exists((s, r) |
+    source[:index, s] = i and
+    resource[:index, s, r] = k and
+    n = part_resource[:part_index, r])
 }
 
 
-def missing_resources_json(:[], n, :file_type, typ) {
-    source:needs_resource(s) and
-    source:index[s] = n and
-    typ = input_format_code_to_string[input_format:id[source:format[s]]]
-    from s
+def missing_resources_json(:[], n, :file_type, typ): {
+    exists((s) |
+    source(:needs_resource, s) and
+    source[:index, s] = n and
+    typ = input_format_code_to_string[input_format[:id, source[:format, s]]])
 }
 
-def missing_resources_json(:[], i, :dates, :[], j, :date, dstr) {
-    source:needs_resource_on_date(s, d) and
-    source:index[s] = i and
-    source:date_index[s, d] = j and
-    dstr = format_date[d, "yyyymmdd"]
-    from s, d
+def missing_resources_json(:[], i, :dates, :[], j, :date, dstr): {
+    exists((s, d) |
+    source(:needs_resource_on_date, s, d) and
+    source[:index, s] = i and
+    source[:date_index, s, d] = j and
+    dstr = format_date[d, "yyyymmdd"])
 }
 
-def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :uri, n) {
-    source:needs_resource_on_date(s, d) and
-    source:index[s] = i and
-    source:date_index[s, d] = j and
-    resource:index[s, d, r] = k and
-    n = uri_to_string[resource:id[r]]
-    from s, r, d
+def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :uri, n): {
+    exists((s, r, d) |
+    source(:needs_resource_on_date, s, d) and
+    source[:index, s] = i and
+    source[:date_index, s, d] = j and
+    resource[:index, s, d, r] = k and
+    n = uri_to_string[resource[:id, r]])
 }
 
-def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_index, n) {
-    source:needs_resource_on_date(s, d) and
-    source:index[s] = i and
-    source:date_index[s, d] = j and
-    resource:index[s, d, r] = k and
-    n = part_resource:part_index[r]
-    from s, r, d
+def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_index, n): {
+    exists((s, r, d) |
+    source(:needs_resource_on_date, s, d) and
+    source[:index, s] = i and
+    source[:date_index, s, d] = j and
+    resource[:index, s, d, r] = k and
+    n = part_resource[:part_index, r])
 }
 
 /*
@@ -463,184 +450,186 @@ def missing_resources_json(:[], i, :dates, :[], j, :resources, :[], k, :part_ind
  */
 module declared_date_partitioned_source
 
-    def path_on_date(rel, d, p) {
+    def path_on_date(rel, d, p): {
+        exists((r, u) |
         source_declares_resource(rel, _, p) and
-        r = ^RelationName[rel] . rel_name:identifies . relation:identifies . source:declares and
-        resource:id(r, ^URI[p]) and
-        uri:identifies(u, r) and
-        d = uri:parse[u, "date"]
-        from r, u
+        r = ( ( ( ^RelationName[rel] . ( rel_name[:identifies] ) ) . ( relation[:identifies] ) ) . ( source[:declares] ) ) and
+        resource(:id, r, ^URI[p]) and
+        uri(:identifies, u, r) and
+        d = uri[:parse, u, "date"])
     }
 
-    def date(s, d) = path_on_date(s, d, _)
+    def date(s, d): path_on_date(s, d, _)
 
-    def id(s) = date(s, _)
+    def id(s): date(s, _)
 
-    def index = enumerate[id]
-    def date_idx = enumerate[date]
-    def path_idx = enumerate[path_on_date]
+    def index { enumerate[id] }
+    def date_idx { enumerate[date] }
+    def path_idx { enumerate[path_on_date] }
 
-    def json(:[], idx, :source, s) {
+    def json(:[], idx, :source, s): {
         index(idx, s)
     }
 
-    def json(:[], idx, :dates, :[], d_idx, :date, d) {
+    def json(:[], idx, :dates, :[], d_idx, :date, d): {
+        exists((s) |
         index(idx, s) and
-        date_idx(d_idx, s, d)
-        from s
+        date_idx(d_idx, s, d))
     }
 
-    def json(:[], idx, :dates, :[], d_idx, :paths, :[], p_idx, p) {
+    def json(:[], idx, :dates, :[], d_idx, :paths, :[], p_idx, p): {
+        exists((s, d) |
         index(idx, s) and
         date_idx(d_idx, s, d) and
-        path_idx(p_idx, s, d, p)
-        from s, d
+        path_idx(p_idx, s, d, p))
     }
 end
 
 /**
  */
 
-entity type BatchArtifact:to_import = RelName, Int
-entity type BatchArtifact:to_export = RelName, Int
-bound import_object
-bound export_object
-
-def Workflow(wf) {
-    batch_artifact:is_import(wf, _) or
-    batch_artifact:is_export(wf, _)
+@inline def ^BatchArtifact {
+    make_entity_hash[{:"BatchArtifact"}, {(:to_import, RelName, Int); (:to_export, RelName, Int)}]
 }
 
-def ImportArtifact(a) = batch_artifact:is_import(_, a)
-def ExportArtifact(a) = batch_artifact:is_export(_, a)
-def BatchArtifact = ImportArtifact ; ExportArtifact
+declare import_object
+declare export_object
 
-def import_object[wf, r] = batch:config[wf, :workflow, :[], _, :sources, :[], r]
-def export_object[wf, r] = batch:config[wf, :workflow, :[], _, :exports, :[], r]
+def Workflow(wf): {
+    batch_artifact(:is_import, wf, _) or
+    batch_artifact(:is_export, wf, _)
+}
+
+def ImportArtifact(a): batch_artifact(:is_import, _, a)
+def ExportArtifact(a): batch_artifact(:is_export, _, a)
+def BatchArtifact {ImportArtifact ; ExportArtifact}
+
+def import_object[wf, r]: batch[:config, wf, :workflow, :[], _, :sources, :[], r]
+def export_object[wf, r]: batch[:config, wf, :workflow, :[], _, :exports, :[], r]
 
 module batch_artifact
 
-    def future(wf, a in ImportArtifact) {
+    def future(wf, a in ImportArtifact): {
         import_object(wf, row[wf, a], :future, boolean_true)
     }
 
-    def future(wf, a in ExportArtifact) {
+    def future(wf, a in ExportArtifact): {
         export_object(wf, row[wf, a], :future, boolean_true)
     }
 
-    def name(wf, a in ImportArtifact, n) {
+    def name(wf, a in ImportArtifact, n): {
         import_object(wf, row[wf, a], :relation, n)
     }
 
-    def name(wf, a in ExportArtifact, n) {
+    def name(wf, a in ExportArtifact, n): {
         export_object(wf, row[wf, a], :configRelName, n)
     }
 
-    def location(wf, a in ImportArtifact, l) {
+    def location(wf, a in ImportArtifact, l): {
         import_object(wf, row[wf, a], :relativePath, l)
     }
 
-    def location(wf, a in ExportArtifact, l) {
+    def location(wf, a in ExportArtifact, l): {
         export_object(wf, row[wf, a], :relativePath, l)
     }
 
-    def is_import(wf, a) { ^BatchArtifact:to_import(wf, row[wf, a], a) }
-    def is_export(wf, a) { ^BatchArtifact:to_export(wf, row[wf, a], a) }
+    def is_import(wf, a): { ^BatchArtifact(:to_import, wf, row[wf, a], a) }
+    def is_export(wf, a): { ^BatchArtifact(:to_export, wf, row[wf, a], a) }
 
-    def row(wf, a, r) {
+    def row(wf, a, r): {
+        exists((x...) |
         import_object(wf, r, x...) and
-        ^BatchArtifact:to_import(wf, r, a)
-        from x...
+        ^BatchArtifact(:to_import, wf, r, a))
     }
 
-    def row(wf, a, r) {
+    def row(wf, a, r): {
+        exists((x...) |
         export_object(wf, r, x...) and
-        ^BatchArtifact:to_export(wf, r, a)
-        from x...
+        ^BatchArtifact(:to_export, wf, r, a))
     }
 
 end
 
 module import_artifact[wf in Workflow]
-    def source_of(a in ImportArtifact, s) {
-        s = relation:identifies[
-                rel_name:identifies[
-                    ^RelationName[batch_artifact:name[wf, a]]
+    def source_of(a in ImportArtifact, s): {
+        s = relation[:identifies,
+                rel_name[:identifies,
+                    ^RelationName[batch_artifact[:name, wf, a]]
                 ]
             ]
     }
 
-    def populated(a) { source:populated(source_of[a]) }
-    def populated_at(a, d) {
-        source:populated(source_of[a], idx) and
-        d = trunc_to_int[idx / part_resource_index_multiplier]
-        from idx
+    def populated(a): { source(:populated, source_of[a]) }
+    def populated_at(a, d): {
+        exists((idx) |
+        source(:populated, source_of[a], idx) and
+        d = trunc_to_int[idx / part_resource_index_multiplier])
     }
 
-    def populated_days[a] = count[populated_at[a]]
+    def populated_days[a]: count[populated_at[a]]
 
-    def requested_days(a in ImportArtifact, d) = import_object(wf, batch_artifact:row[wf, a], :loadsNumberOfDays, d)
+    def requested_days(a in ImportArtifact, d): import_object(wf, batch_artifact[:row, wf, a], :loadsNumberOfDays, d)
 
 end
 
 module export_artifact_report[wf in Workflow]
 
-     def future(a, b) {
-        batch_artifact:is_export(wf, a) and
-        ( boolean_false(b) and not batch_artifact:future(wf, a)
+     def future(a, b): {
+        batch_artifact(:is_export, wf, a) and
+        ( boolean_false(b) and not batch_artifact(:future, wf, a)
           or
-          boolean_true(b) and batch_artifact:future(wf, a) )
+          boolean_true(b) and batch_artifact(:future, wf, a) )
     }
 
-    def name(a in ExportArtifact, n) = batch_artifact:name(wf, a, n)
-    def location(a in ExportArtifact, l) = batch_artifact:location(wf, a, l)
+    def name(a in ExportArtifact, n): batch_artifact(:name, wf, a, n)
+    def location(a in ExportArtifact, l): batch_artifact(:location, wf, a, l)
 
 end
 
 module import_artifact_report[wf in Workflow]
 
-     def future(a, b) {
-        batch_artifact:is_import(wf, a) and
-        ( boolean_false(b) and not batch_artifact:future(wf, a)
+     def future(a, b): {
+        batch_artifact(:is_import, wf, a) and
+        ( boolean_false(b) and not batch_artifact(:future, wf, a)
           or
-          boolean_true(b) and batch_artifact:future(wf, a) )
+          boolean_true(b) and batch_artifact(:future, wf, a) )
     }
 
-    def populated(a, b) {
+    def populated(a, b): {
         boolean_true(b) and
         ( import_artifact(wf, :populated, a)
           or
           import_artifact(wf, :populated_days, a, _) )
     }
 
-    def populated_days = import_artifact[wf, :populated_days]
-    def requested_days = import_artifact[wf, :requested_days]
-    def name(a in ImportArtifact, n) = batch_artifact:name(wf, a, n)
-    def location(a in ImportArtifact, l) = batch_artifact:location(wf, a, l)
+    def populated_days { import_artifact[wf, :populated_days] }
+    def requested_days { import_artifact[wf, :requested_days] }
+    def name(a in ImportArtifact, n): batch_artifact(:name, wf, a, n)
+    def location(a in ImportArtifact, l): batch_artifact(:location, wf, a, l)
 
 end
 
 module import_artifact_report_config[wf in Workflow]
-    def data = import_artifact_report[wf]
+    def data { import_artifact_report[wf] }
 
-    def syntax:header = {
-        1, :future ;
-        2, :name ;
-        3, :location ;
-        4, :populated ;
-        5, :populated_days ;
-        6, :requested_days
+    def syntax[:header]: {
+        (1, :future) ;
+        (2, :name) ;
+        (3, :location) ;
+        (4, :populated) ;
+        (5, :populated_days) ;
+        (6, :requested_days)
     }
 
 end
 
 module export_artifact_report_config[wf in Workflow]
-    def data = export_artifact_report[wf]
+    def data { export_artifact_report[wf] }
 
-    def syntax:header = {
-        1, :future ;
-        2, :name ;
-        3, :location
+    def syntax[:header]: {
+        (1, :future) ;
+        (2, :name) ;
+        (3, :location)
     }
 
 end
