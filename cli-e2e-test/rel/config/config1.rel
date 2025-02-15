@@ -36,6 +36,8 @@ module export_config
         def syntax:header = {
             1, :name
         }
+
+        declare partition_size
     end
 
     module device_seen_snapshot_csv
@@ -45,6 +47,8 @@ module export_config
             1, :device ;
             2, :last_seen
         }
+
+        declare partition_size
     end
 
     module users_csv
@@ -53,6 +57,8 @@ module export_config
         def syntax:header = {
             1, :name
         }
+
+        declare partition_size
     end
 end
 
