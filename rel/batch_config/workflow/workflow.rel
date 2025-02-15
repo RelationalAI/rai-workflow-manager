@@ -29,6 +29,7 @@ def BatchWorkflowStep(s): { batch_workflow_step(:workflow, s, _) }
 module batch_workflow_step
     declare state_value
     declare execution_time_value
+    declare execution_time
 
     def workflow { transpose[batch_workflow[:comprises]] }
 
