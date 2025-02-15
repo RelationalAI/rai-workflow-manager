@@ -409,7 +409,7 @@ def _snapshot_delta_query(rel_name: str, data_body: str, is_partitioned: bool) -
            f"def _snapshot_data_key[:{rel_name}]: \n" \
            f"    import_config[:{rel_name}, :row_key_map, _snapshot_data_raw[:{rel_name}]]\n" \
            f"def _snapshot_data(:{rel_name}, col, key, val): {{\n" \
-           f"    exists(({part_index_var}row)) |\n" \
+           f"    exists(({part_index_var}row) |\n" \
            f"        _snapshot_data_key(:{rel_name}, {part_index_var}row, key) and\n" \
            f"        _snapshot_data_raw(:{rel_name}, {part_index_var}col, row, val)\n" \
            f"    )\n" \
@@ -449,7 +449,7 @@ def _path_rel_name_relation(path_rel_name: str, part_uri_map: str) -> str:
            f"\"\"\"" \
            f"def part_uri_map_csv[:{path_rel_name}]: load_csv[part_uri_map_config[:{path_rel_name}]]\n" \
            f"def {path_rel_name}(i, u): \n" \
-           f"    exists((row)) |\n" \
+           f"    exists((row) |\n" \
            f"        part_uri_map_csv(:{path_rel_name}, :INDEX, row, i) and \n" \
            f"        part_uri_map_csv(:{path_rel_name}, :URI, row, u))"
 
