@@ -151,6 +151,7 @@ def install_models(logger: logging.Logger, rai_config: RaiConfig, env_config: En
     logger.info("Installing models")
 
     query_model = q.install_model(models)
+    logger.info(f"Installing {query_model.query} {query_model.inputs}")
     execute_query(logger, rai_config, env_config, query_model.query, query_model.inputs, False, False)
 
 
