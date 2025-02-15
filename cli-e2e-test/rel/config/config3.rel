@@ -6,6 +6,8 @@ module export_config
         def syntax:header = {
             1, :name
         }
+
+        declare partition_size
     end
 end
 
