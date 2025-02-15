@@ -124,19 +124,19 @@ def resources_to_delete(rel): {
 }
 
 // the following enumerate is split in order to help the compiler handle arity overloads
-def resources_data_to_delete_idx { enumerate[(r, ix): resources_data_to_delete(r, ix)] }
-def resources_data_to_delete_idx { enumerate[(r): resources_data_to_delete(r)] }
+def resources_data_to_delete_idx3 { enumerate[(r, ix): resources_data_to_delete(r, ix)] }
+def resources_data_to_delete_idx2 { enumerate[(r): resources_data_to_delete(r)] }
 
 def resources_data_to_delete_json(:[], i, :relation, s): {
     exists((r) |
-    resources_data_to_delete_idx(i, r, _) and
+    resources_data_to_delete_idx3(i, r, _) and
     s = relname_string[r])
 }
 def resources_data_to_delete_json(:[], i, :relation, s): {
     exists((r) |
-    resources_data_to_delete_idx(i, r) and
+    resources_data_to_delete_idx2(i, r) and
     s = relname_string[r])
 }
 def resources_data_to_delete_json(:[], i, :partition, p): {
-    resources_data_to_delete_idx(i, _, p)
+    resources_data_to_delete_idx3(i, _, p)
 }
