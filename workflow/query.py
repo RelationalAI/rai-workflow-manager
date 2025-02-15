@@ -242,7 +242,14 @@ def init_workflow_steps(batch_config_name: str) -> str:
 
 
 def delete_relation(relation: str) -> str:
-    return f"def delete[:{relation}]: {relation}"
+    if relation.find(':') != -1:
+        parts = relation.replace(":", "@", 1)
+        parts = parts.replace(":", ", :")
+        args = parts.replace("@", ", :")
+        body = parts.replace("@", "[:")
+        return f"def delete[:{args}]: {body}]"
+    else:
+        return f"def delete[:{relation}]: {relation}"
 
 
 def update_step_state(idt: str, state: str) -> str:
