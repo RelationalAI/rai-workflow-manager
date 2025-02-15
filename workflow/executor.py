@@ -181,7 +181,7 @@ class ConfigureSourcesWorkflowStep(WorkflowStep):
             if src.snapshot_validity_days and src.snapshot_validity_days > 0:
                 query = q.get_snapshot_expiration_date(src.relation, constants.DATE_FORMAT)
                 expiration_date_str = rai.execute_query_take_single(logger, rai_config, env_config, query)
-                logger.info(f"Expiration date: {expiration_date_str}")
+                logger.info(f"Expiration date: {query} {rai_config}")
                 if expiration_date_str:
                     current_date = datetime.strptime(self.end_date, constants.DATE_FORMAT)
                     expiration_date = datetime.strptime(expiration_date_str, constants.DATE_FORMAT)
