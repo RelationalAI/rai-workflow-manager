@@ -30,8 +30,20 @@ class QueryWithInputs:
     inputs: dict
 
 
+def prepare_relation(relation: str) -> tuple[str, str]:
+    if relation.find(':') != -1:
+        parts = relation.replace(":", "@", 1)
+        parts = parts.replace(":", ", :")
+        args = parts.replace("@", ", :")
+        body = parts.replace("@", "[:")
+        return f":{args}", f"{body}]"
+    else:
+        return f":{relation}", relation
+
+
 def load_json(relation: str, data) -> QueryWithInputs:
-    return QueryWithInputs(f"def config[:data]: data\n" f"def insert[:{relation}]: load_json[config]", {"data": data})
+    args, _ = prepare_relation(relation)
+    return QueryWithInputs(f"def config[:data]: data\n" f"def insert[{args}]: load_json[config]", {"data": data})
 
 
 def install_model(models: dict) -> QueryWithInputs:
@@ -242,14 +254,8 @@ def init_workflow_steps(batch_config_name: str) -> str:
 
 
 def delete_relation(relation: str) -> str:
-    if relation.find(':') != -1:
-        parts = relation.replace(":", "@", 1)
-        parts = parts.replace(":", ", :")
-        args = parts.replace("@", ", :")
-        body = parts.replace("@", "[:")
-        return f"def delete[:{args}]: {body}]"
-    else:
-        return f"def delete[:{relation}]: {relation}"
+    args, body = prepare_relation(relation)
+    return f"def delete[{args}]: {body}"
 
 
 def update_step_state(idt: str, state: str) -> str:
@@ -271,16 +277,19 @@ def update_execution_time(idt: str, execution_time: float) -> str:
 def materialize(relations: List[str]) -> str:
     query = ""
     for relation in relations:
-        query += f"def output[:{relation}]: count[{relation}]\n"
+        args, body = prepare_relation(relation)
+        query += f"def output[{args}]: count[{body}]\n"
     return query
 
 
 def output_json(relation: str) -> str:
-    return f"def output {{ json_string[{relation}] }}"
+    _, body = prepare_relation(relation)
+    return f"def output {{ json_string[{body}] }}"
 
 
 def output_relation(relation: str) -> str:
-    return f"def output {{ {relation} }}"
+    _, body = prepare_relation(relation)
+    return f"def output {{ {body} }}"
 
 
 def _local_load_simple_query(rel_name: str, uri: str, file_type: FileType, reload_as_snapshot: bool) -> QueryWithInputs:
@@ -355,8 +364,8 @@ def _azure_load_multipart_query(rel_name: str, file_type: FileType, parts, confi
 def _multi_part_load_config_query(rel_name: str, file_type: FileType, config_integration: str) -> str:
     schema = ""
     if file_type == FileType.CSV:
-        schema = f"def schema = {IMPORT_CONFIG_REL}:{rel_name}:schema\n" \
-                 f"def syntax:header = {IMPORT_CONFIG_REL}:{rel_name}:syntax:header"
+        schema = f"def schema {{ {IMPORT_CONFIG_REL}[:{rel_name}, :schema] }}\n" \
+                 f"def syntax[:header]: {IMPORT_CONFIG_REL}[:{rel_name}, :syntax, :header]"
 
     return f"""
 module {_config_rel_name(rel_name)}[i in part_indexes:{rel_name}]
@@ -367,7 +376,7 @@ end
 
 
 def _local_multipart_config_integration(raw_data_rel_name: str) -> str:
-    return f"def data = {raw_data_rel_name}[i]"
+    return f"def data {{ {raw_data_rel_name}[i] }}"
 
 
 def _azure_multipart_config_integration(path_rel_name: str, config: AzureConfig) -> str:
