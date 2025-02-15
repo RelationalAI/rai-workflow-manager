@@ -41,6 +41,7 @@ def install_model(models: dict) -> QueryWithInputs:
     index = 0
     query = ""
     for name in models:
+        logger.info(f"Model... {name}")
         input_name = f"input_{str(rand_uint)}_{index}"
         query += f"def delete[:rel, :catalog, :model, \"{name}\"]: rel[:catalog, :model, \"{name}\"]\n" \
                  f"def insert[:rel, :catalog, :model, \"{name}\"]: {input_name}\n"
