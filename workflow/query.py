@@ -368,7 +368,7 @@ def _multi_part_load_config_query(rel_name: str, file_type: FileType, config_int
                  f"def syntax[:header]: {IMPORT_CONFIG_REL}[:{rel_name}, :syntax, :header]"
 
     return f"""
-@inline def {rel_name}_domain { part_indexes[:{rel_name}] }
+@inline def {rel_name}_domain {{ part_indexes[:{rel_name}] }}
 module {_config_rel_name(rel_name)}[i in {rel_name}_domain]
     {schema}
     {config_integration}
