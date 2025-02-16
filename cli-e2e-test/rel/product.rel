@@ -1,15 +1,15 @@
-module import_config:product_data
-    def schema = {
-        :product, "string"
+module import_config[:product_data]
+    def schema {
+        (:product, "string")
     }
 
-    bound syntax:header
+    declare syntax(:header, __trail...) requires true
 end
 
 module product_data
-    def PRODUCT_NAME[idx, row] = source_catalog:product_data[idx, :product, row]
+    def PRODUCT_NAME[idx, row]: source_catalog[:product_data, idx, :product, row]
 end
 
 module product_info
-    def name = product_data:PRODUCT_NAME[_, _]
+    def name { product_data[:PRODUCT_NAME, _, _] }
 end

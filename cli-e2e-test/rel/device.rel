@@ -1,16 +1,16 @@
-module import_config:device_data
-    def schema = {
-        :device, "string" ;
-        :IMEI, "int"
+module import_config[:device_data]
+    def schema {
+        (:device, "string") ;
+        (:IMEI, "int")
     }
 
-    bound syntax:header
+    declare syntax(:header, __trail...) requires true
 end
 
 module device_data
-    def DEVICE_NAME[idx, row] = source_catalog:device_data[idx, :device, row]
+    def DEVICE_NAME[idx, row]: source_catalog[:device_data, idx, :device, row]
 end
 
 module device
-    def name = device_data:DEVICE_NAME[_, _]
+    def name { device_data[:DEVICE_NAME, _, _] }
 end

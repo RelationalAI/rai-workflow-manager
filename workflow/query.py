@@ -368,7 +368,8 @@ def _multi_part_load_config_query(rel_name: str, file_type: FileType, config_int
                  f"def syntax[:header]: {IMPORT_CONFIG_REL}[:{rel_name}, :syntax, :header]"
 
     return f"""
-module {_config_rel_name(rel_name)}[i in part_indexes:{rel_name}]
+@inline def {rel_name}_domain { part_indexes[:{rel_name}] }
+module {_config_rel_name(rel_name)}[i in {rel_name}_domain]
     {schema}
     {config_integration}
 end
@@ -435,7 +436,7 @@ def _part_index_relation(rel_name: str, part_index: str) -> str:
            f"def part_index_config[:{rel_name}, :data]: \"\"\"\n" \
            f"INDEX\n" \
            f"{part_index}\n" \
-           f"\"\"\"" \
+           f"\"\"\"\n" \
            f"def part_indexes_csv[:{rel_name}]: load_csv[part_index_config[:{rel_name}]]\n" \
            f"def part_indexes[:{rel_name}]: part_indexes_csv[:{rel_name}, :INDEX, _]"
 
@@ -446,7 +447,7 @@ def _path_rel_name_relation(path_rel_name: str, part_uri_map: str) -> str:
            f"def part_uri_map_config[:{path_rel_name}, :data]: \"\"\"\n" \
            f"INDEX,URI\n" \
            f"{part_uri_map}\n" \
-           f"\"\"\"" \
+           f"\"\"\"\n" \
            f"def part_uri_map_csv[:{path_rel_name}]: load_csv[part_uri_map_config[:{path_rel_name}]]\n" \
            f"def {path_rel_name}(i, u): \n" \
            f"    exists((row) |\n" \

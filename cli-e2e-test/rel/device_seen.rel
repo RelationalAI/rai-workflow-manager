@@ -1,18 +1,18 @@
-module import_config:device_seen_snapshot
-    def schema = {
-        :device, "string" ;
-        :last_seen, "date"
+module import_config[:device_seen_snapshot]
+    def schema {
+        (:device, "string") ;
+        (:last_seen, "date")
     }
 
-    bound syntax:header
+    declare syntax(:header, __trail...) requires true
 
     @inline
-    def row_key_map[R](idx, row, key) {
+    def row_key_map({R}, idx, row, key): {
         ^Device(R[idx, :device, row], key)
     }
 end
 
-entity type Device = String
+@inline def ^Device { make_entity_hash[{:"Device"}, {String}] }
 
 /*
  * device_seen snapshot is a snapshot of the last time a device was seen, which is
@@ -20,23 +20,22 @@ entity type Device = String
  * found in the `device` relation.
  */
 
-def current_date = max[source:spans[_]]
-def device_seen_today(n, t) {
-    device:name(n) and
+def current_date { max[source[:spans, _]] }
+def device_seen_today(n, t): {
+    device(:name, n) and
     t = current_date
 }
 
-def device_last_seen[d] = max[t:
-    device_seen_today(d, t)
+def device_last_seen[d]: max[(t): device_seen_today(d, t)
     or
     (
-        snapshot_catalog:device_seen_snapshot:device(key, d) and
-        snapshot_catalog:device_seen_snapshot:last_seen(key, t)
-        from key
+        exists((key) |
+        snapshot_catalog(:device_seen_snapshot, :device, key, d) and
+        snapshot_catalog(:device_seen_snapshot, :last_seen, key, t))
     )
 ]
 
 module device_seen_snapshot_updated
-    def device(k, d) { device_last_seen(d, _) and k = d }
-    def last_seen(d, t) { device_last_seen(d, t) }
+    def device(k, d): { device_last_seen(d, _) and k = d }
+    def last_seen(d, t): { device_last_seen(d, t) }
 end
