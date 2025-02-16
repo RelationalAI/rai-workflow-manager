@@ -197,7 +197,7 @@ def discover_partitioned_exports(exports: List[Export]) -> str:
     query = ""
     for export in exports:
         query += f"""
-        def output[:{export.relation}]: export_config[:{export.relation},:partition_size] = _
+        def output(:{export.relation}): export_config(:{export.relation}, :partition_size, _)
         """
     return query
 
@@ -396,7 +396,7 @@ def _multi_part_insert_query(rel_name: str, file_type: FileType, reload_as_snaps
 
 
 def _simple_insert_query(rel_name: str, file_type: FileType, reload_as_snapshot: bool) -> str:
-    insert_body = f"{FILE_LOAD_RELATION[file_type]}[{IMPORT_CONFIG_REL}:{rel_name}]"
+    insert_body = f"{FILE_LOAD_RELATION[file_type]}[{IMPORT_CONFIG_REL}, :{rel_name}]"
     if reload_as_snapshot:
         return _snapshot_delta_query(rel_name, insert_body, False)
     else:
