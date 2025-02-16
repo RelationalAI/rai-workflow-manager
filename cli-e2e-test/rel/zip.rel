@@ -1,7 +1,7 @@
 module zip_city_state_master_data
-    def CITY_NAME[row] = simple_source_catalog:zip_city_state_master_data:CITY_NAME[row]
+    def CITY_NAME[row]: simple_source_catalog[:zip_city_state_master_data, :CITY_NAME, row]
 end
 
 module city
-    def name = zip_city_state_master_data:CITY_NAME[_]
+    def name { zip_city_state_master_data[:CITY_NAME, _] }
 end

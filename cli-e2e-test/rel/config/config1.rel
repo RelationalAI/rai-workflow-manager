@@ -1,59 +1,67 @@
 @inline
 module export_config
     module cities_csv
-        def data = city
+        def data { city }
 
-        def syntax:header = {
-            1, :name
+        def syntax[:header]: {
+            (1, :name)
         }
+
+        declare partition_size
     end
 
     module devices_csv
-        def data = device
+        def data { device }
 
-        def syntax:header = {
-            1, :name
+        def syntax[:header]: {
+            (1, :name)
         }
 
-        def partition_size = 512  // defines the upper bound (MB) for the size of a partition
+        def partition_size { 512 }  // defines the upper bound (MB) for the size of a partition
     end
 
     module stores_csv
-        def data = store
+        def data { store }
 
-        def syntax:header = {
-            1, :name
+        def syntax[:header]: {
+            (1, :name)
         }
 
-        def partition_size = 512  // defines the upper bound (MB) for the size of a partition
+        def partition_size { 512 }  // defines the upper bound (MB) for the size of a partition
     end
 
     module products_csv
-        def data = product_info
+        def data { product_info }
 
-        def syntax:header = {
-            1, :name
+        def syntax[:header]: {
+            (1, :name)
         }
+
+        declare partition_size
     end
 
     module device_seen_snapshot_csv
-        def data = device_seen_snapshot_updated
+        def data { device_seen_snapshot_updated }
 
-        def syntax:header = {
-            1, :device ;
-            2, :last_seen
+        def syntax[:header]: {
+            (1, :device) ;
+            (2, :last_seen)
         }
+
+        declare partition_size
     end
 
     module users_csv
-        def data = user
+        def data { user }
 
-        def syntax:header = {
-            1, :name
+        def syntax[:header]: {
+            (1, :name)
         }
+
+        declare partition_size
     end
 end
 
-def part_resource_date_pattern = "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$"
-def part_resource_index_pattern = "^(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$"
-def part_resource_index_multiplier = 100000
+def part_resource_date_pattern { "^(.+)/data_dt=(?<date>[0-9]+)/(.+).(csv|json|jsonl)$" }
+def part_resource_index_pattern { "^(.+)/part-(?<shard>[0-9])-(.+).(csv|json|jsonl)$" }
+def part_resource_index_multiplier { 100000 }

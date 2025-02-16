@@ -7,21 +7,21 @@
  * following types: (string, int, decimal, and object).
  */
 
-def JsonSourceConfigKey(k) { json_source_config(k, x...) from x... }
+def JsonSourceConfigKey(k): json_source_config(k, _...)
 
 @function
-def json_source:value[src in JsonSourceConfigKey] = source_catalog[src, _, :value]
+def json_source[:value, src in JsonSourceConfigKey]: source_catalog[src, _, :value]
 @function
-def json_source:child[src in JsonSourceConfigKey] = source_catalog[src, _, :child]
-def json_source:root[src in JsonSourceConfigKey] = source_catalog[src, _, :root]
-def json_source:array[src in JsonSourceConfigKey] = source_catalog[src, _, :array]
+def json_source[:child, src in JsonSourceConfigKey]: source_catalog[src, _, :child]
+def json_source[:root, src in JsonSourceConfigKey]: source_catalog[src, _, :root]
+def json_source[:array, src in JsonSourceConfigKey]: source_catalog[src, _, :array]
 
 @function
-def json_source:value[src in JsonSourceConfigKey] = simple_source_catalog[src, :value]
+def json_source[:value, src in JsonSourceConfigKey]: simple_source_catalog[src, :value]
 @function
-def json_source:child[src in JsonSourceConfigKey] = simple_source_catalog[src, :child]
-def json_source:root[src in JsonSourceConfigKey] = simple_source_catalog[src, :root]
-def json_source:array[src in JsonSourceConfigKey] = simple_source_catalog[src, :array]
+def json_source[:child, src in JsonSourceConfigKey]: simple_source_catalog[src, :child]
+def json_source[:root, src in JsonSourceConfigKey]: simple_source_catalog[src, :root]
+def json_source[:array, src in JsonSourceConfigKey]: simple_source_catalog[src, :array]
 
 /**
  * [REKS] Note that json_source, json_hash, json_name_sym, and json_schema cannot
@@ -29,40 +29,40 @@ def json_source:array[src in JsonSourceConfigKey] = simple_source_catalog[src, :
  *        use of metafication (i.e., the #(...) operator) inside recursive
  *        definitions.
  */
-def json_hash(src, t, h, s) =
+def json_hash(src, t, h, s):
+    exists((x) |
     murmurhash3f(s, x) and
     h = uint128_hash_value_convert[x] and
-    json_source_config(src, t, s)
-    from x
+    json_source_config(src, t, s))
 
-def json_name_sym[src, x] = #(json_hash[src, _, x])
+def json_name_sym[src, x]: ::std::mirror::lift[json_hash[src, _, x]]
 
 module json_schema
 
-    def parent(src, y, x, z) { json_source:child(src, x, y, z) }
+    def parent(src, y, x, z): { json_source(:child, src, x, y, z) }
 
-    def value(src, r, o, val) {
+    def value(src, r, o, val): {
+        exists((t) |
         parent(src, r, o, t) and
         json_hash(src, :string, r, _) and
-        json_source:value(src, t, val) and
-        String(val)
-        from t
+        json_source(:value, src, t, val) and
+        String(val))
     }
 
-    def value(src, r, o, v) {
+    def value(src, r, o, v): {
+        exists((t) |
         parent(src, r, o, t) and
         json_hash(src, :decimal, r, _) and
-        json_source:value(src, t, v) and
-        Float(v)
-        from t
+        json_source(:value, src, t, v) and
+        Float(v))
     }
 
-    def value(src, r, o, v) {
+    def value(src, r, o, v): {
+        exists((t) |
         parent(src, r, o, t) and
         json_hash(src, :int, r, _) and
-        json_source:value(src, t, v) and
-        Int(v)
-        from t
+        json_source(:value, src, t, v) and
+        Int(v))
     }
 
 end

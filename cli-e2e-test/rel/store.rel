@@ -1,34 +1,34 @@
-def json_source_config:store_data:string = {
+def json_source_config[:store_data, :string]: {
     "storeId" ;
     "storeName"
 }
 
-def json_source_config:store_data:object(k) {
-    store_data_metadata:object_or_value_key(k) and
-    not json_source_config:store_data:string(k)
+def json_source_config(:store_data, :object, k): {
+    store_data_metadata(:object_or_value_key, k) and
+    not json_source_config(:store_data, :string, k)
 }
 
 module store_data_metadata
 
-    def object_or_value_key = covers[_]
+    def object_or_value_key { covers[_] }
 
-    def covers = {
-        "_root_", "storeId" ;
-        "_root_", "storeName"
+    def covers {
+        ("_root_", "storeId") ;
+        ("_root_", "storeName")
     }
 
 end
 
-def store_data_value(t, o, v) =
-    json_schema:value:store_data(h, o, v) and
-    json_name_sym:store_data(h, t)
-    from h
+def store_data_value(t, o, v):
+    exists((h) |
+    json_schema(:value, :store_data, h, o, v) and
+    json_name_sym(:store_data, h, t))
 
-def store_data_object(t, o, v) =
-    json_schema:parent:store_data(h, o, v) and
-    json_name_sym:store_data(h, t)
-    from h
+def store_data_object(t, o, v):
+    exists((h) |
+    json_schema(:parent, :store_data, h, o, v) and
+    json_name_sym(:store_data, h, t))
 
 module store
-    def name = store_data_value:storeName[_]
+    def name { store_data_value[:storeName, _] }
 end

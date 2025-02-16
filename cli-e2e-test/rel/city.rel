@@ -1,15 +1,15 @@
-module import_config:city_data
-    def schema = {
-        :city, "string"
+module import_config[:city_data]
+    def schema {
+        (:city, "string")
     }
 
-    bound syntax:header
+    declare syntax(:header, __trail...) requires true
 end
 
 module city_data
-    def CITY_NAME[idx, row] = source_catalog:city_data[idx, :city, row]
+    def CITY_NAME[idx, row]: source_catalog[:city_data, idx, :city, row]
 end
 
 module city
-    def name = city_data:CITY_NAME[_, _]
+    def name { city_data[:CITY_NAME, _, _] }
 end

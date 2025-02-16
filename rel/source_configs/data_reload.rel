@@ -1,106 +1,106 @@
-bound force_reimport
-bound force_reimport_not_chunk_partitioned
-bound resources_data_to_delete = RelName
-bound resources_data_to_delete = RelName, Int
-bound declared_sources_to_delete = String, String
-bound new_source_config_csv = RelName, FilePos, String
-bound expired_source_config_csv = RelName, FilePos, String
+declare force_reimport
+declare force_reimport_not_chunk_partitioned
+declare resources_data_to_delete(trail...) requires {RelName}(trail...)
+declare resources_data_to_delete(trail...) requires {(RelName, Int)}(trail...)
+declare declared_sources_to_delete(trail...) requires {(String, String)}(trail...)
+declare new_source_config_csv(trail...) requires {(RelName, FilePos, String)}(trail...)
+declare expired_source_config_csv(trail...) requires {(RelName, FilePos, String)}(trail...)
 
-def new_source_config[:syntax, :header_row] = -1
-def new_source_config[:syntax, :header] = (1, :Relation); (2, :Path); (3, :ChunkPartitioned)
-def new_source_config[:schema, :Relation] = "string"
-def new_source_config[:schema, :Path] = "string"
-def new_source_config[:schema, :ChunkPartitioned] = "string"
+def new_source_config[:syntax, :header_row]: -1
+def new_source_config[:syntax, :header]: {(1, :Relation); (2, :Path); (3, :ChunkPartitioned)}
+def new_source_config[:schema, :Relation]: "string"
+def new_source_config[:schema, :Path]: "string"
+def new_source_config[:schema, :ChunkPartitioned]: "string"
 
-def expired_source_config[:syntax, :header_row] = -1
-def expired_source_config[:syntax, :header] = (1, :Relation); (2, :Path)
-def expired_source_config[:schema, :Relation] = "string"
-def expired_source_config[:schema, :Path] = "string"
+def expired_source_config[:syntax, :header_row]: -1
+def expired_source_config[:syntax, :header]: {(1, :Relation); (2, :Path)}
+def expired_source_config[:schema, :Relation]: "string"
+def expired_source_config[:schema, :Path]: "string"
 
-def chunk_partitioned_sources(rel, path, p_idx) {
+def chunk_partitioned_sources(rel, path, p_idx): {
+    exists((i) |
     new_source_config_csv(:Path, i, path) and
     new_source_config_csv(:Relation, i, rel) and
     new_source_config_csv(:ChunkPartitioned, i, "True") and
-    p_idx = part_resource:parse_part_index[path]
-    from i
+    p_idx = part_resource[:parse_part_index, path])
 }
 
-def simple_sources(rel, path) {
+def simple_sources(rel, path): {
+    exists((i) |
     new_source_config_csv(:Path, i, path) and
     new_source_config_csv(:Relation, i, rel) and
-    not chunk_partitioned_sources(rel, path, _)
-    from i
+    not chunk_partitioned_sources(rel, path, _))
 }
 
-def expired_sources(rel, path) {
+def expired_sources(rel, path): {
+    exists((i) |
     expired_source_config_csv(:Path, i, path) and
-    expired_source_config_csv(:Relation, i, rel)
-    from i
+    expired_source_config_csv(:Relation, i, rel))
 }
 
 /*
  * All simple sources are affected if they match with declared sources.
  */
-def potentially_affected_sources(rel, path) {
+def potentially_affected_sources(rel, path): {
     source_declares_resource(rel, _, path) and
     simple_sources(rel, path)
 }
 /*
  * All chunk partitioned and not partitioned by date sources are affected if they match with declared sources.
  */
-def potentially_affected_sources(rel, path, p_idx) {
+def potentially_affected_sources(rel, path, p_idx): {
+    exists((s, res) |
     chunk_partitioned_sources(rel, _, _) and
     source_declares_resource(rel, _, path) and
-    s = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] and
-    not source:date_partitioned(s) and
-    source:declares(s, res) and
-    part_resource:part_index(res, p_idx) and
-    resource:id(res, ^URI[path])
-    from s, res
+    s = relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ] and
+    not source(:date_partitioned, s) and
+    source(:declares, s, res) and
+    part_resource(:part_index, res, p_idx) and
+    resource(:id, res, ^URI[path]))
 }
 /*
  * All chunk partitioned sources for given date are affected in case new sources have at least one partition in this date.
  */
-def potentially_affected_sources(rel, o_path, p_idx) {
+def potentially_affected_sources(rel, o_path, p_idx): {
+    exists((n_path, res) |
     chunk_partitioned_sources(rel, n_path, _) and
-    res = relation:identifies[ rel_name:identifies[ ^RelationName[rel] ] ] . source:declares and
-    part_resource:date[res] = parse_date[ uri:parse_value[n_path, "date"], "yyyymmdd"] and
-    part_resource:part_index(res, p_idx) and
-    resource:id(res, ^URI[o_path])
-    from n_path, res
+    res = ( relation[:identifies,  rel_name[:identifies,  ^RelationName[rel] ] ] . ( source[:declares] ) ) and
+    part_resource[:date, res] = parse_date[ uri[:parse_value, n_path, "date"], "yyyymmdd"] and
+    part_resource(:part_index, res, p_idx) and
+    resource(:id, res, ^URI[o_path]))
 }
 /*
  * Identify sources for invalidation.
  */
-def part_resource_to_invalidate(rel, p_idx, path) {
-    not force_reimport and
+def part_resource_to_invalidate(rel, p_idx, path): {
+    not force_reimport() and
     potentially_affected_sources(rel, path, p_idx) and
     not chunk_partitioned_sources(rel, path, p_idx)
 }
 
-def part_resource_to_invalidate(rel, p_idx, path) {
-    force_reimport and
+def part_resource_to_invalidate(rel, p_idx, path): {
+    force_reimport() and
     potentially_affected_sources(rel, path, p_idx)
 }
 // We support invalidation only for partitioned expired sources
-def part_resource_to_invalidate(rel, p_idx, path) {
+def part_resource_to_invalidate(rel, p_idx, path): {
     expired_sources(rel, path) and
-    part_resource:parse_part_index[path](p_idx)
+    part_resource(:parse_part_index, path, p_idx)
 }
 
-def resource_to_invalidate(rel, o_path) {
-    force_reimport_not_chunk_partitioned and
+def resource_to_invalidate(rel, o_path): {
+    force_reimport_not_chunk_partitioned() and
     simple_sources(rel, o_path)
 }
 
-def resource_to_invalidate(rel, o_path) {
-    force_reimport and
+def resource_to_invalidate(rel, o_path): {
+    force_reimport() and
     simple_sources(rel, o_path)
 }
 // In case all partitions are marked for invalidation, we invalidate the whole resource
-def resource_to_invalidate(r, o_path) {
+def resource_to_invalidate(r, o_path): {
     part_resource_to_invalidate(r, _, o_path) and
-    not exists(p_i:
+    not exists((p_i) |
         source_relation_string_to_part_index(r, p_i) and
         not part_resource_to_invalidate(r, p_i, _)
     )
@@ -110,33 +110,33 @@ def resource_to_invalidate(r, o_path) {
  * Save resources that we are marked for data reimport.
  */
 // PRODUCT_LIMITATION: Message: Argument for specializing is more complex than the current staging implementation supports.
-def reverse_part_resource_to_invalidate(path, p_idx, rel) = part_resource_to_invalidate(rel, p_idx, path)
+def reverse_part_resource_to_invalidate(path, p_idx, rel): part_resource_to_invalidate(rel, p_idx, path)
 // resource partitions to delete
-def resources_to_delete(rel, val) {
+def resources_to_delete(rel, val): {
+    exists((p_idx) |
     not resources_to_delete(rel) and
-    rel = #(reverse_part_resource_to_invalidate[_, p_idx]) and
-    p_idx = ^PartIndex[val]
-    from p_idx
+    rel = ::std::mirror::lift[reverse_part_resource_to_invalidate[_, p_idx]] and
+    p_idx = ^PartIndex[val])
 }
 // resources to delete
-def resources_to_delete(rel) {
-    rel = #(transpose[resource_to_invalidate][_])
+def resources_to_delete(rel): {
+    rel = ::std::mirror::lift[transpose[resource_to_invalidate, _]]
 }
 
 // the following enumerate is split in order to help the compiler handle arity overloads
-def resources_data_to_delete_idx = enumerate[r, ix: resources_data_to_delete(r, ix)]
-def resources_data_to_delete_idx = enumerate[r: resources_data_to_delete(r)]
+def resources_data_to_delete_idx3 { enumerate[(r, ix): resources_data_to_delete(r, ix)] }
+def resources_data_to_delete_idx2 { enumerate[(r): resources_data_to_delete(r)] }
 
-def resources_data_to_delete_json(:[], i, :relation, s) {
-    resources_data_to_delete_idx(i, r, _) and
-    s = relname_string[r]
-    from r
+def resources_data_to_delete_json(:[], i, :relation, s): {
+    exists((r) |
+    resources_data_to_delete_idx3(i, r, _) and
+    s = relname_string[r])
 }
-def resources_data_to_delete_json(:[], i, :relation, s) {
-    resources_data_to_delete_idx(i, r) and
-    s = relname_string[r]
-    from r
+def resources_data_to_delete_json(:[], i, :relation, s): {
+    exists((r) |
+    resources_data_to_delete_idx2(i, r) and
+    s = relname_string[r])
 }
-def resources_data_to_delete_json(:[], i, :partition, p) {
-    resources_data_to_delete_idx(i, _, p)
+def resources_data_to_delete_json(:[], i, :partition, p): {
+    resources_data_to_delete_idx3(i, _, p)
 }

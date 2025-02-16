@@ -1,80 +1,81 @@
 /**
  * Batch Workflow
  */
-entity type BatchWorkflow = BatchConfig
+@inline def ^BatchWorkflow { make_entity_hash[{:"BatchWorkflow"}, {BatchConfig}] }
 
-def BatchWorkflow(config) { batch_workflow:id(config, _) }
+def BatchWorkflow(config): { batch_workflow(:id, config, _) }
 
 module batch_workflow
-    def id = transpose[batch_config:identifies]
+    def id { transpose[batch_config[:identifies]] }
 
-    def comprises(w, s) { batch_workflow_step_order:step_order_to_workflow(_, s, w) }
+    def comprises(w, s): { batch_workflow_step_order(:step_order_to_workflow, _, s, w) }
 
-    def name(w, w_name) {
-        w = batch_config_name:identifies[n] . batch_config:identifies and
-        n = ^BatchConfigName[w_name]
-        from n
+    def name(w, w_name): {
+        exists((n) |
+        w = ( batch_config_name[:identifies, n] . ( batch_config[:identifies] ) ) and
+        n = ^BatchConfigName[w_name])
     }
 end
 
 /**
  * Common Batch Workflow step
  */
-bound batch_workflow_step:json_data
-value type BatchWorkflowStepOrder = Int
-entity type BatchWorkflowStep = BatchWorkflow, BatchWorkflowStepOrder
+declare batch_workflow_step(:json_data, __trail...) requires true
+value type BatchWorkflowStepOrder { Int }
+@inline def ^BatchWorkflowStep { make_entity_hash[{:"BatchWorkflowStep"}, {(BatchWorkflow, BatchWorkflowStepOrder)}] }
 
-def BatchWorkflowStep(s) { batch_workflow_step:workflow(s, _) }
+def BatchWorkflowStep(s): { batch_workflow_step(:workflow, s, _) }
 
 module batch_workflow_step
-    bound state_value
-    bound execution_time_value
+    declare state_value
+    declare execution_time_value
+    declare execution_time
 
-    def workflow = transpose[batch_workflow:comprises]
+    def workflow { transpose[batch_workflow[:comprises]] }
 
-    def order(s, o) { batch_workflow_step_order:step_order_to_workflow(o, s, _) }
+    def order(s, o): { batch_workflow_step_order(:step_order_to_workflow, o, s, _) }
 
-    def type(s, t) {
+    def type(s, t): {
+        exists((c) |
         c = ^BatchWorkflowStepTypeCode[json_data[s, :type]] and
-        t = ^BatchWorkflowStepType[c]
-        from c
+        t = ^BatchWorkflowStepType[c])
     }
 
-    def name[s] = json_data[s, :name]
+    def name[s]: json_data[s, :name]
 
-    def engine_size[s] = uppercase[json_data[s, :engineSize]]
+    def engine_size[s]: uppercase[json_data[s, :engineSize]]
 
-    def state(s in BatchWorkflowStep, st in BatchWorkflowStepState) {
+    def state(s in BatchWorkflowStep, st in BatchWorkflowStepState): {
+        exists((str_val, st_v) |
         state_value(s, str_val) and
         st_v = ^BatchWorkflowStepStateValue[str_val] and
-        st = ^BatchWorkflowStepState[st_v]
-        from str_val, st_v
+        st = ^BatchWorkflowStepState[st_v])
     }
 
-    def execution_time = execution_time_value
+    def execution_time { execution_time_value }
 
-    def json_data(s in BatchWorkflowStep, :idt, idt) { idt = uuid_string[s] }
-    def json_data(s in BatchWorkflowStep, :state, st_v) {
-        st_v = batch_workflow_state_value_to_string[ batch_workflow_step_state:id[ state[s] ] ]
+    def json_data(s in BatchWorkflowStep, :idt, idt): { idt = uuid_string[s] }
+    def json_data(s in BatchWorkflowStep, :state, st_v): {
+        st_v = batch_workflow_state_value_to_string[ batch_workflow_step_state[:id,  state[s] ] ]
     }
-    def json_data(s in BatchWorkflowStep, :executionTime, t) { execution_time(s, t) }
+    def json_data(s in BatchWorkflowStep, :executionTime, t): { execution_time(s, t) }
 
-    def json_data(s, rest...) {
+    def json_data(s, rest...): {
+        exists((o, o_v) |
         order(s, o) and
         o = ^BatchWorkflowStepOrder[o_v] and
-        batch:config(workflow[s] . batch_workflow:name, :workflow, :[], o_v, rest...)
-        from o, o_v
+        batch(:config, ( workflow[s] . ( batch_workflow[:name] ) ), :workflow, :[], o_v, rest...))
     }
 
 end
 
 module batch_workflow_step_order
-    def step_order_to_workflow(o, s, w) {
-        batch_workflow:name(w, w_name) and
-        batch:config(w_name, :workflow, :[], o_v, rest...) and
+    def step_order_to_workflow(o, s, w): {
+        exists((o_v, w_name, rest...) |
+        batch_workflow(:name, w, w_name) and
+        batch(:config, w_name, :workflow, :[], o_v, rest...) and
         o = ^BatchWorkflowStepOrder[o_v] and
-        s = ^BatchWorkflowStep[w, o]
-        from o_v, w_name, rest...
+        s = ^BatchWorkflowStep[w, o])
     }
 end
 
@@ -82,91 +83,85 @@ end
  * Workflow steps types
  */
 
-value type BatchWorkflowStepTypeCode = String
-entity type BatchWorkflowStepType = BatchWorkflowStepTypeCode
+value type BatchWorkflowStepTypeCode { String }
+@inline def ^BatchWorkflowStepType { make_entity_hash[{:"BatchWorkflowStepType"}, {BatchWorkflowStepTypeCode}] }
 
-def BatchWorkflowStepType(t) { batch_workflow_step_type:id(t, _) }
+def BatchWorkflowStepType(t): { batch_workflow_step_type(:id, t, _) }
 
 module batch_workflow_step_type
-    def id = transpose[batch_workflow_step_type_code:identifies]
+    def id { transpose[batch_workflow_step_type_code[:identifies]] }
 end
 
-def ConfigureSourcesType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["ConfigureSources"]]
-def InstallModelsType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["InstallModels"]]
-def LoadDataType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["LoadData"]]
-def ExecuteCommandType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["ExecuteCommand"]]
-def InvokeSolverType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["InvokeSolver"]]
-def MaterializeType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["Materialize"]]
-def ExportType = batch_workflow_step_type_code:identifies[^BatchWorkflowStepTypeCode["Export"]]
+def ConfigureSourcesType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["ConfigureSources"]] }
+def InstallModelsType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["InstallModels"]] }
+def LoadDataType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["LoadData"]] }
+def ExecuteCommandType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["ExecuteCommand"]] }
+def InvokeSolverType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["InvokeSolver"]] }
+def MaterializeType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["Materialize"]] }
+def ExportType { batch_workflow_step_type_code[:identifies, ^BatchWorkflowStepTypeCode["Export"]] }
 
 module batch_workflow_step_type_code
-    def value = { "ConfigureSources" ; "InstallModels" ; "LoadData" ; "InvokeSolver" ; "Materialize" ; "Export"; "ExecuteCommand" }
+    def value { "ConfigureSources" ; "InstallModels" ; "LoadData" ; "InvokeSolver" ; "Materialize" ; "Export"; "ExecuteCommand" }
 
-    def identifies(c, f) {
+    def identifies(c, f): {
+        exists((v) |
         value(v) and
         ^BatchWorkflowStepTypeCode(v, c) and
-        ^BatchWorkflowStepType(c, f)
-        from v
+        ^BatchWorkflowStepType(c, f))
     }
 end
 
 @inline
-def batch_workflow_step_type_code_to_string = transpose[^BatchWorkflowStepTypeCode]
+def batch_workflow_step_type_code_to_string { transpose[^BatchWorkflowStepTypeCode] }
 
 /**
  *
  */
-value type BatchWorkflowStepStateValue = String
-entity type BatchWorkflowStepState = BatchWorkflowStepStateValue
+value type BatchWorkflowStepStateValue { String }
+@inline def ^BatchWorkflowStepState { make_entity_hash[{:"BatchWorkflowStepState"}, {BatchWorkflowStepStateValue}] }
 
-def BatchWorkflowStepState(s) { batch_workflow_step_state:id(s, _) }
+def BatchWorkflowStepState(s): { batch_workflow_step_state(:id, s, _) }
 
 module batch_workflow_step_state
-    def id = transpose[batch_workflow_step_state_value:identifies]
+    def id { transpose[batch_workflow_step_state_value[:identifies]] }
 end
 
-def InitState = batch_workflow_step_state_value:identifies[^BatchWorkflowStepStateValue["INIT"]]
+def InitState { batch_workflow_step_state_value[:identifies, ^BatchWorkflowStepStateValue["INIT"]] }
 
 module batch_workflow_step_state_value
-    def value = { "INIT" ; "IN_PROGRESS" ; "SUCCESS" ; "FAILED" }
+    def value { "INIT" ; "IN_PROGRESS" ; "SUCCESS" ; "FAILED" }
 
-    def identifies(st_v, st) {
+    def identifies(st_v, st): {
+        exists((v) |
         value(v) and
         ^BatchWorkflowStepStateValue(v, st_v) and
-        ^BatchWorkflowStepState(st_v, st)
-        from v
+        ^BatchWorkflowStepState(st_v, st))
     }
 end
 
 @inline
-def batch_workflow_state_value_to_string = transpose[^BatchWorkflowStepStateValue]
+def batch_workflow_state_value_to_string { transpose[^BatchWorkflowStepStateValue] }
 
-def workflow_json(cfg_n, :steps, :[], idx, data...) {
-    batch_workflow_step:workflow[s] . batch_workflow:name[cfg_n] and
-    o = batch_workflow_step:order[s] and
+def workflow_json(cfg_n, :steps, :[], idx, data...): {
+    exists((s, o) |
+    {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[cfg_n]}() and
+    o = batch_workflow_step[:order, s] and
     o = ^BatchWorkflowStepOrder[idx] and
-    batch_workflow_step:json_data(s, data...)
-    from s, o
+    batch_workflow_step(:json_data, s, data...))
 }
-def workflow_json[cfg_n, :totalTime] = sum[s, t:
-        batch_workflow_step:execution_time(s, t) and
-        batch_workflow_step:workflow[s] . batch_workflow:name[cfg_n]
+def workflow_json[cfg_n, :totalTime]: sum[(s, t):
+        batch_workflow_step(:execution_time, s, t) and
+        {{ batch_workflow_step[:workflow, s] . ( batch_workflow[:name] ) }[cfg_n]}()
     ]
 
-ic batch_workflow_step_name_is_mandatory(s) {
-    BatchWorkflowStep(s)
+ic batch_workflow_step_name_is_mandatory(s) requires BatchWorkflowStep(s)
     implies
-    batch_workflow_step:name(s, _)
-}
-ic batch_workflow_step_name_is_unique(s1, s2, n) {
-    batch_workflow_step:name(s1, n) and
-    batch_workflow_step:name(s2, n)
+    batch_workflow_step(:name, s, _)
+ic batch_workflow_step_name_is_unique(s1, s2, n) requires batch_workflow_step(:name, s1, n) and
+    batch_workflow_step(:name, s2, n)
     implies
     s1 = s2
-}
-ic batch_workflow_step_type_is_mandatory(s) {
-    BatchWorkflowStep(s)
+ic batch_workflow_step_type_is_mandatory(s) requires BatchWorkflowStep(s)
     implies
-    batch_workflow_step:type(s, _)
-}
+    batch_workflow_step(:type, s, _)
 // TODO: add ICs for workflow and common step logic
